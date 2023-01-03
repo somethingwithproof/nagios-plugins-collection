@@ -7,167 +7,98 @@ import os,sys, subprocess, re
 from pynag.Plugins import WARNING, CRITICAL, OK, UNKNOWN, simple as Plugin
 from pexpect import ANSI, fdpexpect, FSM, pexpect, pxssh, screen
 
-#Create the plugin option
-np = Plugin()
+def parse_args():
+    np = Plugin()
 
-#Configure additional command line arguments
-np.add_arg("R", "ssh_host", "Ssh remote machine name to connect to", required=True)
-np.add_arg("P", "ssh_password", "Ssh romote host password", required=None)
-np.add_arg("U", "ssh_username", "Ssh remote username", required=None)
-np.add_arg("s", "ssh_port", "Ssh remote host port (default: 22)", required=None)
-np.add_arg("l", "query_address", "Machine name to lookup", required=True)
-np.add_arg("p", "port", "DNS Server port number (default: 53)", required=None)
-np.add_arg("T", "record_type", "Record type to lookup (default: A)", required=None)
-np.add_arg("a", "expected_address", "An address expected to be in the answer section. If not set, uses whatever was in query address", required=None)
-np.add_arg("A", "dig-arguments", "Pass the STRING as argument(s) to dig", required=None)
+    #Configure additional command line arguments
+    np.add_arg("R", "ssh_host", "Ssh remote machine name to connect to", required=True)
+    np.add_arg("P", "ssh_password", "Ssh romote host password", required=None)
+    np.add_arg("U", "ssh_username", "Ssh remote username", required=None)
+    np.add_arg("s", "ssh_port", "Ssh remote host port (default: 22)", required=None)
+    np.add_arg("l", "query_address", "Machine name to lookup", required=True)
+    np.add_arg("p", "port", "DNS Server port number (default: 53)", required=None)
+    np.add_arg("T", "record_type", "Record type to lookup (default: A)", required=None)
+    np.add_arg("a", "expected_address", "An address expected to be in the answer section. If not set, uses whatever was in query address", required=None)
+    np.add_arg("A", "dig-arguments", "Pass the STRING as argument(s) to dig", required=None)
 
-#Plugin activation
-np.activate()
+    #Plugin activation
+    np.activate()
+    return np
 
-#Main script logic 8-)
-CMD_ITEM_1 = "dig"
-CMD_ITEM_2 = " "             #Here we should insert a servername/ip
-CMD_ITEM_3 = " "        #Here should be the port for a server/ip (default: 53)
-CMD_ITEM_4 = " "             #Machine name to lookup
-CMD_ITEM_5 = " "            #Record type
-CMD_ITEM_6 = " "             #Dig additional args
+def execute_plugin(ssh_module, dns_module, output_module, ssh_host, ssh_password, ssh_username, ssh_port, query_address, port, record_type, expected_address, dig_arguments, warning, critical):
+    #Data gathering
+    if query_address:
+        CMD_ITEM_4 = query_address
 
-#Data gathering
-if np['query_address']:
-    CMD_ITEM_4 = np['query_address']
+    if  (ssh_host and port):
+        CMD_ITEM_2 = "@"+ssh_host
+        CMD_ITEM_3 = "-p "+port
 
-if  (np['host'] and np['port']):
-    CMD_ITEM_2 = "@"+np['host']
-    CMD_ITEM_3 = "-p "+np['port']
+    if record_type:
+        CMD_ITEM_5 = "-t "+record_type
 
-if np['record_type']:
-    CMD_ITEM_5 = "-t "+np['record_type']
+    if dig_arguments:
+        CMD_ITEM_6 = dig_arguments
 
-if np['dig-arguments']:
-    CMD_ITEM_6 = np['dig-arguments']
-
-
-#SSH Section
-ssh_port=22
-result_ssh=''
-if np['ssh_port']:
-    ssh_port = np['ssh_port']
-else:
-    ssh_port = 22
-
-ssh_username= "zenoss"
-if np['ssh_username']:
-    ssh_username = np['ssh_username']
-else:
-    ssh_username = "zenoss"
-
-if not np['warning']:
-    np['warning'] = 0
-if not np['critical']:
-    np['critical'] = 0
-
-def mycheck(value):
-    if value > int(np['critical']) and np['critical']:
-        print "DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(2)
-    if int(np['warning']) == 0 and int(np['critical']) == 0:
-        print "DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(2)
-    if value in range(int(np['warning']),int(np['critical']),1):
-        print "DNS WARNING - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(1)
-    if value in range(int(np['critical']),int(np['warning']),-1):
-        print "DNS WARNING - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(1)
-    if value < int(np['warning']) and value < int(np['critical']):
-        print "DNS OK - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(0)
-    if not np['warning'] and value < int(np['critical']):
-        print "DNS OK - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(0)
-    if value > int(np['warning']) and not np['critical']:
-        print "DNS WARNING - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(1)
-    if not np['critical'] and value < int(np['warning']):
-        print "DNS OK - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(np['warning']))+";;"+str(float(np['critical']))
-        sys.exit(0)
-
-
-DIG_COMMANDLINE = CMD_ITEM_1+CMD_ITEM_2+CMD_ITEM_3+CMD_ITEM_4+CMD_ITEM_5+CMD_ITEM_6
-
-ss = pxssh.pxssh()
-try:
-    if np['ssh_password']:
-        ss.login(server=np['ssh_host'], username=ssh_username, password=np['ssh_password'], port=ssh_port)
+    #SSH Section
+    ssh_port=22
+    result_ssh=''
+    if ssh_port:
+        ssh_port = ssh_port
     else:
-        ss.login(server=np['ssh_host'], username=ssh_username, port=ssh_port)
-    ss.sendline(DIG_COMMANDLINE)
-    ss.prompt()
-    DIG_RESULT = ss.before
-    #print DIG_RESULT
-    ########################### main logic #######################################
-    #Step 1: If expected address is set, searching it in the DIG_RESULT
-    if np["expected_address"]:
-        #Step 2: Check if there is an ANSWER secton
-        if "ANSWER SECTION" in DIG_RESULT:
-            expaddr = np['expected_address']
-            if (expaddr in DIG_RESULT):
-                #Step 2: Expected address has been found, so now we can check the range...
-                #First of all, we need to obtain a "QUERY TIME" from the DIG_ANSWER
-                number_regex_msec = re.compile(' (\d+) msec')
-                number_regex_sec  = re.compile(' (\d+) sec')
-                secdata = 0
-                if number_regex_sec.search(DIG_RESULT):
-                    secdata = number_regex_sec.search(DIG_RESULT).group(1)
-                    mycheck(secdata)
-                else:
-                    if number_regex_msec.search(DIG_RESULT):
-                        secdata = number_regex_msec.search(DIG_RESULT).group(1)
-                        secdata = int(secdata) * 0.001
-                        mycheck(secdata)
-                    else:
-                        print "DNS WARNING - Dig returned an error status|time=0s;"+str(np['warning'])+";;"+str(np['critical'])
-                        sys.exit(1)
+        ssh_port = 22
 
-            else:
-                print "DNS WARNING - Dig returned an error status|time=0s;"+str(np['warning'])+";;"+str(np['critical'])
-                sys.exit(1)
-        else:
-            expaddr = np['expected_address']
-            if (expaddr in DIG_RESULT):
-                #Step 2: Expected address has been found, so now we can check the range...
-                #First of all, we need to obtain a "QUERY TIME" from the DIG_ANSWER
-                number_regex_msec = re.compile(' (\d+) msec')
-                number_regex_sec  = re.compile(' (\d+) sec')
-                secdata = 0
-                if number_regex_sec.search(DIG_RESULT):
-                    secdata = number_regex_sec.search(DIG_RESULT).group(1)
-                else:
-                    if number_regex_msec.search(DIG_RESULT):
-                        secdata = number_regex_msec.search(DIG_RESULT).group(1)
-                        secdata = int(secdata) * 0.001
-                    else:
-                        print "DNS WARNING - Dig returned an error status|time=0s;"+str(np['warning'])+";;"+str(np['critical'])
-                        sys.exit(1)
-            print "DNS CRITICAL - ",secdata,"s response time (No ANSWER Section found)|time=",secdata,"s;",+str(np['warning'])+";;"+str(np['critical'])
-            sys.exit(2)
+    ssh_username= "zenoss"
+    if ssh_username:
+        ssh_username = ssh_username
     else:
-        number_regex_msec = re.compile(' (\d+) msec')
-        number_regex_sec  = re.compile(' (\d+) sec')
-        secdata = 0
-        if number_regex_sec.search(DIG_RESULT):
-            secdata = number_regex_sec.search(DIG_RESULT).group(1)
-            mycheck(secdata)
+        ssh_username = "zenoss"
+
+    if not warning:
+        warning = 0
+    if not critical:
+        critical = 0
+
+    def mycheck(value):
+        if value > int(critical) and critical:
+            output_module.print_and_exit("DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), CRITICAL)
+        if int(warning) == 0 and int(critical) == 0:
+            output_module.print_and_exit("DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), CRITICAL)
+        if value in range(int(warning),int(critical),1):
+            output_module.print_and_exit("DNS WARNING - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), WARNING)
+        if value < int(warning) and warning:
+            output_module.print_and_exit("DNS OK - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), OK)
         else:
-            if number_regex_msec.search(DIG_RESULT):
-                secdata = number_regex_msec.search(DIG_RESULT).group(1)
-                secdata = int(secdata) * 0.001
-                mycheck(secdata)
+            output_module.print_and_exit("DNS UNKNOWN - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), UNKNOWN)
+
+    #Login to remote host
+    try:
+        ssh_module.login(ssh_host, ssh_username, ssh_password, ssh_port)
+    except:
+        output_module.print_and_exit("SSH login to "+ssh_host+" failed", UNKNOWN)
+
+        #DNS Query
+        try:
+            result_ssh = ssh_module.run_dns_query(CMD_ITEM_1+CMD_ITEM_2+CMD_ITEM_3+CMD_ITEM_4+CMD_ITEM_5+CMD_ITEM_6)
+        except:
+            output_module.print_and_exit("DNS query failed", UNKNOWN)
+
+        #Response time calculation
+        response_time = dns_module.get_response_time(result_ssh)
+
+        #Check if the expected address is in the answer section
+        if expected_address:
+            if dns_module.check_expected_address(result_ssh, expected_address):
+                mycheck(response_time)
             else:
-                print "DNS WARNING - Dig returned an error status|time=0s;"+str(np['warning'])+";;"+str(np['critical'])
-                sys.exit(1)
-    ##############################################################################
-    ss.logout()
-except pxssh.ExceptionPxssh, e:
-    print "UNKNOWN - ",e
-    sys.exit(3)
+                output_module.print_and_exit("DNS CRITICAL - expected address not found in answer section", CRITICAL)
+        else:
+            mycheck(response_time)
+    except:
+        output_module.print_and_exit("DNS UNKNOWN - "+str(sys.exc_info()[0]), UNKNOWN)
+
+if __name__ == '__main__':
+    np = parse_args()
+    execute_plugin(ssh_module, dns_module, output_module, np['ssh_host'], np['ssh_password'], np['ssh_username'], np['ssh_port'], np['query_address'], np['port'], np['record_type'], np['expected_address'], np['dig-arguments'], np['warning'], np['critical'])
+
+
