@@ -1,9 +1,7 @@
-#!/opt/zenoss/bin/python
+#!/usr/bin/env python3
 
-import sys, os
-import subprocess as sp
+import subprocess
 import shlex
-############################################################################################################
 
 def main():
     cmd1 = """select count(*) from nodes where node_state = 'DOWN';"""
@@ -15,52 +13,31 @@ def main():
     cmd1_prepared = shlex.split(cmd1_prepared)
 
     cmd2_prepared = "/opt/vertica/bin/vsql -h vertica01 -U zenoss -w blahbalh -c" + cmd2
-    #cmd2_prepared = shlex.split(cmd2_prepared)
+    cmd2_prepared = shlex.split(cmd2_prepared)
 
     cmd3_prepared = "/opt/vertica/bin/vsql -h vertica01 -U zenoss -w blahbalh -c" + cmd3
-    #cmd3_prepared = shlex.split(cmd3_prepared)
+    cmd3_prepared = shlex.split(cmd3_prepared)
 
     cmd4_prepared = "/opt/vertica/bin/vsql -h vertica01 -U zenoss -w blahbalh -c" + cmd4
-    #cmd4_prepared = shlex.split(cmd4_prepared)
+    cmd4_prepared = shlex.split(cmd4_prepared)
 
-    vertica = sp.Popen(cmd1_prepared, stdout=sp.PIPE, stderr=sp.PIPE)
-    result1 = vertica.stdout.read()
+    vertica = subprocess.run(cmd1_prepared, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result1 = vertica.stdout.decode().strip()
 
-    vertica = sp.Popen(cmd2_prepared, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
-    result2 = vertica.stdout.read()
+    vertica = subprocess.run(cmd2_prepared, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result2 = vertica.stdout.decode().strip()
 
-    vertica = sp.Popen(cmd3_prepared, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
-    result3 = vertica.stdout.read()
+    vertica = subprocess.run(cmd3_prepared, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result3 = vertica.stdout.decode().strip()
 
-    vertica = sp.Popen(cmd4_prepared, stdout=sp.PIPE, stderr=sp.PIPE, shell=True)
-    result4 = vertica.stdout.read()
+    vertica = subprocess.run(cmd4_prepared, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result4 = vertica.stdout.decode().strip()
 
-    print "R1 :", result1
-    print "R2 :", result2
-    print "R3 :", result3
-    print "R4 :", result4
+    print("R1:", result1)
+    print("R2:", result2)
+    print("R3:", result3)
+    print("R4:", result4)
 
-    sys.exit(1)
-    '''
-    if result1 == 0 and result2 == 0 and result3 == 0 and result4 == 0:
-        print "COUNTERS OK - No errors found"
-        sys.exit(0)
-    else:
-        if result1 != 0:
-            print "COUNTERS WARNING - There are %s nodes has state DOWN." % (result1)
-            sys.exit(1)
-        else:
-            if result2 != 0:
-                print "COUNTERS WARNING - There are %s events 'Too Many ROS Containers' present." % (result2)
-                sys.exit(1)
-            else:
-                if result3 != 0:
-                    print "COUNTERS WARNING - There are %s events 'Recovery failure' present." % (result3)
-                    sys.exit(1)
-                else:
-                    if result4 != 0:
-                        print "COUNTERS WARNING - There are %s events 'Stale Checkpoint' present." % (result4)
-                        sys.exit(1)
+if __name__ == '__main__':
+    main()
 
-'''
-main()
