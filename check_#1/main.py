@@ -3,12 +3,13 @@
 import os
 import sys
 import re
-import urllib2
+import urllib.request
+import urllib.error
 import time
 
 def help():
-    print "Usage:"
-    print "main.py YOUR_URL"
+    print("Usage:")
+    print("main.py YOUR_URL")
     sys.exit(3)
 
 #if len(sys.argv) != 2 or ("--url=" not in sys.argv[1]):
@@ -21,8 +22,8 @@ else:
     try:
         if "http://" not in url:
             url="http://"+url
-        request = urllib2.Request(url)
-        response = urllib2.urlopen(request)
+        request = urllib.request.Request(url)
+        response = urllib.request.urlopen(request)
         content = response.read()
         ####################################
         ######## Script main logic #########
@@ -52,16 +53,17 @@ else:
             mem_max = dct['MEM_MAX']
             mem_FREE = dct['MEM_FREE']
             wcR = dct['worldCacheRefreshed']
-            print 'CHECK #1 OK - Right response received at %s, DB=%s, processors=%s, wCR=%s | mem_tot=%s, mem_max=%s, mem_free=%s' % (tm, db, procs, wcR, mem_tot, mem_max, mem_FREE,)
+            print('CHECK #1 OK - Right response received at %s, DB=%s, processors=%s, wCR=%s | mem_tot=%s, mem_max=%s, mem_free=%s' % (tm, db, procs, wcR, mem_tot, mem_max, mem_FREE,))
             sys.exit(0)
 
         else:
             #Things going bed (very bed)
             tm = time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime())
-            print 'CHECK #1 CRITICAL - Wrong response received at %s | mem_tot=0, mem_max=0, mem_free=0' % tm
+            print('CHECK #1 CRITICAL - Wrong response received at %s | mem_tot=0, mem_max=0, mem_free=0' % tm)
             sys.exit(2)
 
         ####################################
-    except (urllib2.HTTPError, urllib2.URLError), e:
-        print "CHECK #1 CRITICAL - HTTP/URL Error: "+str(e)
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        print("CHECK #1 CRITICAL - HTTP/URL Error: "+str(e))
         sys.exit(2)
+
