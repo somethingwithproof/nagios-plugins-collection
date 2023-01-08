@@ -1,63 +1,66 @@
-#!/opt/zenoss/bin/python
-
-
+#!/usr/bin/env python3.5
 import os
 import sys
 import re
-import urllib2
+import urllib.request
+import json
+import time
+import datetime
 
-def help():
-    print "Usage:"
-    print "check_http500.py --email=DESTINATION_EMAIL_ADDRESS --host=HOST --port=PORT"
+def print_usage():
+    print("Usage:")
+    print("hadoop.py -url=SOURCE_JSON_URL -t MAX_TIME_SINCE_LAST_UPDATE_IN_MINUTES (optional)")
     sys.exit(3)
 
-if len(sys.argv) != 4:
-    help()
+def main():
+    if len(sys.argv) < 2:
+        print_usage()
 
-else:
-    args=[]
-    args.append(sys.argv[1])
-    args.append(sys.argv[2])
-    args.append(sys.argv[3])
-    email=""
-    host=""
-    port=80
-    for ea in args:
-        if ("email" in ea):
-            email = ea.replace("--email=","").replace("-email=","")
-            continue
-        if ("host" in ea):
-            host = ea.replace("--host=","").replace("-host=","")
-            continue
-        if ("port" in ea):
-            port = ea.replace("--port=","").replace("-port=","")
-            port = int(port)
-            continue
-    #Args parsing done.
+    url_str = None
+    time_str = None
+    for arg in sys.argv[1:]:
+        if arg.startswith("-url="):
+            url_str = arg[5:]
+        elif arg.startswith("-t"):
+            time_str = arg[2:]
+    if not url_str:
+        print_usage()
+
+    if not url_str.startswith("http"):
+        url_str = "http://" + url_str
+
     try:
-        proto = "http://"
-        if (port == 443):
-            proto = "https://"
-        url = proto+host+":"+str(port)+"/"
-        request = urllib2.Request(url)
-        response = urllib2.urlopen(request)
-        content = response.read()
-    except (urllib2.HTTPError, urllib2.URLError), e:
-        if (e.code == 500):
-            #print e.code
-            #print e.read()
-            print 'Sending mail message to %s' % email
-            ### SEND MAIL MESSAGE ###
-            import smtplib
-            from email.mime.text import MIMEText
-            msg = MIMEText(e.read())
+        request = urllib.request.urlopen(url_str)
+        content = request.read()
+        jsondict = json.loads(content)
+        if jsondict["status"].lower() != "ok":
+            print(f'WARNING - Hadoop: {jsondict["message"]}')
+            sys.exit(2)
 
-            me = "root@localhost"
-            you = "not_a_box@mail.ru"
-            msg['Subject'] = 'Server failure at host %s' % host
-            msg['From'] = me
-            msg['To'] = you
-            s = smtplib.SMTP('127.0.0.1')
-            s.sendmail(me, [you], msg.as_string())
-            s.quit()
-            print 'Message sent.'
+        subcomponents_lst = jsondict["subcomponents"]
+        for component in subcomponents_lst:
+            if component["status"].lower() != "ok":
+                print(f'WARNING - component "{component["name"]}" has status "{component["status"]}" and message: {component["message"]}')
+                sys.exit(2)
+            if time_str:
+                time_from_json = time.strptime(component["updated"], "%Y-%m-%d %H:%M:%S")
+                time_now = time.localtime()
+                time_from_json = datetime.datetime(*time_from_json[:6])
+                time_now = datetime.datetime(*time_now[:6])
+                time_delta = time_now - time_from_json
+                if time_delta.days > 0 or time_delta.seconds // 60 > int(time_str):
+                    print(f'WARNING - Component "{component["name"]}" has time since last update which is greater than {time_str} minutes')
+                    sys.exit(1)
+
+        mem_component = subcomponents_lst[-1]
+        if mem_component["name"].lower() != "mem":
+            print("CRITICAL - Source URL has wrong content")
+            sys.exit(1)
+        else:
+            print(f"OK - mem: {mem_component['message'].replace('k','')}")
+    except Exception as e:
+        print(f'CRITICAL - {str(e)}')
+        sys.exit(2)
+
+if __name__ == "__main__":
+    main()
