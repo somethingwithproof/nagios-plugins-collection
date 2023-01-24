@@ -1,29 +1,42 @@
+
 # Component Checker
 
 This script retrieves the status and updated time of a component from an API and checks if the time since the last update is within a specified limit.
 
-## Usage
+## Getting Started
 
-```python component_checker.py -url=URL -component=COMPONENT -t=MAX_TIME```
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
+### Prerequisites
+
+You need python 3.8 installed on your local machine in order to run this script.
+
+### Installing
+
+A step by step series of examples that tell you how to get a development env running
+
+1.  Clone or download the repository
+2.  Install the required python modules by running `pip install -r requirements.txt`
+3.  Run the script by executing `python component_checker.py -url=URL -component=COMPONENT -t=MAX_TIME`
 
 Where:
-- `URL` is the URL of the hostname.
-- `COMPONENT` is the name of the component.
-- `MAX_TIME` is the maximum time (in minutes) since the last update.
 
-## Output
+-   `URL` is the URL of the hostname.
+-   `COMPONENT` is the name of the component.
+-   `MAX_TIME` is the maximum time (in minutes) since the last update.
 
-The script will print one of the following messages and exit with the corresponding exit code:
+## Running the tests
 
-- `OK - Time since last update is less than MAX_TIME minutes`: The time since the last update is within the specified limit.
-- `WARNING - Time since last update is greater than MAX_TIME minutes`: The time since the last update is greater than the specified limit.
-- `CRITICAL - MESSAGE`: An error occurred while retrieving the status and updated time from the API. `MESSAGE` is the error message.
+This script does not have any automated tests
 
-## Example
+## Deployment
 
-```python component_checker.py -url=example.com -component=component1 -t=30```
+This script is intended for use on a local machine for development and testing purposes. It can also be used in a production environment by integrating it with a monitoring system such as Nagios.
 
+## Authors
 
-This will retrieve the status and updated time of the `component1` from the API at `http://example.com/api/component/component1` and check if the time since the last update is within 30 minutes.
+-   **Thomas Vincent** - _Initial work_
 
+## License
+
+This project is licensed under the MIT License.
