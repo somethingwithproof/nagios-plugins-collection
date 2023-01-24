@@ -1,25 +1,10 @@
-#!/usr/bin/env python3
-
-""" This script is a command-line tool that checks the status of a Hadoop 
-cluster and its components by querying a JSON API. The API URL and 
-(optionally) the maximum allowed time since the last update of each 
-component are specified as command-line arguments. If any component 
-has a status other than "ok", the script will exit with a warning 
-status. If the -t argument is provided, the time since the last 
-update of each component is checked, and if the time since the last 
-update exceeds the value specified with the -t argument, the script 
-will exit with a warning status. If all components have an "ok" 
-status and (if the -t argument is provided) the time since the last 
-update is within the acceptable range, the script will print the 
-memory usage and exit with an "ok" status. """
-
 import os
 import re
 import sys
 import time
 import datetime
 import json
-import urllib.request
+import httpx
 
 def help():
     """Print usage information and exit with status code 3."""
@@ -29,7 +14,7 @@ def help():
 
 def main():
     """Check the status of a Hadoop cluster and its components.
-    
+
     The Hadoop cluster and its components are checked by querying a JSON API specified
     with the -url command line argument. The status of each component is checked, and if
     any component has a status other than "ok", the script will exit with a warning status.
@@ -54,14 +39,14 @@ def main():
     if url_str is None:
         help()
 
-    if not url_str.startswith("http://"):
+    if not url_str.startswith(("http://", "https://")):
         url_str = "http://" + url_str
 
     try:
-        with urllib.request.urlopen(url_str) as request:
-            content = request.read()
-        jsondict = json.loads(content)
-    except (urllib.error.URLError, ValueError):
+        response = httpx.get(url_str)
+        response.raise_for_status()
+        jsondict = response.json()
+    except (httpx.HTTPError, ValueError):
         print("CRITICAL - Could not retrieve JSON data from specified URL")
         sys.exit(2)
 
@@ -80,17 +65,13 @@ def main():
             time_from_json = datetime.datetime(*time_from_json[:6])
             time_now = datetime.datetime.now()
             time_delta = time_now - time_from_json
+            if time_delta.days > 0 or (time_delta.seconds // 60) >
             if time_delta.days > 0 or (time_delta.seconds // 60) > int(time_str):
-                print(f'WARNING - Component "{component["name"]}" has time since last update which is greater than {time_str} minutes')
+                print(f'WARNING - component "{component["name"]}" has not been updated in {time_delta}')
                 sys.exit(1)
 
-    mem_component = subcomponents_lst[-1]
-    if mem_component["name"].lower() != "mem":
-        print("CRITICAL - Source URL has wrong content")
-        sys.exit(2)
+    print(f'OK - All components have status "ok" and (if specified) have been updated within {time_str} minutes')
+    sys.exit(0)
 
-    print(f"OK - mem: {mem_component['message'].replace('k', '')}")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
-
