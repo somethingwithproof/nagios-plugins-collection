@@ -1,49 +1,99 @@
-import pytest
-import subprocess
+import unittest
+import hadoop
+from unittest.mock import patch, MagicMock
 
-"""
-Test the main() function of the hadoop.py script.
+class TestHadoop(unittest.TestCase):
 
-The test scenarios are as follows:
+    def test_help(self):
+        """
+        Test that the help function exits with status code 3
+        """
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.help()
+        self.assertEqual(cm.exception.code, 3)
 
-1. No command-line arguments are provided (should exit with status code 3 and print usage information).
-2. An invalid URL is provided (should exit with status code 2 and print an error message).
-3. An URL that returns invalid JSON data is provided (should exit with status code 2 and print an error message).
-4. An URL that returns valid JSON data but with a Hadoop status other than "ok" is provided (should exit with status code 1 and print a warning message).
-5. An URL that returns valid JSON data with component statuses "ok" and with a time since last update within the acceptable range (specified with the -t argument) is provided (should exit with status code 0 and print the memory usage).
-6. An URL that returns valid JSON data with component statuses "ok" and with a time since last update outside the acceptable range (specified with the -t argument) is provided (should exit with status code 1 and print a warning message).
-"""
+    @patch('urllib.request.urlopen')
+    def test_main_ok_status(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 0 when the JSON API returns an "ok" status
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 0)
 
+    @patch('urllib.request.urlopen')
+    def test_main_bad_status(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 1 when the JSON API returns a non "ok" status
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"bad", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 1)
 
-def test_main():
-    # Test with no arguments
-    result = subprocess.run(["python", "hadoop.py"], capture_output=True)
-    assert result.returncode == 3
-    assert "Usage:" in result.stderr.decode()
-    
-    # Test with invalid URL
-    result = subprocess.run(["python", "hadoop.py", "-url=invalid_url"], capture_output=True)
-    assert result.returncode == 2
-    assert "CRITICAL - Could not retrieve JSON data from specified URL" in result.stderr.decode()
-    
-    # Test with invalid JSON data
-    result = subprocess.run(["python", "hadoop.py", "-url=http://example.com"], capture_output=True)
-    assert result.returncode == 2
-    assert "CRITICAL - Could not retrieve JSON data from specified URL" in result.stderr.decode()
-    
-    # Test with valid JSON data but Hadoop status other than "ok"
-    result = subprocess.run(["python", "hadoop.py
-    # Test with valid JSON data but component status other than "ok"
-    result = subprocess.run(["python", "hadoop.py", "-url=http://borovcov.ru/api/component/hadoop"], capture_output=True)
-    assert result.returncode == 1
-    assert "WARNING - component" in result.stderr.decode()
-    
-    # Test with valid JSON data, component statuses "ok", and time since last update within acceptable range
-    result = subprocess.run(["python", "hadoop.py", "-url=http://borovcov.ru/api/component/hadoop", "-t=60"], capture_output=True)
-    assert result.returncode == 0
-    assert "OK - mem:" in result.stdout.decode()
-    
-    # Test with valid JSON data, component statuses "ok", and time since last update outside acceptable range
-    result = subprocess.run(["python", "hadoop.py", "-url=http://borovcov.ru/api/component/hadoop", "-t=1"], capture_output=True)
-    assert result.returncode == 1
-    assert "WARNING - Component" in result.stderr.decode()
+    @patch('urllib.request.urlopen')
+    def test_main_bad_subcomponent_status(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 2 when a subcomponent of the JSON API returns a non "ok" status
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"bad", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 2)
+
+    @patch('urllib.request.urlopen')
+    def test_main_time_check(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 1 when the -t argument is provided and the time since the last update of a subcomponent exceeds the specified value
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}]}')
+        sys.argv = ["hadoop.py", "-
+        sys.argv = ["hadoop.py", "-url=test.com", "-t=10"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 1)
+
+    @patch('urllib.request.urlopen')
+    def test_main_no_url_provided(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 3 when no URL is provided
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}]}')
+        sys.argv = ["hadoop.py"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 3)
+
+    @patch('urllib.request.urlopen')
+    def test_main_invalid_url(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 2 when an invalid URL is provided
+        """
+        mock_urlopen.side_effect = urllib.error.URLError("Invalid URL")
+        sys.argv = ["hadoop.py", "-url=invalid.com"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 2)
+
+    @patch('urllib.request.urlopen')
+    def test_main_invalid_json(self, mock_urlopen):
+        """
+        Test that the main function exits with status code 2 when an invalid JSON is returned from the URL
+        """
+        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}')
+        sys.argv = ["hadoop.py", "-url=test.com"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 2)
+
+class TestIntegration(unittest.TestCase):
+
+    def test_integration(self):
+        """
+        Test that the script works as expected when run with valid command line arguments and a valid JSON API
+        """
+        sys.argv = ["hadoop.py", "-url=http://test.com"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop.main()
+        self.assertEqual(cm.exception.code, 0)
