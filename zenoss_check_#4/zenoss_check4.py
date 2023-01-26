@@ -1,78 +1,61 @@
-#!/opt/zenoss/bin/python
+#!/usr/bin/env python3
 
-import os
-import sys
-import re
-import urllib2
-import time
-from datetime import datetime
+import httpx
+import datetime
 
-def help():
-    print "Usage:"
-    print "zenoss_check4.py YOUR_URL"
-    sys.exit(3)
-
-if len(sys.argv) != 2:
-    help()
-
-else:
-    url = sys.argv[1]
-    #url = url[6:]
+def check_url(url: str) -> None:
+    """
+    Check the provided URL for certain characteristics and print the result.
+    :param url: The URL to check
+    """
+    # Send a request to the URL
     try:
-        if "http://" not in url:
-            url="http://"+url
-        request = urllib2.Request(url)
-        response = urllib2.urlopen(request)
-        content = response.read()
-        ####################################
-
-        if (response.code == 200):
-            if ("numdocs" in content.lower()):
-                if ("lastModified".lower() in content.lower()):
-                    if ("time since last index".lower() in content.lower()):
-                        #Now obtain time since last index from lastModified line
-                        content = content.split("\n")
-                        lstmod = ""
-                        for each in content:
-                            if ("lastModified".lower() in each.lower()):
-                                lstmod = each.replace("lastModified is ","")
-                                break
-                        tm_page = time.strptime(lstmod.replace("PDT ",""),"%a %b %d %H:%M:%S %Y")
-                        tm_now = time.gmtime()
-                        tm_page_dt_obj = datetime(*tm_page[0:6])
-                        tm_now_dt_obj = datetime(*tm_now[0:6])
-                        tm_dt_diff = tm_now_dt_obj - tm_page_dt_obj
-                        days_diff = tm_dt_diff.days
-                        if (days_diff < 1):
-                            #Find numdocs
-                            for each in content:
-                                if ("numdocs".lower() in each.lower()):
-                                    numdocs = each.replace("numDocs is ", "")
-                            #############
-                            print "CHECK #4 OK - Numdocs = %s" % numdocs
-                            sys.exit(0)
-                        else:
-                            #Find numdocs
-                            for each in content:
-                                if ("numdocs".lower() in each.lower()):
-                                    numdocs = each.replace("numDocs is ", "")
-                                #############
-                            print "CHECK #4 WARNING - time since last index bigger than one day. Numdocs = %s" % numdocs
-                            sys.exit(1)
-                    else:
-                        print "CHECK #4 CRITITCAL - reponse doesnt contain time sinse last index line."
-                        sys.exit(2)
+        response = httpx.get(url)
+        content = response.text
+    except httpx.HTTPError as e:
+        print(f"CRITICAL - {e}")
+        exit(2)
+    
+    # Check for certain strings in the response
+    if "numdocs" in content.lower():
+        if "lastmodified" in content.lower():
+            if "time since last index" in content.lower():
+                # Get the time since last index from the lastModified line
+                for line in content.splitlines():
+                    if "lastmodified" in line.lower():
+                        last_modified = line.replace("lastmodified is ","")
+                        break
+                last_modified_time = datetime.datetime.strptime(last_modified.replace("pdt ",""), "%a %b %d %H:%M:%S %Y")
+                current_time = datetime.datetime.utcnow()
+                time_diff = current_time - last_modified_time
+                if time_diff.days < 1:
+                    # Get the number of docs from the response
+                    for line in content.splitlines():
+                        if "numdocs" in line.lower():
+                            num_docs = line.replace("numdocs is ", "")
+                            break
+                    print(f"CHECK #4 OK - Numdocs = {num_docs}")
+                    exit(0)
                 else:
-                    print "CHECK #4 CRITICAL - response doesnt contain last modified time line."
-                    sys.exit(2)
+                    for line in content.splitlines():
+                        if "numdocs" in line.lower():
+                            num_docs = line.replace("numdocs is ", "")
+                            break
+                    print(f"CHECK #4 WARNING - time since last index bigger than one day. Numdocs = {num_docs}")
+                    exit(1)
             else:
-                print "CHECK #4 CRITICAL - response doesnt contain numDocs var."
-                sys.exit(2)
+                print("CHECK #4 CRITICAL - response does not contain time since last index line.")
+                exit(2)
         else:
-            print "CHECK #4 CRITICAL - Got %s HTTP error." % str(response.code)
-            sys.exit(2)
+            print("CHECK #4 CRITICAL - response does not contain last modified time line.")
+            exit(2)
+    else:
+        print("CHECK #4 CRITICAL - response does not contain numdocs variable.")
+        exit(2)
 
-            ####################################
-    except (urllib2.HTTPError, urllib2.URLError), e:
-        print "CRITICAL - "+str(e)
-        sys.exit(2)
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: zenoss_check4.py YOUR_URL")
+        exit(3)
+    check_url(sys.argv[1])
