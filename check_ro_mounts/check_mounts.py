@@ -1,4 +1,6 @@
-mport argparse
+#!/usr/bin/env python3
+
+import argparse
 import subprocess as sp
 import shlex
 
