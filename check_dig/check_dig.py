@@ -1,104 +1,120 @@
-#!/opt/zenoss/bin/python
+#!/usr/bin/env python3
 
-#Script dependencies:
-# pynag, subprocess
+"""
+This script is used to query the DNS server for a given hostname.
 
-import os,sys, subprocess, re
+Usage:
+
+    dns_query.py [-h] [-R SSH_HOST] [-P SSH_PASSWORD] [-U SSH_USERNAME] [-s SSH_PORT]
+                 [-l QUERY_ADDRESS] [-p DNS_PORT] [-T RECORD_TYPE] [-a EXPECTED_ADDRESS]
+                 [-A DIG_ARGUMENTS] [-w WARNING] [-c CRITICAL]
+
+Options:
+
+    -h, --help            show this help message and exit
+    -R SSH_HOST          The hostname or IP address of the remote host to connect to.
+    -P SSH_PASSWORD      The password for the remote host.
+    -U SSH_USERNAME      The username for the remote host.
+    -s SSH_PORT          The port number for the remote host.
+    -l QUERY_ADDRESS     The hostname or IP address to query the DNS server for.
+    -p DNS_PORT          The port number for the DNS server.
+    -T RECORD_TYPE       The type of record to query the DNS server for.
+    -a EXPECTED_ADDRESS  The expected address in the answer section of the DNS response.
+    -A DIG_ARGUMENTS      Additional arguments to pass to the `dig` command.
+    -w WARNING          The warning threshold in seconds.
+    -c CRITICAL         The critical threshold in seconds.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import subprocess
+import re
+
 from pynag.Plugins import WARNING, CRITICAL, OK, UNKNOWN, simple as Plugin
 from pexpect import ANSI, fdpexpect, FSM, pexpect, pxssh, screen
 
-def parse_args():
-    np = Plugin()
 
-    #Configure additional command line arguments
-    np.add_arg("R", "ssh_host", "Ssh remote machine name to connect to", required=True)
-    np.add_arg("P", "ssh_password", "Ssh romote host password", required=None)
-    np.add_arg("U", "ssh_username", "Ssh remote username", required=None)
-    np.add_arg("s", "ssh_port", "Ssh remote host port (default: 22)", required=None)
-    np.add_arg("l", "query_address", "Machine name to lookup", required=True)
-    np.add_arg("p", "port", "DNS Server port number (default: 53)", required=None)
-    np.add_arg("T", "record_type", "Record type to lookup (default: A)", required=None)
-    np.add_arg("a", "expected_address", "An address expected to be in the answer section. If not set, uses whatever was in query address", required=None)
-    np.add_arg("A", "dig-arguments", "Pass the STRING as argument(s) to dig", required=None)
-
-    #Plugin activation
-    np.activate()
-    return np
-
-def execute_plugin(ssh_module, dns_module, output_module, ssh_host, ssh_password, ssh_username, ssh_port, query_address, port, record_type, expected_address, dig_arguments, warning, critical):
-    #Data gathering
-    if query_address:
-        CMD_ITEM_4 = query_address
-
-    if  (ssh_host and port):
-        CMD_ITEM_2 = "@"+ssh_host
-        CMD_ITEM_3 = "-p "+port
-
-    if record_type:
-        CMD_ITEM_5 = "-t "+record_type
-
-    if dig_arguments:
-        CMD_ITEM_6 = dig_arguments
-
-    #SSH Section
-    ssh_port=22
-    result_ssh=''
-    if ssh_port:
-        ssh_port = ssh_port
-    else:
-        ssh_port = 22
-
-    ssh_username= "zenoss"
-    if ssh_username:
-        ssh_username = ssh_username
-    else:
-        ssh_username = "zenoss"
-
-    if not warning:
-        warning = 0
-    if not critical:
-        critical = 0
-
-    def mycheck(value):
-        if value > int(critical) and critical:
-            output_module.print_and_exit("DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), CRITICAL)
-        if int(warning) == 0 and int(critical) == 0:
-            output_module.print_and_exit("DNS CRITICAL - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), CRITICAL)
-        if value in range(int(warning),int(critical),1):
-            output_module.print_and_exit("DNS WARNING - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), WARNING)
-        if value < int(warning) and warning:
-            output_module.print_and_exit("DNS OK - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), OK)
-        else:
-            output_module.print_and_exit("DNS UNKNOWN - "+str(value)+"s response time|time="+str(value)+"s;"+str(float(warning))+";;"+str(float(critical)), UNKNOWN)
-
-    #Login to remote host
-    try:
-        ssh_module.login(ssh_host, ssh_username, ssh_password, ssh_port)
-    except:
-        output_module.print_and_exit("SSH login to "+ssh_host+" failed", UNKNOWN)
-
-        #DNS Query
-        try:
-            result_ssh = ssh_module.run_dns_query(CMD_ITEM_1+CMD_ITEM_2+CMD_ITEM_3+CMD_ITEM_4+CMD_ITEM_5+CMD_ITEM_6)
-        except:
-            output_module.print_and_exit("DNS query failed", UNKNOWN)
-
-        #Response time calculation
-        response_time = dns_module.get_response_time(result_ssh)
-
-        #Check if the expected address is in the answer section
-        if expected_address:
-            if dns_module.check_expected_address(result_ssh, expected_address):
-                mycheck(response_time)
-            else:
-                output_module.print_and_exit("DNS CRITICAL - expected address not found in answer section", CRITICAL)
-        else:
-            mycheck(response_time)
-    except:
-        output_module.print_and_exit("DNS UNKNOWN - "+str(sys.exc_info()[0]), UNKNOWN)
-
-if __name__ == '__main__':
-    np = parse_args()
-    execute_plugin(ssh_module, dns_module, output_module, np['ssh_host'], np['ssh_password'], np['ssh_username'], np['ssh_port'], np['query_address'], np['port'], np['record_type'], np['expected_address'], np['dig-arguments'], np['warning'], np['critical'])
-
-
+def parse_args() -> argparse.Namespace:
+    """Parse the command line arguments."""
+    parser = argparse.ArgumentParser(description="Query the DNS server for a given hostname.")
+    parser.add_argument(
+        "-R",
+        "--ssh_host",
+        type=str,
+        required=True,
+        help="The hostname or IP address of the remote host to connect to.",
+    )
+    parser.add_argument(
+        "-P",
+        "--ssh_password",
+        type=str,
+        required=False,
+        help="The password for the remote host.",
+    )
+    parser.add_argument(
+        "-U",
+        "--ssh_username",
+        type=str,
+        required=False,
+        help="The username for the remote host.",
+    )
+    parser.add_argument(
+        "-s",
+        "--ssh_port",
+        type=int,
+        required=False,
+        default=22,
+        help="The port number for the remote host.",
+    )
+    parser.add_argument(
+        "-l",
+        "--query_address",
+        type=str,
+        required=True,
+        help="The hostname or IP address to query the DNS server for.",
+    )
+    parser.add_argument(
+        "-p",
+        "--dns_port",
+        type=int,
+        required=False,
+        default=53,
+        help="The port number for the DNS server.",
+    )
+    parser.add_argument(
+        "-T",
+        "--record_type",
+        type=str,
+        required=False,
+        default="A",
+        help="The type of record to query the DNS server for.",
+    )
+    parser.add_argument(
+        "-a",
+        "--expected_address",
+        type=str,
+        required=False,
+        help="The expected address in the answer section of the DNS response.",
+    )
+    parser.add_argument(
+        "-A",
+        "--dig_arguments",
+        type=str,
+        required=False,
+        help="Additional arguments to pass to the `dig` command.",
+    )
+    parser.add_argument(
+        "-w",
+        "--warning",
+        type=float,
+        required=False,
+        default=0,
+        help="The warning threshold in seconds.",
+    )
+    parser.add_argument(
+        "-c",
+        "--critical",
+        type=
