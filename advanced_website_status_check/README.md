@@ -1,46 +1,18 @@
-# Website Status Checker
 
-A Python script that checks the status of a website or server at a specified URL. The script exits with a status code of 0 if the response is successful, or 2 if there is an error.
+# check_status.py 
+ 
+This script checks the status of a website  or  server at the specified URL. It sends an HTTP request to the provided URL  and  checks the response  for  certain strings to determine  if  the website  or  server  is  running  as  expected.  ## Usage`
 
-## Getting Started
+    python check_status.py <url>
 
-The script requires Python 3 and the following libraries:
+Replace  `<url>`  with the URL of the website or server you want to check. The script exits with status code  0  if  the response is successful or  2  if  there is an  error. ## Requirements - Python  3  -  `httpx`  package  You can install the  `httpx`  package  using  `pip`:``
 
-`httpx`
+    pip install httpx
 
-To use the script, simply run the command python main.py URL, where URL is the website or server you want to check.
+## Example`
 
-### **Input Validation**
+    python check_status.py [https://example.com](https://example.com/)
 
-The script checks if the user has provided a URL as a command line argument. If no argument is provided, the script will display the usage instructions and exit. The script also checks if the URL provided starts with "http" or "https", and if not, it will add "http://" to the URL before making the request.
+This  will  send  a  request  to  `https://example.com` and check the response for certain strings to determine if the website or server is running as expected.``
 
-### **Output Format**
-
-The script prints the status of the check and the time it was performed in the following format:
-
-### Website Status Checker
-
-A Python script that checks the status of a website or server at a specified URL. The script exits with a status code of 0 if the response is successful, or 2 if there is an error.
-
-## Getting Started
-
-The script requires Python 3 and the following libraries:
-
-`httpx`
-
-To use the script, simply run the command python main.py URL, where URL is the website or server you want to check.
-
-### Input Validation
-
-The script checks if the user has provided a URL as a command line argument. If no argument is provided, the script will display the usage instructions and exit. The script also checks if the URL provided starts with "http" or "https", and if not, it will add "http://" to the URL before making the request.
-
-### Output Format
-
-The script prints the status of the check and the time it was performed in the following format:
-
-`CHECK #1 OK - Right response received at Mon, 25 Jan 2021 14:08:40 +0000, DB=IB_O.K., processors=2, wCR=2021-01-25 14:08:40 | mem_tot=8.0, mem_max=8.0, mem_free=8.0
-`
-or
-
-`CHECK #1 CRITICAL - Wrong response received at Mon, 25 Jan 2021 14:08:40 +0000 | mem
-`
+You can save this content to a file named `README.md` in the same directory as your script. This will provide documentation for anyone using or contributing to the project.
