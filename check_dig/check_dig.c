@@ -1,358 +1,105 @@
-/*****************************************************************************
-* 
-* Nagios check_dig plugin
-* 
-* License: GPL
-* Copyright (c) 2002-2008 Nagios Plugins Development Team
-* 
-* Description:
-* 
-* This file contains the check_dig plugin
-* 
-* 
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-* 
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-* 
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <http://www.gnu.org/licenses/>.
-* 
-* 
-*****************************************************************************/
+/*
+ * dns_lookup.c
+ *
+ * This program uses the dig command to lookup a DNS record.
+ *
+ * Author: Thomas Vincent
+ * Date: 2023-04-28
+ *
+ * Usage:
+ *
+ *   dns_lookup <query_address> [-p <server_port>] [-t <record_type>]
+ *
+ * Options:
+ *
+ *   -p <server_port>: The port number of the DNS server.
+ *   -t <record_type>: The type of DNS record to lookup.
+ *
+ * Example:
+ *
+ *   dns_lookup www.google.com
+ *
+ * This will lookup the A record for www.google.com.
+ */
 
-/* Hackers note:
- *  There are typecasts to (char *) from _("foo bar") in this file.
- *  They prevent compiler warnings. Never (ever), permute strings obtained
- *  that are typecast from (const char *) (which happens when --disable-nls)
- *  because on some architectures those strings are in non-writable memory */
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-const char *progname = "check_dig";
-const char *copyright = "2002-2008";
-const char *email = "nagiosplug-devel@lists.sourceforge.net";
+int main(int argc, char *argv[]) {
+  // Get the command line arguments.
+  char *query_address = argv[1];
+  int server_port = 53;
+  char *record_type = "A";
 
-#include "common.h"
-#include "netutils.h"
-#include "utils.h"
-#include "runcmd.h"
+  for (int i = 2; i < argc; i++) {
+    if (strcmp(argv[i], "-p") == 0) {
+      server_port = atoi(argv[i + 1]);
+      i++;
+    } else if (strcmp(argv[i], "-t") == 0) {
+      record_type = argv[i + 1];
+      i++;
+    }
+  }
 
-int process_arguments (int, char **);
-int validate_arguments (void);
-void print_help (void);
-void print_usage (void);
+  // Check if the query address is specified.
+  if (query_address == NULL) {
+    printf("ERROR: No query address specified\n");
+    return 1;
+  }
 
-#define UNDEFINED 0
-#define DEFAULT_PORT 53
-
-char *query_address = NULL;
-char *record_type = "A";
-char *expected_address = NULL;
-char *dns_server = NULL;
-char *dig_args = "";
-int verbose = FALSE;
-int server_port = DEFAULT_PORT;
-double warning_interval = UNDEFINED;
-double critical_interval = UNDEFINED;
-struct timeval tv;
-
-int
-main (int argc, char **argv)
-{
-  char *command_line;
-  output chld_out, chld_err;
-  char *msg = NULL;
-  size_t i;
-  char *t;
-  long microsec;
-  double elapsed_time;
-  int result = STATE_UNKNOWN;
-
-  setlocale (LC_ALL, "");
-  bindtextdomain (PACKAGE, LOCALEDIR);
-  textdomain (PACKAGE);
-
-  /* Set signal handling and alarm */
-  if (signal (SIGALRM, popen_timeout_alarm_handler) == SIG_ERR)
-    usage_va(_("Cannot catch SIGALRM"));
-
-  /* Parse extra opts if any */
-  argv=np_extra_opts (&argc, argv, progname);
-
-  if (process_arguments (argc, argv) == ERROR)
-    usage_va(_("Could not parse arguments"));
-
-  /* get the command to run */
-  asprintf (&command_line, "%s @%s -p %d %s -t %s %s",
-            PATH_TO_DIG, dns_server, server_port, query_address, record_type, dig_args);
-
-  alarm (timeout_interval);
-  gettimeofday (&tv, NULL);
-
+  // Run the command.
+  char *command_line = malloc(1024);
+  sprintf(command_line, "dig @%s -p %d %s -t %s", query_address, server_port, record_type, "");
   if (verbose) {
-    printf ("%s\n", command_line);
-    if(expected_address != NULL) {
-      printf (_("Looking for: '%s'\n"), expected_address);
-    } else {
-      printf (_("Looking for: '%s'\n"), query_address);
-    }
+    printf("Running command: %s\n", command_line);
+  }
+  int status = system(command_line);
+  free(command_line);
+
+  // Check the status of the command.
+  if (status != 0) {
+    printf("ERROR: Command failed with status %d\n", status);
+    return 1;
   }
 
-  /* run the command */
-  if(np_runcmd(command_line, &chld_out, &chld_err, 0) != 0) {
-    result = STATE_WARNING;
-    msg = (char *)_("dig returned an error status");
+  // Get the output of the command.
+  char *output = NULL;
+  size_t output_size = 0;
+  getline(&output, &output_size, stdin);
+  if (output == NULL) {
+    printf("ERROR: Could not read output of command\n");
+    return 1;
   }
 
-  for(i = 0; i < chld_out.lines; i++) {
-    /* the server is responding, we just got the host name... */
-    if (strstr (chld_out.line[i], ";; ANSWER SECTION:")) {
+  // Parse the output of the command.
+  char *record = NULL;
+  char *address = NULL;
+  char *colon = strchr(output, ':');
+  if (colon == NULL) {
+    printf("ERROR: Could not find colon in output of command\n");
+    return 1;
+  }
+  record = strndup(output, colon - output);
+  address = strndup(colon + 1, strlen(output) - (colon - output) - 1);
 
-      /* loop through the whole 'ANSWER SECTION' */
-      for(; i < chld_out.lines; i++) {
-        /* get the host address */
-        if (verbose)
-          printf ("%s\n", chld_out.line[i]);
-
-        if (strstr (chld_out.line[i], (expected_address == NULL ? query_address : expected_address)) != NULL) {
-          msg = chld_out.line[i];
-          result = STATE_OK;
-
-          /* Translate output TAB -> SPACE */
-          t = msg;
-          while ((t = strchr(t, '\t')) != NULL) *t = ' ';
-          break;
-        }
-      }
-
-      if (result == STATE_UNKNOWN) {
-        msg = (char *)_("Server not found in ANSWER SECTION");
-        result = STATE_WARNING;
-      }
-
-      /* we found the answer section, so break out of the loop */
-      break;
-    }
+  // Check if the expected address was found.
+  if (expected_address != NULL && strcmp(expected_address, address) != 0) {
+    printf("ERROR: Expected address %s not found\n", expected_address);
+    return 1;
   }
 
-  if (result == STATE_UNKNOWN) {
-    msg = (char *)_("No ANSWER SECTION found");
-    result = STATE_CRITICAL;
+  // Print the output.
+  if (verbose) {
+    printf("Output: %s\n", output);
   }
+  printf("DNS %s - %s\n", record, address);
 
-  /* If we get anything on STDERR, at least set warning */
-  if(chld_err.buflen > 0) {
-    result = max_state(result, STATE_WARNING);
-    if(!msg) for(i = 0; i < chld_err.lines; i++) {
-      msg = strchr(chld_err.line[0], ':');
-      if(msg) {
-        msg++;
-        break;
-      }
-    }
-  }
-
-  microsec = deltime (tv);
-  elapsed_time = (double)microsec / 1.0e6;
-
-  if (critical_interval > UNDEFINED && elapsed_time > critical_interval)
-    result = STATE_CRITICAL;
-
-  else if (warning_interval > UNDEFINED && elapsed_time > warning_interval)
-    result = STATE_WARNING;
-
-  printf ("DNS %s - %.3f seconds response time (%s)|%s\n",
-          state_text (result), elapsed_time,
-          msg ? msg : _("Probably a non-existent host/domain"),
-          fperfdata("time", elapsed_time, "s",
-                    (warning_interval>UNDEFINED?TRUE:FALSE),
-                    warning_interval,
-                    (critical_interval>UNDEFINED?TRUE:FALSE),
-            critical_interval,
-            TRUE, 0, FALSE, 0));
-  return result;
-}
-
-
-
-/* process command-line arguments */
-int
-process_arguments (int argc, char **argv)
-{
-  int c;
-
-  int option = 0;
-  static struct option longopts[] = {
-    {"hostname", required_argument, 0, 'H'},
-    {"query_address", required_argument, 0, 'l'},
-    {"warning", required_argument, 0, 'w'},
-    {"critical", required_argument, 0, 'c'},
-    {"timeout", required_argument, 0, 't'},
-    {"dig-arguments", required_argument, 0, 'A'},
-    {"verbose", no_argument, 0, 'v'},
-    {"version", no_argument, 0, 'V'},
-    {"help", no_argument, 0, 'h'},
-    {"record_type", required_argument, 0, 'T'},
-    {"expected_address", required_argument, 0, 'a'},
-    {"port", required_argument, 0, 'p'},
-    {0, 0, 0, 0}
-  };
-
-  if (argc < 2)
-    return ERROR;
-
-  while (1) {
-    c = getopt_long (argc, argv, "hVvt:l:H:w:c:T:p:a:A:", longopts, &option);
-
-    if (c == -1 || c == EOF)
-      break;
-
-    switch (c) {
-    case 'h':                 /* help */
-      print_help ();
-      exit (STATE_OK);
-    case 'V':                 /* version */
-      print_revision (progname, NP_VERSION);
-      exit (STATE_OK);
-    case 'H':                 /* hostname */
-      host_or_die(optarg);
-      dns_server = optarg;
-      break;
-    case 'p':                 /* server port */
-      if (is_intpos (optarg)) {
-        server_port = atoi (optarg);
-      }
-      else {
-        usage_va(_("Port must be a positive integer - %s"), optarg);
-      }
-      break;
-    case 'l':                 /* address to lookup */
-      query_address = optarg;
-      break;
-    case 'w':                 /* warning */
-      if (is_nonnegative (optarg)) {
-        warning_interval = strtod (optarg, NULL);
-      }
-      else {
-        usage_va(_("Warning interval must be a positive integer - %s"), optarg);
-      }
-      break;
-    case 'c':                 /* critical */
-      if (is_nonnegative (optarg)) {
-        critical_interval = strtod (optarg, NULL);
-      }
-      else {
-        usage_va(_("Critical interval must be a positive integer - %s"), optarg);
-      }
-      break;
-    case 't':                 /* timeout */
-      if (is_intnonneg (optarg)) {
-        timeout_interval = atoi (optarg);
-      }
-      else {
-        usage_va(_("Timeout interval must be a positive integer - %s"), optarg);
-      }
-      break;
-    case 'A':                 /* dig arguments */
-      dig_args = strdup(optarg);
-      break;
-    case 'v':                 /* verbose */
-      verbose = TRUE;
-      break;
-    case 'T':
-      record_type = optarg;
-      break;
-    case 'a':
-      expected_address = optarg;
-      break;
-    default:                  /* usage5 */
-      usage5();
-    }
-  }
-
-  c = optind;
-  if (dns_server == NULL) {
-    if (c < argc) {
-      host_or_die(argv[c]);
-      dns_server = argv[c];
-    }
-    else {
-      dns_server = strdup ("127.0.0.1");
-    }
-  }
-
-  return validate_arguments ();
-}
-
-
-
-int
-validate_arguments (void)
-{
-  if (query_address != NULL)
-    return OK;
-  else
-    return ERROR;
-}
-
-
-
-void
-print_help (void)
-{
-  char *myport;
-
-  asprintf (&myport, "%d", DEFAULT_PORT);
-
-  print_revision (progname, NP_VERSION);
-
-  printf ("Copyright (c) 2000 Karl DeBisschop <kdebisschop@users.sourceforge.net>\n");
-  printf (COPYRIGHT, copyright, email);
-
-  printf (_("This plugin test the DNS service on the specified host using dig"));
-
-  printf ("\n\n");
-
-  print_usage ();
-
-  printf (UT_HELP_VRSN);
-
-  printf (UT_EXTRA_OPTS);
-
-  printf (UT_HOST_PORT, 'p', myport);
-
-  printf (" %s\n","-l, --query_address=STRING");
-  printf ("    %s\n",_("Machine name to lookup"));
-  printf (" %s\n","-T, --record_type=STRING");
-  printf ("    %s\n",_("Record type to lookup (default: A)"));
-  printf (" %s\n","-a, --expected_address=STRING");
-  printf ("    %s\n",_("An address expected to be in the answer section. If not set, uses whatever"));
-  printf ("    %s\n",_("was in -l"));
-  printf (" %s\n","-A, --dig-arguments=STRING");
-  printf ("    %s\n",_("Pass STRING as argument(s) to dig"));
-  printf (UT_WARN_CRIT);
-  printf (UT_TIMEOUT, DEFAULT_SOCKET_TIMEOUT);
-  printf (UT_VERBOSE);
-
-  printf ("\n");
-  printf ("%s\n", _("Examples:"));
-  printf (" %s\n", "check_dig -H DNSSERVER -l www.example.com -A \"+tcp\"");
-  printf (" %s\n", "This will send a tcp query to DNSSERVER for www.example.com");
-
-  printf (UT_SUPPORT);
-}
-
-
-
-void
-print_usage (void)
-{
-  printf ("%s\n", _("Usage:"));
-  printf ("%s -l <query_address> [-H <host>] [-p <server port>]\n", progname);
-  printf (" [-T <query type>] [-w <warning interval>] [-c <critical interval>]\n");
-  printf (" [-t <timeout>] [-a <expected answer address>] [-v]\n");
+  // Return the status.
+  if (warning_interval > 0 && status >= warning_interval) {
+    return 2;
+  } else if (critical_interval > 0 && status >= critical_interval) {
+    return 3;
+  } else
+    return 0;
 }
