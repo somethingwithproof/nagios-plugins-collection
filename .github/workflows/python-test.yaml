@@ -1,0 +1,36 @@
+name: Test
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Get list of projects
+        run: |
+          projects=$(find . -type d -name '*.py')
+      - name: Check if projects are Python
+        run: |
+          for project in $projects; do
+            if [[ ! -f $project/setup.py ]]; then
+              echo "Skipping $project because it is not a Python project"
+              continue
+            fi
+          done
+      - name: Run tests
+        run: |
+          for project in $projects; do
+            cd $project
+            pytest
+          done
