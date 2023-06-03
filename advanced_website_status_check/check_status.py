@@ -1,16 +1,3 @@
-#!/usr/bin/env python3
-
-"""
-check_status.py
-
-Checks the status of a website or server at the specified URL.
-
-Usage:
-    check_status.py <url>
-
-Exits with status code 0 if the response is successful, or 2 if there is an error.
-"""
-
 import httpx
 import logging
 import re
@@ -20,12 +7,12 @@ logger = logging.getLogger(__name__)
 
 def help():
     """
-    Prints the usage of the script and raises an exception.
+    Prints the usage of the script.
     """
     print(f"Usage: {sys.argv[0]} URL")
     print(f"Checks the status of a website or server at the specified URL.")
     print(f"Exits with status code 0 if the response is successful, or 2 if there is an error.")
-    raise SystemExit("Script terminated intentionally by user.")
+    sys.exit(2)
 
 def check_status(url: str) -> int:
     """
@@ -45,7 +32,8 @@ def check_status(url: str) -> int:
     # Make the request.
     with httpx.Client(timeout=3) as client:
         response = client.get(url)
-        response.raise_for_status()
+        if response.status_code != 200:
+            raise httpx.HTTPError(response)
 
         # Parse the response.
         content = response.text
