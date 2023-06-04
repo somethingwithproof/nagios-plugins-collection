@@ -1,0 +1,26 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                // Build the Docker image
+                script {
+                    def dockerImage = docker.build('python-checker')
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // Run the tests inside the Docker container using Tox
+                script {
+                    docker.image('python-checker').inside {
+                        sh 'pip install tox'
+                        sh 'tox'
+                    }
+                }
+            }
+        }
+    }
+}

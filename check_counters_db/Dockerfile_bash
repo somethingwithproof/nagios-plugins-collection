@@ -1,0 +1,11 @@
+FROM alpine:3.15
+
+RUN apk add --no-cache \
+    bash \
+    vsql
+
+WORKDIR /app
+
+COPY vertigo_database_status_checker.sh ./
+
+CMD ["bash", "vertigo_database_status_checker.sh"]
