@@ -1,44 +1,53 @@
-import os
-import re
-import urllib2
-import xml.parsers.expat
-from xml.dom.minidom import parseString
+import sys
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ET
+
 
 class XMLError(Exception):
     """Custom exception for XML parsing errors"""
-    pass
+
 
 class URLConnectionError(Exception):
     """Custom exception for URL connection errors"""
-    pass
+
 
 def check_reserved_prefixes(url: str) -> None:
     """
     Check if the XML at the specified URL contains the "reservedPrefixes" element
-    :param url: The URL to check
-    :raises XMLError: If there is an error parsing the XML
-    :raises URLConnectionError: If there is an error connecting to the URL
+
+    Args:
+        url (str): The URL to check
+
+    Raises:
+        XMLError: If there is an error parsing the XML or if "reservedPrefixes" is not found
+        URLConnectionError: If there is an error connecting to the URL
     """
     try:
-        if "http://" not in url:
+        if not url.startswith(("http://", "https://")):
             url = "http://" + url
-        request = urllib2.Request(url)
-        response = urllib2.urlopen(request)
+
+        response = urllib.request.urlopen(url)
         content = response.read()
-        xmldoc = parseString(content)
+
+        try:
+            root = ET.fromstring(content)
+        except ET.ParseError as e:
+            raise XMLError(f"XML parsing error: {str(e)}")
+
         reserved_prefixes_flag = False
-        for node in xmldoc.childNodes:
-            if node.nodeName.lower() == "reservedPrefixes".lower():
-                reserved_prefixes_flag = True
-                break
+
+        for element in root.iter("reservedPrefixes"):
+            reserved_prefixes_flag = True
+            break
+
         if reserved_prefixes_flag:
             print("CHECK #2 OK - reservedPrefixes has been found.")
         else:
             raise XMLError("reservedPrefixes not found.")
-    except urllib2.URLError as e:
-        raise URLConnectionError(str(e))
-    except xml.parsers.expat.ExpatError as e:
-        raise XMLError(str(e))
+    except urllib.error.URLError as e:
+        raise URLConnectionError(f"URL connection error: {str(e)}")
+
 
 def main() -> None:
     """Main function"""
@@ -55,6 +64,7 @@ def main() -> None:
         except URLConnectionError as e:
             print(f"CHECK #2 CRITICAL - URL Error: {e}")
             sys.exit(2)
+
 
 if __name__ == "__main__":
     main()

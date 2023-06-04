@@ -1,24 +1,34 @@
-#!/usr/bin/env python
-# ./membase_stats.py
+#!/usr/bin/env python3
+"""
+membase_stats.py
 
-import subprocess
+Description:
+A script to fetch and process Membase stats.
+
+Author:
+Thomas Vincent
+
+License:
+MIT License
+"""
+
 import getopt
 import sys
-import urllib
-import urllib2
+import urllib.request
 import base64
 import json
+from collections import defaultdict
+
 
 class MembaseStats:
-#mapping a list of resource name we are keeping the state
-    resource_name_mapping = {
+    RESOURCE_NAME_MAPPING = {
         "curr_items": {"description": "Current active items", "unit": "", "type": "current", "name": "current_active_items"},
         "curr_items_tot": {"description": "Current total items", "unit": "", "type": "current", "name": "current_total_items"},
         "ep_num_active_non_resident": {"description": "Current non-resident item", "unit": "", "type": "current", "name": "num_active_items_not_in_RAM"},
         "get_hits": {"description": "Number of fetches", "unit": "", "type": "cumulative", "name": "num_successful_get"},
-        "ep_bg_fetched": {"description": "Number of items fetched from the disk", "unit": "", "type": "cumulative", "name": "num_items_get_from_disk" },
+        "ep_bg_fetched": {"description": "Number of items fetched from the disk", "unit": "", "type": "cumulative", "name": "num_items_get_from_disk"},
         "ep_num_non_resident": {"description": "Number of items stored only on disk, not cached in RAM", "unit": "", "type": "current", "name": "num_total_items_not_in_RAM"},
-        "ep_total_enqueued": {"description": "Total number of items queued for storage" , "unit": "", "type": "cumulative", "name": "total_items_enqueued_for_storage"},
+        "ep_total_enqueued": {"description": "Total number of items queued for storage", "unit": "", "type": "cumulative", "name": "total_items_enqueued_for_storage"},
         "ep_total_new_items": {"description": "Total number of persisted new items", "unit": "", "type": "cumulative", "name": "num_persisted_new_items"},
         "get_misses": {"description": "Number of unsuccessful fetches", "unit": "", "type": "cumulative", "name": "num_unsuccessful_get"},
         "mem_used": {"description": "Current memory usage", "unit": "B", "type": "current", "name": "memory_usage"},
@@ -31,183 +41,121 @@ class MembaseStats:
         "ep_total_del_items": {"description": "Total number of persisted deletions", "unit": "", "type": "cumulative", "name": "num_items_deleted"},
         "ep_item_commit_failed": {"description": "Number of times a transaction failed to commit due to storage errors", "unit": "", "type": "cumulative", "name": "num_failed_transactions"},
         "ep_expired": {"description": "Number of times an item was expired", "unit": "", "type": "cumulative", "name": "expired_items"},
-        }
+    }
 
-    #data_file_name = "/usr/share/appfirst/plugins/membase_stats_data"
-    data_file_name = "./membase_stats_data"
-    prev_stats = {}
-    d_stats = {}
-    list = False
-    # get the previous value from the data we kept
+    def __init__(self):
+        self.data_file_name = "./membase_stats_data"
+        self.prev_stats = set()
+        self.d_stats = defaultdict(int)
+        self.list_stats = False
+        self.url = None
+        self.username = None
+        self.password = None
+
     def before_work(self):
         try:
-            file = open(self.data_file_name, 'r')
-            for line in file.readlines():# read all the previous value line by line
-                items = line.split()
-                if len(items) > 1:
-                    resource_name = items[0]
-                    resource_value = items[1]
-                    try:
-                        self.prev_stats[resource_name] = int(resource_value)
-                    except Exception,e:
-                        pass
-            file.close()
-        except Exception,e:
+            with open(self.data_file_name, 'r') as file:
+                self.prev_stats = set(line.split()[0] for line in file)
+        except FileNotFoundError:
             pass
 
     def after_work(self):
         try:
-            file = open(self.data_file_name, 'w')
-            file_content = ""
-            for key in self.prev_stats:
-                file_content += ("%s %d\n" % (key, self.prev_stats[key]))
-            file.write(file_content)
-            file.close()
-        except:
+            with open(self.data_file_name, 'w') as file:
+                file.writelines(f"{key} {self.prev_stats[key]}\n" for key in self.prev_stats)
+        except IOError:
             pass
 
     def usage(self):
-        print "usage:\n\tmembase_stats.py [-l|--list|-h|--help|--url=URL|--username=USER|--password=PASS]\n\tmembase_stats.py metric|all\n\t\tWhere metric is one of the metrics shown with a -l|--list"
+        print("usage:\n\tmembase_stats.py [-l|--list|-h|--help|--url=URL|--username=USER|--password=PASS]\n\tmembase_stats.py metric|all\n\t\tWhere metric is one of the metrics shown with a -l|--list")
 
     def get_status(self, src_url, remote_user, remote_pass):
-        request = urllib2.Request(src_url)
-        base64string = base64.encodestring('%s:%s' % (remote_user, remote_pass)).replace('\n', '')
-        request.add_header("Authorization", "Basic %s" % base64string)
-        result = urllib2.urlopen(request)
+        request = urllib.request.Request(src_url)
+        base64string = base64.b64encode(f'{remote_user}:{remote_pass}'.encode()).decode()
+        request.add_header("Authorization", f"Basic {base64string}")
+        result = urllib.request.urlopen(request)
         content = result.read()
-        parsed = json.loads(content)
-        parsed = parsed["op"]["samples"]
-        str_stats = ""
-        for each in parsed.keys():
-            str_stats += ("%s:  %s\n") % (each,parsed[each][-1])
-        #print str_stats
-        #sys.exit(1)
-        '''str_stats = subprocess.Popen("/opt/membase/bin/ep_engine/management/stats 127.0.0.1:11210 all",
-            shell = True, stdout=subprocess.PIPE).communicate()[0]
-        stats = str_stats.split('\n')'''
-        stats = str_stats.split('\n')
-        # = content.split('\n','')
-        #print stats
-        for i in range(len(stats) - 1):
-            j = stats[i].index(':')
-            k = stats[i].rindex(' ')
-
-            try:
-                self.d_stats[stats[i][1:j]] = int(stats[i][k+1:])
-            except ValueError:
-                self.d_stats[stats[i][1:j]] = stats[i][k+1:]
+        parsed = json.loads(content)["op"]["samples"]
+        self.d_stats = defaultdict(int, {key: parsed[key][-1] for key in parsed})
 
     def main(self):
         try:
             opts, args = getopt.getopt(sys.argv[1:], "lh", ["list", "help", "url=", "username=", "password="])
-        except getopt.GetoptError, err:
-            # print help information and exit:
-            print str(err) # will print something like "option -a not recognized"
+        except getopt.GetoptError as err:
+            print(str(err))
             self.usage()
             sys.exit(2)
 
-        self.prev_stats = {}
-        self.d_stats = {}
         self.before_work()
-        ####################
-        self.url = None
-        self.username = None
-        self.password = None
-        ####################
-        for o, a in opts:
-            if (o in ("--url")):
-                self.url = a
-            if (o in ("--username")):
-                self.username = a
-            if (o in ("--password")):
-                self.password = a
-            if (o in ("-l")) or (o in ("--list")):
-                self.list = True
-            if (o in ("-h")) or o in ("--help"):
+
+        for opt, arg in opts:
+            if opt == "--url":
+                self.url = arg
+            elif opt == "--username":
+                self.username = arg
+            elif opt == "--password":
+                self.password = arg
+            elif opt in ("-l", "--list"):
+                self.list_stats = True
+            elif opt in ("-h", "--help"):
                 self.usage()
                 sys.exit(0)
 
         self.get_status(src_url=self.url, remote_user=self.username, remote_pass=self.password)
 
-        if self.list is True:
-            for k in self.self.d_stats.iterkeys():
-                print k
+        if self.list_stats:
+            print("\n".join(self.d_stats.keys()))
             sys.exit(0)
-            #
-        # Nagios developer docs define perfomance data format as:
-        #    'label'=value[UOM];[warn];[crit];[min];[max]
-        # Example from check_http:
-        #    HTTP OK: HTTP/1.1 200 OK - 8683 bytes in 1.196 second response time |time=1.196437s;5.000000;10.000000;0.000000 size=8683B;;;0 ec="0"
-        #
+
         perf_data = "Membase_Stats:OK | "
+        keys = args if args and args[0] != "all" else self.d_stats.keys()
 
-        if not args:
-            args.append("all")
-
-        if "all" in args:
-            keys = self.d_stats.iterkeys()
-        else:
-            keys = args
-
-        for key in keys:
-            perf_data += self.process_data(key)
+        data_strings = [self.process_data(key) for key in keys]
+        perf_data += "".join(data_strings)
         perf_data += self.get_resident_ratio()
         perf_data += self.get_cache_miss_ratio()
         perf_data += self.get_replica_resident_ratio()
-        print perf_data
+        print(perf_data)
+
         self.after_work()
 
     def process_data(self, key):
-        ret = " "
-        if self.resource_name_mapping.has_key(key):
-            type = "current"
-            name = key
-            if self.resource_name_mapping[key].has_key('name'):
-                name = self.resource_name_mapping[key]['name']
-            if self.resource_name_mapping[key].has_key('type'):
-                type = self.resource_name_mapping[key]['type']
-            if type == "cumulative":
-                tmp = self.d_stats[key]
-                if self.prev_stats.has_key(key):
-                    self.d_stats[key] = self.d_stats[key] - self.prev_stats[key]
-                    if self.d_stats[key] < 0: #somehow membase is reseted
-                        tmp = 0
-                    else:
-                        ret = "%s=%s%s " % (name, self.d_stats[key], self.resource_name_mapping[key]['unit'])
-                self.prev_stats[key] = tmp # update the value we are keeping track of
-            else:
-                ret = "%s=%s%s " % (name, self.d_stats[key], self.resource_name_mapping[key]['unit'])
-        else:
-            ret = "%s=%s " % (key,self.d_stats[key])
-        return ret
+        if key in self.RESOURCE_NAME_MAPPING:
+            resource_mapping = self.RESOURCE_NAME_MAPPING[key]
+            resource_type = resource_mapping.get('type', 'current')
+            resource_name = resource_mapping.get('name', key)
+            if resource_type == "cumulative":
+                diff = self.d_stats[key] - self.prev_stats.get(key, 0)
+                self.prev_stats[key] = self.d_stats[key]
+                return f"{resource_name}={diff}{resource_mapping['unit']} "
+            return f"{resource_name}={self.d_stats[key]}{resource_mapping['unit']} "
+        return f"{key}={self.d_stats[key]} "
 
     def get_resident_ratio(self):
-        resident_item_ratio = 100
-        if self.d_stats.has_key('ep_num_active_non_resident') and self.d_stats.has_key('curr_items')\
-        and self.d_stats['curr_items'] > 0:
+        if 'ep_num_active_non_resident' in self.d_stats and 'curr_items' in self.d_stats and self.d_stats['curr_items'] > 0:
             resident_item_ratio = 100 - float(self.d_stats['ep_num_active_non_resident']) / float(self.d_stats['curr_items']) * 100
-        if resident_item_ratio < 0:
-            resident_item_ratio = 0
-        return "%s=%s%s " % ('resident_item_ratio', resident_item_ratio, '%')
+            resident_item_ratio = max(resident_item_ratio, 0)
+            return f"resident_item_ratio={resident_item_ratio}% "
+        return ""
 
     def get_cache_miss_ratio(self):
-        cache_miss_ratio = 0
-        if self.d_stats.has_key('get_hits') and self.d_stats.has_key('ep_bg_fetched') and self.d_stats['get_hits'] > 0:
+        if 'get_hits' in self.d_stats and 'ep_bg_fetched' in self.d_stats and self.d_stats['get_hits'] > 0:
             cache_miss_ratio = float(self.d_stats['ep_bg_fetched']) / float(self.d_stats['get_hits']) * 100
-        return "%s=%s%s " % ('cache_miss_ratio', cache_miss_ratio, '%')
+            return f"cache_miss_ratio={cache_miss_ratio}% "
+        return ""
 
     def get_replica_resident_ratio(self):
-        replica_resident_ratio = 100
-        if self.d_stats.has_key('ep_num_non_resident') and self.d_stats.has_key('curr_items_tot')\
-           and self.d_stats['curr_items_tot'] > 0 and self.d_stats.has_key("curr_items") and self.d_stats.has_key('ep_num_active_non_resident'):
-            if self.d_stats['curr_items_tot'] > self.d_stats['curr_items']:
-                replica_resident_ratio = 100 - float(self.d_stats['ep_num_non_resident'] - self.d_stats['ep_num_active_non_resident']) / float(self.d_stats['curr_items_tot'] - self.d_stats['curr_items']) * 100
-                print replica_resident_ratio
-            if replica_resident_ratio < 0:
-                replica_resident_ratio = 0
-        return "%s=%s%s " % ('replica_resident_ratio', replica_resident_ratio, '%')
+        if 'ep_num_non_resident' in self.d_stats and 'curr_items_tot' in self.d_stats and 'curr_items' in self.d_stats and 'ep_num_active_non_resident' in self.d_stats:
+            total_items_diff = self.d_stats['curr_items_tot'] - self.d_stats['curr_items']
+            if total_items_diff > 0:
+                numerator = self.d_stats['ep_num_non_resident'] - self.d_stats['ep_num_active_non_resident']
+                denominator = total_items_diff
+                replica_resident_ratio = 100 - (numerator / denominator) * 100
+                replica_resident_ratio = max(replica_resident_ratio, 0)
+                return f"replica_resident_ratio={replica_resident_ratio}% "
+        return ""
+
 
 if __name__ == "__main__":
     stat = MembaseStats()
     stat.main()
-
