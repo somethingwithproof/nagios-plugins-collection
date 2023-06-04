@@ -2,7 +2,7 @@
 .idea
 # C extensions
 *.so
-
+.dependabot
 # Packages
 *.egg
 *.egg-info
