@@ -1,0 +1,30 @@
+pipeline {
+    agent none
+    stages {
+        stage('Test') {
+            agent {
+                docker {
+                    image 'python:3.9'
+                    args '-v /usr/local/bin:/target'
+                }
+            }
+            steps {
+                echo 'Installing dependencies...'
+                sh 'pip install tox'
+                echo 'Running tests with tox...'
+                sh 'tox'
+            }
+        }
+    }
+    post {
+        always {
+            echo 'This will always run'
+        }
+        success {
+            echo 'Tests completed successfully'
+        }
+        failure {
+            echo 'Tests failed'
+        }
+    }
+}

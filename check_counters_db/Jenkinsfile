@@ -1,0 +1,26 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build') {
+            steps {
+                // Build the Docker image
+                script {
+                    def dockerImage = docker.build('vertigo_status_checker')
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                // Run the tests inside the Docker container using Tox
+                script {
+                    docker.image('vertigo_status_checker').inside {
+                        sh 'pip install tox'
+                        sh 'tox'
+                    }
+                }
+            }
+        }
+    }
+}

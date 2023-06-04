@@ -1,0 +1,17 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Build') {
+      steps {
+        sh 'docker build -t check_status .'
+      }
+    }
+
+    stage('Run') {
+      steps {
+        sh 'docker run -it check_status https://www.google.com/'
+      }
+    }
+  }
+}
