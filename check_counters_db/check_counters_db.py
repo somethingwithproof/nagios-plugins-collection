@@ -3,11 +3,11 @@
 Script for connecting to a Vertica database and executing queries.
 
 This script establishes a connection to a Vertica database using the provided host, user, password, and database name.
-It then executes a set of predefined queries and prints the results.
+It then executes a set of predefined queries and logs the results.
 
 MIT License
 
-Copyright (c) 2023 THomas Vincent
+Copyright (c) 2024 Thomas Vincent
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
 to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -21,12 +21,19 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
 """
 
 import os
-import psycopg2
+import logging
+from psycopg2 import connect, DatabaseError, OperationalError
 from typing import List
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 class VerticaConnector:
-    """Class for connecting to Vertica database and executing queries"""
+    """Class for connecting to a Vertica database and executing queries."""
 
     def __init__(self, host: str, user: str, password: str, database: str):
         """
@@ -49,13 +56,20 @@ class VerticaConnector:
 
         Returns:
             psycopg2.extensions.connection: The database connection object.
+
+        Raises:
+            DatabaseError: If the connection to the database fails.
         """
-        return psycopg2.connect(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            database=self.database
-        )
+        try:
+            return connect(
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                database=self.database
+            )
+        except OperationalError as e:
+            logging.error("Failed to connect to the database: %s", e)
+            raise
 
     def execute_queries(self, queries: List[str]) -> List[int]:
         """
@@ -66,28 +80,37 @@ class VerticaConnector:
 
         Returns:
             List[int]: The list of results as integers.
+
+        Raises:
+            DatabaseError: If query execution fails.
         """
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                results = []
-                for query in queries:
-                    cur.execute(query)
-                    results.append(cur.fetchone()[0])
-                return results
+        try:
+            with self.connect() as conn:
+                with conn.cursor() as cur:
+                    results = []
+                    for query in queries:
+                        cur.execute(query)
+                        result = cur.fetchone()[0]
+                        results.append(result)
+                        logging.info("Executed query: %s, Result: %s", query, result)
+                    return results
+        except DatabaseError as e:
+            logging.error("Query execution failed: %s", e)
+            raise
 
     def print_results(self, results: List[int]) -> None:
         """
-        Print the results.
+        Log the results.
 
         Args:
-            results (List[int]): The list of results to print.
+            results (List[int]): The list of results to log.
         """
         for i, result in enumerate(results, start=1):
-            print(f"R{i}: {result}")
+            logging.info("Result %d: %d", i, result)
 
 
 def main() -> None:
-    """Main function of the script"""
+    """Main function of the script."""
 
     # Get connection details from environment variables
     host = os.environ.get('VERTICA_HOST')
@@ -95,7 +118,9 @@ def main() -> None:
     password = os.environ.get('VERTICA_PASSWORD')
 
     if not all((host, user, password)):
-        print("Missing connection details. Please set the environment variables: VERTICA_HOST, VERTICA_USER, VERTICA_PASSWORD")
+        logging.error(
+            "Missing connection details. Please set the environment variables: VERTICA_HOST, VERTICA_USER, VERTICA_PASSWORD"
+        )
         return
 
     # Create VerticaConnector instance
@@ -109,9 +134,12 @@ def main() -> None:
         "SELECT COUNT(*) FROM active_events WHERE event_code_description = 'Stale Checkpoint';"
     ]
 
-    # Execute the queries and print the results
-    results = vertica_connector.execute_queries(queries)
-    vertica_connector.print_results(results)
+    try:
+        # Execute the queries and log the results
+        results = vertica_connector.execute_queries(queries)
+        vertica_connector.print_results(results)
+    except Exception as e:
+        logging.error("An error occurred: %s", e)
 
 
 if __name__ == '__main__':
