@@ -14,8 +14,9 @@ These instructions will get you a copy of the project up and running on your loc
 ### Installing
 
 To install the dependencies, you can use the `requirements.txt` file by running:
+```bash
 pip install -r requirements.txt
-
+```
 
 ### Configuration
 
@@ -23,8 +24,10 @@ The database connection parameters (hostname, username, password) are passed as 
 
 ### Running the script
 
-To run the script, use the following command: 
+To run the script, use the following command:
+```bash
 python3 monitor_vertica.py
+```
 
 The script will connect to the Vertica database using the environment variables and execute the specified queries, then print the results to the console.
 
