@@ -1,3 +1,4 @@
+unittest-xml-reporting>=3.0.4  # For generating JUnit-style XML test reports
 subprocess
 json
 httpx
