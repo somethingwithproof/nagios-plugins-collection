@@ -1,99 +1,105 @@
 import unittest
-import hadoop
 from unittest.mock import patch, MagicMock
+import hadoop_checker
+import sys
 
-class TestHadoop(unittest.TestCase):
+class TestHadoopChecker(unittest.TestCase):
 
-    def test_help(self):
-        """
-        Test that the help function exits with status code 3
-        """
+    @patch('subprocess.check_output')
+    def test_get_hadoop_version(self, mock_subprocess):
+        mock_subprocess.return_value = "Hadoop 3.3.0\n".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        self.assertEqual(checker.get_hadoop_version(), "3.3.0")
+
+    @patch('subprocess.check_output')
+    def test_check_hadoop_ok(self, mock_subprocess):
+        mock_subprocess.return_value = '{"status": "GOOD", "message": "All systems operational"}'.encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_hadoop()
+        self.assertEqual(status, checker.OK)
+        self.assertIn("All systems operational", message)
+
+    @patch('subprocess.check_output')
+    def test_check_hadoop_bad(self, mock_subprocess):
+        mock_subprocess.return_value = '{"status": "BAD", "message": "Critical issues detected"}'.encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_hadoop()
+        self.assertEqual(status, checker.CRITICAL)
+        self.assertIn("Critical issues detected", message)
+
+    @patch('subprocess.check_output')
+    def test_check_hdfs_capacity_warning(self, mock_subprocess):
+        mock_subprocess.return_value = "DFS Used%: 85.0%\n".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker(hdfs_warning=80, hdfs_critical=90)
+        status, message = checker.check_hdfs_capacity()
+        self.assertEqual(status, checker.WARNING)
+        self.assertIn("85.0% used", message)
+
+    @patch('subprocess.check_output')
+    def test_check_hdfs_capacity_critical(self, mock_subprocess):
+        mock_subprocess.return_value = "DFS Used%: 95.0%\n".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker(hdfs_warning=80, hdfs_critical=90)
+        status, message = checker.check_hdfs_capacity()
+        self.assertEqual(status, checker.CRITICAL)
+        self.assertIn("95.0% used", message)
+
+    @patch('subprocess.check_output')
+    def test_check_datanode_status_ok(self, mock_subprocess):
+        mock_subprocess.return_value = "Live datanodes: 10\n".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_datanode_status()
+        self.assertEqual(status, checker.OK)
+        self.assertIn("10 live DataNodes found", message)
+
+    @patch('subprocess.check_output')
+    def test_check_datanode_status_critical(self, mock_subprocess):
+        mock_subprocess.return_value = "Live datanodes: 0\n".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_datanode_status()
+        self.assertEqual(status, checker.CRITICAL)
+        self.assertIn("No live DataNodes found", message)
+
+    @patch('subprocess.check_output')
+    def test_invalid_json(self, mock_subprocess):
+        mock_subprocess.return_value = "{invalid_json".encode('utf-8')
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_hadoop()
+        self.assertEqual(status, checker.UNKNOWN)
+        self.assertIn("Error decoding JSON", message)
+
+    @patch('subprocess.check_output', side_effect=FileNotFoundError)
+    def test_missing_hadoop_command(self, mock_subprocess):
+        checker = hadoop_checker.HadoopHealthChecker()
+        status, message = checker.check_hadoop()
+        self.assertEqual(status, checker.UNKNOWN)
+        self.assertIn("command not found", message)
+
+
+class TestCommandLineIntegration(unittest.TestCase):
+
+    @patch('hadoop_checker.HadoopHealthChecker.check_hadoop', return_value=('OK', 'Hadoop is healthy'))
+    @patch('hadoop_checker.HadoopHealthChecker.check_hdfs_capacity', return_value=('OK', 'HDFS is healthy'))
+    @patch('hadoop_checker.HadoopHealthChecker.check_datanode_status', return_value=('OK', 'DataNodes are healthy'))
+    def test_integration_all_checks_ok(self, mock_check_hadoop, mock_check_hdfs, mock_check_datanodes):
+        sys.argv = ["hadoop_checker.py", "--check", "all"]
         with self.assertRaises(SystemExit) as cm:
-            hadoop.help()
-        self.assertEqual(cm.exception.code, 3)
-
-    @patch('urllib.request.urlopen')
-    def test_main_ok_status(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 0 when the JSON API returns an "ok" status
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
+            hadoop_checker.main()
         self.assertEqual(cm.exception.code, 0)
 
-    @patch('urllib.request.urlopen')
-    def test_main_bad_status(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 1 when the JSON API returns a non "ok" status
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"bad", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
+    @patch('hadoop_checker.HadoopHealthChecker.check_hdfs_capacity', return_value=('CRITICAL', 'HDFS capacity exceeded'))
+    def test_integration_hdfs_critical(self, mock_check_hdfs):
+        sys.argv = ["hadoop_checker.py", "--check", "hdfs"]
         with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
+            hadoop_checker.main()
+        self.assertEqual(cm.exception.code, 2)
+
+    @patch('hadoop_checker.HadoopHealthChecker.check_datanode_status', return_value=('WARNING', 'Few live DataNodes'))
+    def test_integration_datanodes_warning(self, mock_check_datanodes):
+        sys.argv = ["hadoop_checker.py", "--check", "datanode"]
+        with self.assertRaises(SystemExit) as cm:
+            hadoop_checker.main()
         self.assertEqual(cm.exception.code, 1)
 
-    @patch('urllib.request.urlopen')
-    def test_main_bad_subcomponent_status(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 2 when a subcomponent of the JSON API returns a non "ok" status
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"bad", "name":"component1", "updated":"2022-01-01 00:00:00", "message":""}]}')
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 2)
 
-    @patch('urllib.request.urlopen')
-    def test_main_time_check(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 1 when the -t argument is provided and the time since the last update of a subcomponent exceeds the specified value
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}]}')
-        sys.argv = ["hadoop.py", "-
-        sys.argv = ["hadoop.py", "-url=test.com", "-t=10"]
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 1)
-
-    @patch('urllib.request.urlopen')
-    def test_main_no_url_provided(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 3 when no URL is provided
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}]}')
-        sys.argv = ["hadoop.py"]
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 3)
-
-    @patch('urllib.request.urlopen')
-    def test_main_invalid_url(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 2 when an invalid URL is provided
-        """
-        mock_urlopen.side_effect = urllib.error.URLError("Invalid URL")
-        sys.argv = ["hadoop.py", "-url=invalid.com"]
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 2)
-
-    @patch('urllib.request.urlopen')
-    def test_main_invalid_json(self, mock_urlopen):
-        """
-        Test that the main function exits with status code 2 when an invalid JSON is returned from the URL
-        """
-        mock_urlopen.return_value = MagicMock(read=lambda: b'{"status":"ok", "subcomponents":[{"status":"ok", "name":"component1", "updated":"2010-01-01 00:00:00", "message":""}')
-        sys.argv = ["hadoop.py", "-url=test.com"]
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 2)
-
-class TestIntegration(unittest.TestCase):
-
-    def test_integration(self):
-        """
-        Test that the script works as expected when run with valid command line arguments and a valid JSON API
-        """
-        sys.argv = ["hadoop.py", "-url=http://test.com"]
-        with self.assertRaises(SystemExit) as cm:
-            hadoop.main()
-        self.assertEqual(cm.exception.code, 0)
+if __name__ == '__main__':
+    unittest.main()
