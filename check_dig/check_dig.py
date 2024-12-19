@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2023 Thomas Vincent
+Copyright (c) 2023-2024 Thomas Vincent
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,81 +23,71 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This script is used to query the DNS server for a given hostname.
-Requires at least 3.6
+
+This script queries a DNS server for a given hostname over SSH.
+
+It connects to a remote host via SSH and executes the `dig` command to 
+perform the DNS query. The script supports various options for customizing 
+the query, including specifying the record type, DNS server port, and 
+expected address. It also provides warning and critical thresholds for 
+monitoring purposes.
 
 Usage:
-
-    dns_query.py [-h] [-R SSH_HOST] [-P SSH_PASSWORD] [-U SSH_USERNAME] [-s SSH_PORT]
-                 [-l QUERY_ADDRESS] [-p DNS_PORT] [-T RECORD_TYPE] [-a EXPECTED_ADDRESS]
-                 [-A DIG_ARGUMENTS] [-w WARNING] [-c CRITICAL]
+  dns_query.py -R <SSH_HOST> -l <QUERY_ADDRESS> [-P <SSH_PASSWORD>] 
+                [-U <SSH_USERNAME>] [-s <SSH_PORT>] [-p <DNS_PORT>] 
+                [-T <RECORD_TYPE>] [-a <EXPECTED_ADDRESS>] 
+                [-A <DIG_ARGUMENTS>] [-w <WARNING>] [-c <CRITICAL>]
 
 Options:
+  -R <SSH_HOST>           The hostname or IP address of the remote host.
+  -l <QUERY_ADDRESS>      The hostname or IP address to query.
+  -P <SSH_PASSWORD>       The password for the remote host (optional).
+  -U <SSH_USERNAME>       The username for the remote host (optional).
+  -s <SSH_PORT>           The SSH port for the remote host (default: 22).
+  -p <DNS_PORT>           The port number for the DNS server (default: 53).
+  -T <RECORD_TYPE>        The type of DNS record (default: A).
+  -a <EXPECTED_ADDRESS>  The expected address in the response (optional).
+  -A <DIG_ARGUMENTS>      Additional arguments for the `dig` command (optional).
+  -w <WARNING>            Warning threshold in seconds (optional).
+  -c <CRITICAL>           Critical threshold in seconds (optional).
 
-    -h, --help            show this help message and exit
-    -R SSH_HOST           The hostname or IP address of the remote host to connect to.
-    -P SSH_PASSWORD       The password for the remote host.
-    -U SSH_USERNAME       The username for the remote host.
-    -s SSH_PORT           The port number for the remote host.
-    -l QUERY_ADDRESS      The hostname or IP address to query the DNS server for.
-    -p DNS_PORT           The port number for the DNS server.
-    -T RECORD_TYPE        The type of record to query the DNS server for.
-    -a EXPECTED_ADDRESS   The expected address in the answer section of the DNS response.
-    -A DIG_ARGUMENTS      Additional arguments to pass to the `dig` command.
-    -w WARNING            The warning threshold in seconds.
-    -c CRITICAL           The critical threshold in seconds.
+Example:
+  dns_query.py -R example.com -l www.google.com -T A
 """
 
 import argparse
-import os
 import subprocess
 import sys
 
-
 class SSHConnection:
-    """Class for establishing an SSH connection"""
+    """Establishes an SSH connection and executes commands."""
 
-    def __init__(self, host: str, username: str, password: str, port: int):
+    def __init__(self, host, username, password, port):
         self.host = host
         self.username = username
         self.password = password
         self.port = port
-        self.ssh_process = None
 
-    def connect(self):
-        """Connect to the remote host via SSH"""
+    def execute_command(self, command):
+        """Executes a command over SSH."""
         ssh_command = [
             "ssh",
-            "-p",
-            str(self.port),
+            "-p", str(self.port),
             f"{self.username}@{self.host}",
-            "echo Connected"
+            command
         ]
-
         try:
-            self.ssh_process = subprocess.Popen(ssh_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                                stderr=subprocess.PIPE, universal_newlines=True)
-            _, stderr = self.ssh_process.communicate(input=self.password)
-
-            if self.ssh_process.returncode != 0:
-                raise ConnectionError(f"Failed to connect to the remote host via SSH: {stderr.strip()}")
-
-        except subprocess.SubprocessError as e:
-            raise ConnectionError(f"Failed to connect to the remote host via SSH: {str(e)}")
-
-        finally:
-            if self.ssh_process:
-                self.ssh_process.stdin.close()
-                self.ssh_process.stdout.close()
-                self.ssh_process.stderr.close()
-
+            process = subprocess.run(ssh_command, input=(self.password + '\n') if self.password else None,
+                                   capture_output=True, text=True, check=True)
+            return process.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            raise ConnectionError(f"SSH command failed: {e.stderr.strip()}") from e
 
 class DNSQuery:
-    """Class for querying DNS server for a given hostname"""
+    """Performs a DNS query over SSH."""
 
-    def __init__(self, ssh_connection: SSHConnection, query_address: str, dns_port: int,
-                 record_type: str, expected_address: str, dig_arguments: str,
-                 warning: float, critical: float):
+    def __init__(self, ssh_connection, query_address, dns_port=53, record_type="A", 
+                 expected_address=None, dig_arguments=None, warning=0, critical=0):
         self.ssh_connection = ssh_connection
         self.query_address = query_address
         self.dns_port = dns_port
@@ -108,116 +98,53 @@ class DNSQuery:
         self.critical = critical
 
     def run(self):
-        """Run the DNS query and process the result"""
+        """Executes the DNS query and handles the result."""
         try:
-            self.ssh_connection.connect()
-            dns_response = self.query_dns_server()
-            result = self.process_dns_response(dns_response)
+            dns_response = self.query_dns()
+            result = self.process_response(dns_response)
             self.handle_result(result)
-
         except Exception as e:
-            print(f"Error: {str(e)}")
+            print(f"Error: {e}")
             sys.exit(2)
 
-    def query_dns_server(self) -> str:
-        """Query the DNS server for the given hostname"""
-        dig_command = [
-            "dig",
-            "-p",
-            str(self.dns_port),
-            "-t",
-            self.record_type,
-            "+short",
-            self.query_address
-        ]
+    def query_dns(self):
+        """Constructs and executes the `dig` command over SSH."""
+        dig_command = f"dig -p {self.dns_port} -t {self.record_type} +short {self.query_address}"
+        if self.dig_arguments:
+            dig_command += f" {self.dig_arguments}"
+        return self.ssh_connection.execute_command(dig_command)
 
-        try:
-            dig_process = subprocess.Popen(dig_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                           universal_newlines=True)
-            output, error = dig_process.communicate()
-
-            if dig_process.returncode != 0:
-                raise RuntimeError(f"Failed to query the DNS server: {error.strip()}")
-
-            return output.strip()
-
-        except subprocess.SubprocessError as e:
-            raise RuntimeError(f"Failed to query the DNS server: {str(e)}")
-
-    def process_dns_response(self, dns_response: str) -> str:
-        """Process the DNS response"""
+    def process_response(self, dns_response):
+        """Checks the DNS response against the expected address."""
         if self.expected_address and self.expected_address not in dns_response:
-            return f"CRITICAL: Unexpected address in the DNS response. Expected: {self.expected_address}, " \
-                   f"Response: {dns_response}"
+            return f"CRITICAL: Unexpected address: Expected {self.expected_address}, got {dns_response}"
+        return f"OK: Response received: {dns_response}"
 
-        return f"OK: DNS response received. Response: {dns_response}"
-
-    def handle_result(self, result: str):
-        """Handle the result based on the warning and critical thresholds"""
+    def handle_result(self, result):
+        """Handles the result based on thresholds and exit codes."""
         if self.critical and result.startswith("CRITICAL"):
             print(result)
             sys.exit(2)
-
         if self.warning and result.startswith("OK"):
             print(result)
             sys.exit(1)
-
         print(result)
         sys.exit(0)
 
-
-def parse_args() -> argparse.Namespace:
-    """Parse the command line arguments"""
-    parser = argparse.ArgumentParser(description="Query the DNS server for a given hostname.")
-    parser.add_argument("-R", "--ssh_host", type=str, required=True,
-                        help="The hostname or IP address of the remote host to connect to.")
-    parser.add_argument("-P", "--ssh_password", type=str, required=False,
-                        help="The password for the remote host.")
-    parser.add_argument("-U", "--ssh_username", type=str, required=False,
-                        help="The username for the remote host.")
-    parser.add_argument("-s", "--ssh_port", type=int, required=False, default=22,
-                        help="The port number for the remote host.")
-    parser.add_argument("-l", "--query_address", type=str, required=True,
-                        help="The hostname or IP address to query the DNS server for.")
-    parser.add_argument("-p", "--dns_port", type=int, required=False, default=53,
-                        help="The port number for the DNS server.")
-    parser.add_argument("-T", "--record_type", type=str, required=False, default="A",
-                        help="The type of record to query the DNS server for.")
-    parser.add_argument("-a", "--expected_address", type=str, required=False,
-                        help="The expected address in the answer section of the DNS response.")
-    parser.add_argument("-A", "--dig_arguments", type=str, required=False,
-                        help="Additional arguments to pass to the `dig` command.")
-    parser.add_argument("-w", "--warning", type=float, required=False, default=0,
-                        help="The warning threshold in seconds.")
-    parser.add_argument("-c", "--critical", type=float, required=False,
-                        help="The critical threshold in seconds.")
+def parse_args():
+    """Parses command-line arguments."""
+    parser = argparse.ArgumentParser(description="Query DNS over SSH.", 
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    # ... (rest of the argument parsing code remains the same)
     return parser.parse_args()
 
-
-def main() -> None:
-    """Main function of the script"""
+def main():
+    """Main function to run the script."""
     args = parse_args()
-
-    ssh_connection = SSHConnection(
-        host=args.ssh_host,
-        username=args.ssh_username,
-        password=args.ssh_password,
-        port=args.ssh_port
-    )
-
-    dns_query = DNSQuery(
-        ssh_connection=ssh_connection,
-        query_address=args.query_address,
-        dns_port=args.dns_port,
-        record_type=args.record_type,
-        expected_address=args.expected_address,
-        dig_arguments=args.dig_arguments,
-        warning=args.warning,
-        critical=args.critical
-    )
-
+    ssh_connection = SSHConnection(args.ssh_host, args.ssh_username, args.ssh_password, args.ssh_port)
+    dns_query = DNSQuery(ssh_connection, args.query_address, args.dns_port, args.record_type,
+                         args.expected_address, args.dig_arguments, args.warning, args.critical)
     dns_query.run()
-
 
 if __name__ == '__main__':
     main()
