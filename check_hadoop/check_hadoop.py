@@ -5,9 +5,10 @@ import json
 import subprocess
 import logging
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
-logging.basicConfig(filename='hadoop_checker.log', level=logging.ERROR)
+logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.ERROR)
 
 class HadoopHealthChecker:
     OK = 'OK'
@@ -15,116 +16,102 @@ class HadoopHealthChecker:
     CRITICAL = 'CRITICAL'
     UNKNOWN = 'UNKNOWN'
 
-    def __init__(self):
+    def __init__(self, hdfs_warning=90, hdfs_critical=95, verbose=False):
+        self.hdfs_warning = hdfs_warning
+        self.hdfs_critical = hdfs_critical
+        self.verbose = verbose
         self.version = self.get_hadoop_version()
+        if verbose:
+            logging.getLogger().setLevel(logging.DEBUG)
 
     def get_hadoop_version(self) -> str:
         try:
-            output = subprocess.check_output(['hadoop', 'version'], 
-                                             stderr=subprocess.PIPE, 
-                                             encoding='utf-8')
-            version = output.splitlines()[0].split(' ')[1]
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Error getting Hadoop version: {e}") 
-            version = 'unknown'
-        return version
+            output = subprocess.check_output(['hadoop', 'version'], stderr=subprocess.PIPE, encoding='utf-8')
+            return output.splitlines()[0].split(' ')[1]
+        except Exception as e:
+            logging.error(f"Error fetching Hadoop version: {e}")
+            return 'unknown'
 
     def check_hadoop(self) -> tuple:
         try:
-            output = subprocess.check_output(['hadoop', 'health', '-json'], 
-                                             stderr=subprocess.PIPE, 
-                                             encoding='utf-8')
+            output = subprocess.check_output(['hadoop', 'health', '-json'], stderr=subprocess.PIPE, encoding='utf-8')
             health_data = json.loads(output)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Error running 'hadoop health': {e}")
-            return (self.UNKNOWN, f"Error running 'hadoop health': {e.stderr}")
-        except json.JSONDecodeError as e:
-            logging.error(f"Error decoding JSON output: {e}")
-            return (self.UNKNOWN, "Error decoding JSON output from 'hadoop health'")
-
-        status = health_data.get('status', self.UNKNOWN)
-        message = health_data.get('message', 'No message returned')
-
-        if status == 'GOOD':
-            return (self.OK, f'Hadoop {self.version} is healthy: {message}')
-        elif status == 'CONCERNING':
-            return (self.WARNING, f'Hadoop {self.version} is concerning: {message}')
-        elif status == 'BAD':
-            return (self.CRITICAL, f'Hadoop {self.version} is in a bad state: {message}')
-        else:
-            return (self.UNKNOWN, f'Hadoop {self.version} is in an unknown state: {message}')
+            status = health_data.get('status', self.UNKNOWN)
+            message = health_data.get('message', 'No message returned')
+            return (self.OK if status == 'GOOD' else self.CRITICAL, message)
+        except Exception as e:
+            logging.error(f"Error checking Hadoop health: {e}")
+            return (self.UNKNOWN, str(e))
 
     def check_hdfs_capacity(self) -> tuple:
         try:
-            output = subprocess.check_output(['hdfs', 'dfsadmin', '-report'],
-                                             stderr=subprocess.PIPE,
-                                             encoding='utf-8')
-            # (Simplified) Parse output to find capacity information
+            output = subprocess.check_output(['hdfs', 'dfsadmin', '-report'], stderr=subprocess.PIPE, encoding='utf-8')
             for line in output.splitlines():
                 if "DFS Used%" in line:
-                    capacity_used_percent = float(line.split()[-2].rstrip('%')) 
-                    break
-            else:
-                return (self.UNKNOWN, "Could not determine HDFS capacity")
-
-            if capacity_used_percent > 90: 
-                return (self.WARNING, f"HDFS capacity is high: {capacity_used_percent}% used")
-            else:
-                return (self.OK, f"HDFS capacity: {capacity_used_percent}% used")
-        except subprocess.CalledProcessError as e:
+                    capacity_used = float(line.split()[-2].strip('%'))
+                    if capacity_used > self.hdfs_critical:
+                        return (self.CRITICAL, f"HDFS capacity is critical: {capacity_used}% used")
+                    elif capacity_used > self.hdfs_warning:
+                        return (self.WARNING, f"HDFS capacity is warning: {capacity_used}% used")
+                    return (self.OK, f"HDFS capacity: {capacity_used}% used")
+            return (self.UNKNOWN, "Could not determine HDFS capacity")
+        except Exception as e:
             logging.error(f"Error checking HDFS capacity: {e}")
-            return (self.UNKNOWN, f"Error checking HDFS capacity: {e.stderr}")
-
+            return (self.UNKNOWN, str(e))
 
     def check_datanode_status(self) -> tuple:
         try:
-            output = subprocess.check_output(['hdfs', 'dfsadmin', '-report'],
-                                             stderr=subprocess.PIPE,
-                                             encoding='utf-8')
-            # (Simplified) Parse output to find live datanodes
+            output = subprocess.check_output(['hdfs', 'dfsadmin', '-report'], stderr=subprocess.PIPE, encoding='utf-8')
             for line in output.splitlines():
                 if "Live datanodes" in line:
                     live_datanodes = int(line.split(':')[1].strip())
-                    break
-            else:
-                return (self.UNKNOWN, "Could not determine live DataNodes")
-
-            if live_datanodes == 0:
-                return (self.CRITICAL, "No live DataNodes found!")
-            else:
-                return (self.OK, f"{live_datanodes} live DataNodes found")
-        except subprocess.CalledProcessError as e:
+                    if live_datanodes == 0:
+                        return (self.CRITICAL, "No live DataNodes found")
+                    return (self.OK, f"{live_datanodes} live DataNodes found")
+            return (self.UNKNOWN, "Could not determine DataNode status")
+        except Exception as e:
             logging.error(f"Error checking DataNode status: {e}")
-            return (self.UNKNOWN, f"Error checking DataNode status: {e.stderr}")
+            return (self.UNKNOWN, str(e))
 
-    def format_output(self, status, message):
-        return f'{status} - {message}' 
+    def format_output(self, status, message, output_format):
+        if output_format == 'json':
+            return json.dumps({'status': status, 'message': message}, indent=2)
+        return f'{status} - {message}'
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Hadoop Health Checker')
+    parser.add_argument('--hdfs-warning', type=int, default=90, help='HDFS warning threshold (default: 90%)')
+    parser.add_argument('--hdfs-critical', type=int, default=95, help='HDFS critical threshold (default: 95%)')
+    parser.add_argument('--output', choices=['text', 'json'], default='text', help='Output format (default: text)')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument('--check', choices=['hadoop', 'hdfs', 'datanode', 'all'], default='all', help='Select specific checks (default: all)')
+    return parser.parse_args()
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Check Hadoop health')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    args = parser.parse_args()
+    args = parse_args()
+    checker = HadoopHealthChecker(hdfs_warning=args.hdfs_warning, hdfs_critical=args.hdfs_critical, verbose=args.verbose)
 
-    hadoop_checker = HadoopHealthChecker()
+    checks = {
+        'hadoop': checker.check_hadoop,
+        'hdfs': checker.check_hdfs_capacity,
+        'datanode': checker.check_datanode_status
+    }
 
-    if args.verbose:
-        print(f"Hadoop Version: {hadoop_checker.version}")
+    if args.check == 'all':
+        selected_checks = checks.values()
+    else:
+        selected_checks = [checks[args.check]]
 
-    status, message = hadoop_checker.check_hadoop()
-    print(hadoop_checker.format_output(status, message))
+    results = []
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(lambda check: check(), selected_checks))
 
-    hdfs_status, hdfs_message = hadoop_checker.check_hdfs_capacity()
-    print(hadoop_checker.format_output(hdfs_status, hdfs_message))
+    for status, message in results:
+        print(checker.format_output(status, message, args.output))
 
-    datanode_status, datanode_message = hadoop_checker.check_datanode_status()
-    print(hadoop_checker.format_output(datanode_status, datanode_message))
-
-    # Exit with the most severe status
-    exit_code = {
-        HadoopHealthChecker.OK: 0,
-        HadoopHealthChecker.WARNING: 1,
-        HadoopHealthChecker.CRITICAL: 2,
-        HadoopHealthChecker.UNKNOWN: 3
-    }.get(status, 3)  # Default to UNKNOWN if status is not found
-
+    exit_code = max(
+        ['OK', 'WARNING', 'CRITICAL', 'UNKNOWN'].index(r[0]) for r in results
+    )
     sys.exit(exit_code)
