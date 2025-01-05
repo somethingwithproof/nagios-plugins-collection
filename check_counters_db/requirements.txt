@@ -5,3 +5,4 @@ pytest-cov>=4.1.0
 flake8>=6.1.0
 flake8-docstrings>=1.7.0
 black>=23.9.1
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
