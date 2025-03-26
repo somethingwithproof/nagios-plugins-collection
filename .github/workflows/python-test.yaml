@@ -1,36 +1,39 @@
 name: Test
+
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v3  # Use latest version
+
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4  # Use newer version
         with:
-          python-version: 3.8
+          python-version: '3.8'
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Get list of projects
         run: |
-          projects=$(find . -type d -name '*.py')
-      - name: Check if projects are Python
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Discover Python projects with setup.py
+        id: discover
         run: |
-          for project in $projects; do
-            if [[ ! -f $project/setup.py ]]; then
-              echo "Skipping $project because it is not a Python project"
-              continue
-            fi
-          done
+          echo "projects=$(find . -type f -name 'setup.py' -exec dirname {} \; | paste -sd ' ' -)" >> $GITHUB_OUTPUT
+
       - name: Run tests
         run: |
-          for project in $projects; do
-            cd $project
-            pytest
+          for project in ${{ steps.discover.outputs.projects }}; do
+            echo "Testing $project"
+            cd "$project"
+            pytest || exit 1
+            cd - > /dev/null
           done
