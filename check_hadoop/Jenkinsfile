@@ -1,0 +1,333 @@
+pipeline {
+    agent none
+    
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 2, unit: 'HOURS')
+        disableConcurrentBuilds()
+    }
+    
+    parameters {
+        booleanParam(name: 'RUN_INTEGRATION_TESTS', defaultValue: true, description: 'Run integration tests with real Hadoop clusters')
+        booleanParam(name: 'PUBLISH_PACKAGE', defaultValue: false, description: 'Publish package to artifact repository')
+        choice(name: 'RELEASE_TYPE', choices: ['snapshot', 'release'], description: 'Type of release')
+    }
+    
+    stages {
+        stage('Build Matrix') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PYTHON_VERSION'
+                        values '3.7', '3.8', '3.9', '3.10', '3.11', '3.12'
+                    }
+                    axis {
+                        name 'HADOOP_VERSION'
+                        values '2', '3'
+                    }
+                    axis {
+                        name 'NAGS_VERSION'
+                        values '004', '010', '020'
+                    }
+                }
+                
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PYTHON_VERSION'
+                            values '3.7'
+                        }
+                        axis {
+                            name 'HADOOP_VERSION'
+                            values '3'
+                        }
+                        axis {
+                            name 'NAGS_VERSION'
+                            values '004'
+                        }
+                    }
+                }
+                
+                stages {
+                    stage('Test') {
+                        agent {
+                            docker {
+                                image "python:${PYTHON_VERSION}-slim"
+                                args '-v /tmp:/tmp'
+                            }
+                        }
+                        steps {
+                            checkout scm
+                            sh """
+                                python -m pip install --upgrade pip
+                                pip install tox
+                                tox -e py-hadoop${HADOOP_VERSION}-nags${NAGS_VERSION}
+                            """
+                        }
+                        post {
+                            always {
+                                junit 'test-reports/junit-*.xml'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Code Quality') {
+            parallel {
+                stage('Lint') {
+                    agent {
+                        docker {
+                            image 'python:3.11-slim'
+                        }
+                    }
+                    steps {
+                        checkout scm
+                        sh """
+                            python -m pip install --upgrade pip
+                            pip install tox
+                            tox -e lint
+                        """
+                    }
+                }
+                
+                stage('Type Check') {
+                    agent {
+                        docker {
+                            image 'python:3.11-slim'
+                        }
+                    }
+                    steps {
+                        checkout scm
+                        sh """
+                            python -m pip install --upgrade pip
+                            pip install tox
+                            tox -e type
+                        """
+                    }
+                }
+                
+                stage('Documentation') {
+                    agent {
+                        docker {
+                            image 'python:3.11-slim'
+                        }
+                    }
+                    steps {
+                        checkout scm
+                        sh """
+                            python -m pip install --upgrade pip
+                            pip install tox
+                            tox -e docs
+                        """
+                    }
+                    post {
+                        success {
+                            archiveArtifacts artifacts: 'docs/build/html/**', fingerprint: true
+                        }
+                    }
+                }
+                
+                stage('Coverage') {
+                    agent {
+                        docker {
+                            image 'python:3.11-slim'
+                        }
+                    }
+                    steps {
+                        checkout scm
+                        sh """
+                            python -m pip install --upgrade pip
+                            pip install tox
+                            tox -e coverage
+                        """
+                    }
+                    post {
+                        success {
+                            cobertura coberturaReportFile: 'coverage.xml'
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Integration Tests') {
+            when {
+                expression { return params.RUN_INTEGRATION_TESTS }
+            }
+            matrix {
+                axes {
+                    axis {
+                        name 'HADOOP_VERSION'
+                        values '2.10.2', '3.3.5'
+                    }
+                    axis {
+                        name 'TEST_ENVIRONMENT'
+                        values 'docker', 'kubernetes'
+                    }
+                }
+                
+                stages {
+                    stage('Run Integration Tests') {
+                        agent {
+                            node {
+                                label 'integration-tests'
+                            }
+                        }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+                            HADOOP_CONTAINER_NAME = "hadoop-${HADOOP_VERSION}-${BUILD_NUMBER}"
+                            HADOOP_PORT = sh(script: 'echo $((8088 + $RANDOM % 1000))', returnStdout: true).trim()
+                        }
+                        steps {
+                            checkout scm
+                            
+                            sh """
+                                # Set up environment
+                                python3 -m venv venv
+                                . venv/bin/activate
+                                pip install -e .[dev]
+                                
+                                # Start Hadoop in Docker for Docker environment
+                                if [ "${TEST_ENVIRONMENT}" = "docker" ]; then
+                                    docker run -d --name ${HADOOP_CONTAINER_NAME} -p ${HADOOP_PORT}:8088 apache/hadoop:${HADOOP_VERSION}
+                                    
+                                    # Wait for Hadoop to be ready
+                                    for i in \$(seq 1 30); do
+                                        if curl -sf http://localhost:${HADOOP_PORT}/ws/v1/cluster/info > /dev/null; then
+                                            echo "Hadoop is ready"
+                                            break
+                                        fi
+                                        echo "Waiting for Hadoop to be ready... \$i/30"
+                                        sleep 10
+                                        
+                                        if [ \$i -eq 30 ]; then
+                                            echo "Hadoop failed to start"
+                                            docker logs ${HADOOP_CONTAINER_NAME}
+                                            exit 1
+                                        fi
+                                    done
+                                    
+                                    # Run integration tests
+                                    pytest -xvs tests/integration/ --hadoop-url=http://localhost:${HADOOP_PORT}/ws/v1/cluster/info
+                                elif [ "${TEST_ENVIRONMENT}" = "kubernetes" ]; then
+                                    # Deploy Hadoop to Kubernetes
+                                    kubectl apply -f tests/integration/kubernetes/hadoop-${HADOOP_VERSION}.yaml
+                                    
+                                    # Wait for Hadoop to be ready
+                                    kubectl wait --for=condition=available --timeout=300s deployment/hadoop-${HADOOP_VERSION}
+                                    
+                                    # Port forward
+                                    KUBE_POD=\$(kubectl get pods -l app=hadoop-${HADOOP_VERSION} -o jsonpath="{.items[0].metadata.name}")
+                                    kubectl port-forward \$KUBE_POD ${HADOOP_PORT}:8088 &
+                                    PORT_FORWARD_PID=\$!
+                                    
+                                    # Give port forwarding time to start
+                                    sleep 5
+                                    
+                                    # Run integration tests
+                                    pytest -xvs tests/integration/ --hadoop-url=http://localhost:${HADOOP_PORT}/ws/v1/cluster/info
+                                    
+                                    # Clean up
+                                    kill \$PORT_FORWARD_PID
+                                    kubectl delete -f tests/integration/kubernetes/hadoop-${HADOOP_VERSION}.yaml
+                                fi
+                            """
+                        }
+                        post {
+                            always {
+                                sh """
+                                    if [ "${TEST_ENVIRONMENT}" = "docker" ]; then
+                                        docker logs ${HADOOP_CONTAINER_NAME} || true
+                                        docker stop ${HADOOP_CONTAINER_NAME} || true
+                                        docker rm ${HADOOP_CONTAINER_NAME} || true
+                                    fi
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Corner Case Tests') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                }
+            }
+            steps {
+                checkout scm
+                sh """
+                    python -m pip install --upgrade pip
+                    pip install -e .[dev]
+                    
+                    # Run specific corner case tests
+                    pytest -xvs tests/corner_cases/ --junitxml=test-reports/junit-corner-cases.xml
+                """
+            }
+            post {
+                always {
+                    junit 'test-reports/junit-corner-cases.xml'
+                }
+            }
+        }
+        
+        stage('Package') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                }
+            }
+            steps {
+                checkout scm
+                sh """
+                    python -m pip install --upgrade pip
+                    pip install build twine
+                    python -m build
+                    twine check dist/*
+                """
+                archiveArtifacts artifacts: 'dist/*', fingerprint: true
+            }
+        }
+        
+        stage('Publish') {
+            when {
+                expression { return params.PUBLISH_PACKAGE }
+            }
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                }
+            }
+            environment {
+                TWINE_USERNAME = credentials('pypi-username')
+                TWINE_PASSWORD = credentials('pypi-password')
+                REPOSITORY_URL = params.RELEASE_TYPE == 'release' ? 'https://upload.pypi.org/legacy/' : 'https://test.pypi.org/legacy/'
+            }
+            steps {
+                checkout scm
+                sh """
+                    python -m pip install --upgrade pip
+                    pip install twine
+                    twine upload --repository-url ${REPOSITORY_URL} dist/*
+                """
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Cleaning up workspace'
+        }
+        success {
+            echo 'Build successful!'
+        }
+        failure {
+            echo 'Build failed!'
+        }
+    }
+}
