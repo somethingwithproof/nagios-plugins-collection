@@ -1,4 +1,5 @@
-unittest-xml-reporting>=3.0.4  # For generating JUnit-style XML test reports
-subprocess
-json
-httpx
+# Runtime requirements for hadoop-health-monitor
+httpx>=0.24.0,<0.25.0  # HTTP client for API checks
+typing-extensions>=4.5.0  # For Python 3.7 compatibility
+importlib-metadata>=6.6.0;python_version<"3.8"  # For Python 3.7 compatibility
+dataclasses>=0.8;python_version<"3.7"  # For Python 3.6 compatibility
