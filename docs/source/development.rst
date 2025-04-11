@@ -24,7 +24,7 @@ Development Environment Setup
 
    .. code-block:: bash
 
-       pip install -e ".[dev]"
+       pip install -e ".[dev,security]"
 
 Project Structure
 ---------------
@@ -45,10 +45,11 @@ The project is organized as follows:
     ├── tests/                  # Tests
     │   ├── unit/               # Unit tests
     │   └── integration/        # Integration tests
-    ├── pyproject.toml          # Project configuration
+    ├── pyproject.toml          # Project configuration (main configuration)
     ├── setup.py                # Setup script (for backward compatibility)
     ├── tox.ini                 # Tox configuration
-    └── README.md               # Project README
+    ├── README.md               # Project README
+    └── CHANGELOG.md            # Project changelog
 
 Creating a New Plugin
 -------------------
@@ -63,26 +64,67 @@ To create a new plugin:
        #!/usr/bin/env python3
        """Example Nagios plugin for demonstration purposes."""
 
+       from typing import Dict, Any, Optional
        import argparse
+       import asyncio
+
+       from rich.console import Console
+
        from nagios_plugins.base import NagiosPlugin, CheckResult, Status
+       from nagios_plugins.utils import check_http_endpoint
 
        class ExamplePlugin(NagiosPlugin):
            """Example plugin that checks something."""
 
-           def __init__(self):
+           def __init__(self) -> None:
                """Initialize the plugin."""
                super().__init__()
                self.parser.add_argument(
                    "--example-option",
                    help="An example option",
                )
+               self.parser.add_argument(
+                   "--url",
+                   help="URL to check",
+               )
+               self.console = Console()
 
-           def check(self, args):
-               """Perform the check."""
+           async def async_check(self, args: argparse.Namespace) -> CheckResult:
+               """Perform the check asynchronously."""
+               self.console.print("[bold blue]Checking example...[/bold blue]")
+               
+               if args.url:
+                   # Use the utility function for HTTP checks
+                   return check_http_endpoint(
+                       url=args.url,
+                       timeout=args.timeout,
+                   )
+               
                # Implement your check logic here
-               return CheckResult(Status.OK, "Everything is fine")
+               metrics: Dict[str, Any] = {
+                   "example_metric": 100,
+                   "response_time": 42.5,
+               }
+               
+               return CheckResult(
+                   status=Status.OK,
+                   message="Everything is fine",
+                   metrics=metrics,
+                   details="Detailed information about the check result."
+               )
 
-       def main():
+           def check(self, args: argparse.Namespace) -> CheckResult:
+               """Perform the check."""
+               # Run the async check in the event loop
+               try:
+                   loop = asyncio.get_event_loop()
+               except RuntimeError:
+                   loop = asyncio.new_event_loop()
+                   asyncio.set_event_loop(loop)
+               
+               return loop.run_until_complete(self.async_check(args))
+
+       def main() -> int:
            """Run the plugin."""
            plugin = ExamplePlugin()
            return plugin.run()
@@ -91,16 +133,12 @@ To create a new plugin:
            import sys
            sys.exit(main())
 
-2. Add the plugin to the entry points in ``setup.py``:
+2. Add the plugin to the entry points in ``pyproject.toml``:
 
-   .. code-block:: python
+   .. code-block:: toml
 
-       entry_points={
-           "console_scripts": [
-               # ...
-               "check_example=nagios_plugins.check_example:main",
-           ],
-       }
+       [project.scripts]
+       check_example = "nagios_plugins.check_example:main"
 
 3. Create tests for the plugin:
 
@@ -109,10 +147,12 @@ To create a new plugin:
        # tests/unit/test_check_example.py
        """Tests for the check_example module."""
 
-       from unittest.mock import patch
+       from unittest.mock import patch, AsyncMock
        import pytest
+       import asyncio
+
        from nagios_plugins.check_example import ExamplePlugin
-       from nagios_plugins.base import Status
+       from nagios_plugins.base import Status, CheckResult
 
        class TestExamplePlugin:
            """Tests for the ExamplePlugin class."""
@@ -122,11 +162,25 @@ To create a new plugin:
                """Create a test plugin."""
                return ExamplePlugin()
 
-           def test_check(self, plugin):
-               """Test the check method."""
-               result = plugin.check(plugin.parse_args([]))
+           @pytest.mark.asyncio
+           async def test_async_check(self, plugin):
+               """Test the async_check method."""
+               args = plugin.parse_args([])
+               result = await plugin.async_check(args)
                assert result.status == Status.OK
                assert "Everything is fine" in result.message
+               assert "example_metric" in result.metrics
+               assert result.metrics["example_metric"] == 100
+
+           def test_check(self, plugin):
+               """Test the check method."""
+               with patch.object(
+                   plugin, 'async_check', 
+                   return_value=CheckResult(Status.OK, "Everything is fine")
+               ):
+                   result = plugin.check(plugin.parse_args([]))
+                   assert result.status == Status.OK
+                   assert "Everything is fine" in result.message
 
 4. Add documentation for the plugin:
 
@@ -184,10 +238,11 @@ To run specific tests:
 
 .. code-block:: bash
 
-    tox -e py311-nagios4410  # Run tests with Python 3.11 and Nagios 4.4.10
+    tox -e py312-nagios4410  # Run tests with Python 3.12 and Nagios 4.4.10
     tox -e lint              # Run linting
     tox -e type              # Run type checking
     tox -e docs              # Build documentation
+    tox -e security          # Run security checks
 
 Code Style
 ---------
@@ -201,6 +256,7 @@ This project follows these code style guidelines:
 - isort for import sorting
 - pylint for linting
 - mypy for type checking
+- bandit for security scanning
 
 To format your code:
 
@@ -208,6 +264,13 @@ To format your code:
 
     black src tests
     isort src tests
+
+To check for security issues:
+
+.. code-block:: bash
+
+    bandit -r src/
+    safety check
 
 Documentation
 ------------
@@ -229,8 +292,9 @@ This project uses GitHub Actions for continuous integration. The CI pipeline run
 - Linting
 - Type checking
 - Documentation building
+- Security scanning
 - Test coverage
-- Package building
+- Package building and verification
 
 Pull Request Process
 -----------------

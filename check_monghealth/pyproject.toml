@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0.0", "wheel>=0.37.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nagios-plugins-collection"
-version = "1.1.0"
-description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
+name = "check_monghealth"
+version = "1.0.0"
+description = "MongoDB Health Check Plugin for Nagios"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -15,7 +15,7 @@ authors = [
 maintainers = [
     {name = "Thomas Vincent", email = "thomasvincent@gmail.com"}
 ]
-keywords = ["nagios", "monitoring", "plugins", "health", "check"]
+keywords = ["nagios", "monitoring", "mongodb", "health", "check"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: System Administrators",
@@ -32,42 +32,30 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.26.0",
-    "pexpect>=4.9.0",
-    "pymongo>=4.6.0",
     "rich>=13.7.0",
-    "typer>=0.9.0",
-    "pydantic>=2.5.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "tox>=4.11.0",
+    "mypy>=1.7.0",
+    "pylint>=3.0.0",
     "black>=23.11.0",
     "isort>=5.12.0",
-    "pylint>=3.0.0",
-    "mypy>=1.7.0",
-    "flake8>=6.1.0",
-    "pydocstyle>=6.3.0",
-    "sphinx>=7.2.0",
-    "sphinx-rtd-theme>=1.3.0",
-    "build>=1.0.0",
-    "twine>=4.0.2",
-]
-security = [
-    "bandit>=1.7.5",
-    "safety>=2.3.5",
 ]
 all = [
-    "nagios-plugins-collection[dev,security]",
+    "check_monghealth[dev]",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/thomasvincent/nagios-plugins-collection"
 "Bug Tracker" = "https://github.com/thomasvincent/nagios-plugins-collection/issues"
-"Documentation" = "https://nagios-plugins-collection.readthedocs.io/"
+"Documentation" = "https://github.com/thomasvincent/nagios-plugins-collection/tree/main/check_monghealth"
+
+[project.scripts]
+check_monghealth = "check_monghealth_modernized:main"
 
 [tool.black]
 line-length = 100
@@ -83,10 +71,9 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
-plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["."]
 python_files = "test_*.py"
 python_functions = "test_*"
 python_classes = "Test*"
@@ -94,10 +81,7 @@ markers = [
     "unit: unit tests",
     "integration: integration tests",
 ]
-
-[tool.bandit]
-exclude_dirs = ["tests", "docs"]
-skips = ["B101"]
+asyncio_mode = "auto"
 
 [tool.pylint]
 max-line-length = 100

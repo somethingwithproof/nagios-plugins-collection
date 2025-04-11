@@ -16,6 +16,7 @@ All plugins in the collection share a common set of command-line options:
                           Warning threshold (plugin-specific)
     -c, --critical THRESHOLD
                           Critical threshold (plugin-specific)
+    --json                Output results in JSON format
     -h, --help            Show help message and exit
 
 Threshold Formats
@@ -96,10 +97,13 @@ Example Nagios configuration for the check_hadoop plugin:
         notifications_enabled   1
     }
 
-Output Format
+Output Formats
 -----------
 
-All plugins produce output in the standard Nagios plugin format:
+Standard Output Format
+~~~~~~~~~~~~~~~~~~~~~
+
+By default, all plugins produce output in the standard Nagios plugin format:
 
 .. code-block:: text
 
@@ -117,6 +121,28 @@ Example output:
 
     OK - Hadoop cluster is healthy | nodes=10 memory_used=85% cpu_used=60%
 
+JSON Output Format
+~~~~~~~~~~~~~~~~
+
+All plugins also support JSON output format, which is useful for integration with other tools:
+
+.. code-block:: bash
+
+    check_website_status --url=https://example.com --pattern="Welcome" --json
+
+Example JSON output:
+
+.. code-block:: json
+
+    {
+      "status": "OK",
+      "message": "HTTP 200 - https://example.com - 345.67ms",
+      "metrics": {
+        "response_time": 345.67
+      },
+      "timestamp": "2025-04-11 12:30:45"
+    }
+
 Return Codes
 ----------
 
@@ -129,5 +155,18 @@ All plugins return standard Nagios return codes:
 
 Advanced Usage
 ------------
+
+Asynchronous Execution
+~~~~~~~~~~~~~~~~~~~~
+
+Many plugins now support asynchronous execution for improved performance in high-load environments. This is particularly useful when monitoring multiple endpoints or services simultaneously.
+
+Rich Terminal Output
+~~~~~~~~~~~~~~~~~
+
+When running plugins directly in the terminal (not through Nagios), you'll see rich, colorized output with progress indicators and formatted results.
+
+Plugin-Specific Options
+~~~~~~~~~~~~~~~~~~~~~
 
 For more advanced usage and plugin-specific options, refer to the individual plugin documentation in the :doc:`plugins/index` section.
