@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+import subprocess
 
 """
 Python Nagios extensions
@@ -35,21 +36,42 @@ class daemon:
 		"""
 		Run nagios -v config_file to verify that the conf is working
 		"""
-
-		cmd = "%s -v %s" % (self.nagios_bin, self.nagios_cfg)
-
-		result = os.system(cmd)
-
-		if result == 0:
-			return True
-		else:
-			return None
+		# Use subprocess.run instead of os.system for security
+		try:
+			result = subprocess.run(
+				[self.nagios_bin, "-v", self.nagios_cfg],
+				check=False,
+				capture_output=True,
+				text=True
+			)
+			return result.returncode == 0
+		except Exception as e:
+			sys.stderr.write(f"Error verifying config: {e}\n")
+			return False
 
 	def restart(self):
-		cmd = "%s restart" % self.nagios_init
-
-		os.system(cmd)
+		# Use subprocess.run instead of os.system for security
+		try:
+			result = subprocess.run(
+				[self.nagios_init, "restart"],
+				check=False,
+				capture_output=True,
+				text=True
+			)
+			return result.returncode == 0
+		except Exception as e:
+			sys.stderr.write(f"Error restarting Nagios: {e}\n")
+			return False
 	def reload(self):
-		cmd = "%s reload" % self.nagios_init
-
-		os.system(cmd)
+		# Use subprocess.run instead of os.system for security
+		try:
+			result = subprocess.run(
+				[self.nagios_init, "reload"],
+				check=False,
+				capture_output=True,
+				text=True
+			)
+			return result.returncode == 0
+		except Exception as e:
+			sys.stderr.write(f"Error reloading Nagios: {e}\n")
+			return False
