@@ -46,13 +46,17 @@ def check_jobs(url: str, debug: bool = False) -> None:
         print("UNKNOWN - Invalid URL:", clean_url)
         sys.exit(3)
 
-    # Make the request.
+    # Make the request with an explicit timeout for security
     try:
-        with urllib.request.urlopen(clean_url) as request:
+        # Use a reasonable timeout (10 seconds)
+        with urllib.request.urlopen(clean_url, timeout=10) as request:
             content = request.read()
     except (urllib.error.URLError, urllib.error.HTTPError) as e:
         print(f"UNKNOWN - URL/HTTP Error: {e}")
         sys.exit(3)
+    except TimeoutError:
+        print(f"CRITICAL - Connection to {clean_url} timed out after 10 seconds")
+        sys.exit(2)
 
     # Parse the JSON response.
     json_dict = json.loads(content)
