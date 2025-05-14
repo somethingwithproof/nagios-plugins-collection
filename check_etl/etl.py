@@ -34,15 +34,26 @@ class ComponentStatusChecker:
         and updated is the time the component was last updated
         """
         try:
-            response = requests.get(f"http://{self.url}/api/component/{component}")
+            # Add timeout for security and better error handling
+            response = requests.get(
+                f"http://{self.url}/api/component/{component}", 
+                timeout=10,
+                verify=True  # Verify SSL certificates
+            )
             if response.status_code == 200:
                 json_dict = response.json()
                 status = json_dict["status"].lower()
                 updated = json_dict["updated"]
                 return status, updated
             else:
-                logger.error(f"Error fetching component status: {response.status_code}")
+                logger.error(f"Error fetching component status: HTTP {response.status_code}")
                 return "error", None
+        except requests.exceptions.Timeout:
+            logger.error(f"Connection to {self.url} timed out after 10 seconds")
+            return "error", None
+        except requests.exceptions.SSLError as e:
+            logger.error(f"SSL Error: {e}")
+            return "error", None
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching component status: {e}")
             return "error", None

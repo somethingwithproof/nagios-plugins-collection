@@ -34,12 +34,28 @@ def main():
     if not url_str.startswith("http"):
         url_str = "http://" + url_str
 
-    # Make a request to the URL.
-    with urllib.request.urlopen(url_str) as request:
-        content = request.read()
-
-    # Decode the JSON response.
-    jsondict = json.loads(content)
+    # Validate URL scheme (for security)
+    if not url_str.startswith(("http://", "https://")):
+        print(f"UNKNOWN - Invalid URL scheme: {url_str}")
+        sys.exit(3)
+        
+    try:
+        # Make a request to the URL with timeout
+        with urllib.request.urlopen(url_str, timeout=30) as request:
+            content = request.read()
+    except urllib.error.URLError as e:
+        print(f"CRITICAL - Connection error: {e}")
+        sys.exit(2)
+    except TimeoutError:
+        print(f"CRITICAL - Connection to {url_str} timed out")
+        sys.exit(2)
+        
+    # Decode the JSON response safely
+    try:
+        jsondict = json.loads(content)
+    except json.JSONDecodeError:
+        print("CRITICAL - Invalid JSON response")
+        sys.exit(2)
 
     # Check the status of the response.
     if jsondict["status"].lower() != "ok":

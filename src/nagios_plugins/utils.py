@@ -74,7 +74,7 @@ async def execute_command_async(
         A CommandResult object containing the exit code, stdout, stderr, and execution time.
     """
     start_time = time.time()
-    
+
     if shell:
         # If shell is True, join the command list into a string
         cmd = " ".join(command) if isinstance(command, list) else command
@@ -91,7 +91,7 @@ async def execute_command_async(
             stderr=asyncio.subprocess.PIPE,
             text=True,
         )
-    
+
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
         execution_time = time.time() - start_time
@@ -108,10 +108,13 @@ async def execute_command_async(
         return CommandResult(
             exit_code=1,
             stdout=stdout,
-            stderr=f"Command timed out after {timeout} seconds: {' '.join(command)}",
+            stderr=(
+                f"Command timed out after {timeout} seconds: "
+                f"{str(command[:2] if len(command) > 2 else command)}"
+            ),
             execution_time=execution_time,
         )
-    except Exception as exc:  # pylint: disable=broad-except
+    except (OSError, asyncio.SubprocessError, ValueError) as exc:
         execution_time = time.time() - start_time
         return CommandResult(
             exit_code=1,
@@ -121,9 +124,7 @@ async def execute_command_async(
         )
 
 
-def execute_command(
-    command: List[str], timeout: int = 30, shell: bool = False
-) -> CommandResult:
+def execute_command(command: List[str], timeout: int = 30, shell: bool = False) -> CommandResult:
     """Execute a command and return the result.
 
     Args:
@@ -141,7 +142,7 @@ def execute_command(
         # If no event loop is available, create a new one
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[bold blue]Executing command..."),
@@ -150,10 +151,8 @@ def execute_command(
         transient=True,
     ) as progress:
         progress.add_task("execute", total=None)
-        result = loop.run_until_complete(
-            execute_command_async(command, timeout, shell)
-        )
-    
+        result = loop.run_until_complete(execute_command_async(command, timeout, shell))
+
     return result
 
 
@@ -185,13 +184,11 @@ async def check_tcp_port_async(
         return False, f"Could not resolve hostname: {host}"
     except ConnectionRefusedError:
         return False, f"Connection refused to {host}:{port}"
-    except Exception as e:  # pylint: disable=broad-except
+    except (OSError, ConnectionError, socket.error) as e:
         return False, f"Error checking port {port} on {host}: {str(e)}"
 
 
-def check_tcp_port(
-    host: str, port: int, timeout: int = 5
-) -> Tuple[bool, Optional[str]]:
+def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Optional[str]]:
     """Check if a TCP port is open.
 
     Args:
@@ -209,7 +206,7 @@ def check_tcp_port(
         # If no event loop is available, create a new one
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     return loop.run_until_complete(check_tcp_port_async(host, port, timeout))
 
 
@@ -240,9 +237,7 @@ async def check_http_endpoint_async(
     """
     start_time = time.time()
     try:
-        async with httpx.AsyncClient(
-            timeout=timeout, verify=verify_ssl
-        ) as client:
+        async with httpx.AsyncClient(timeout=timeout, verify=verify_ssl) as client:
             response = await client.request(
                 method,
                 url,
@@ -250,10 +245,10 @@ async def check_http_endpoint_async(
                 json=data,
                 follow_redirects=True,
             )
-        
+
         elapsed_time = time.time() - start_time
         response_time = elapsed_time * 1000  # Convert to milliseconds
-        
+
         # Check status code
         if expected_status and response.status_code != expected_status:
             return (
@@ -261,15 +256,15 @@ async def check_http_endpoint_async(
                 f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
                 None,
             )
-        
+
         # Check content
         if expected_content and not re.search(expected_content, response.text):
             return (
                 Status.CRITICAL,
-                f"Content check failed - Expected pattern not found - {url} - {response_time:.2f}ms",
+                f"Content check failed - Pattern not found - {url} - {response_time:.2f}ms",
                 None,
             )
-        
+
         # Try to parse JSON response
         response_data = None
         try:
@@ -277,13 +272,13 @@ async def check_http_endpoint_async(
         except (json.JSONDecodeError, ValueError):
             # Not JSON, that's fine
             pass
-        
+
         return (
             Status.OK,
             f"HTTP {response.status_code} - {url} - {response_time:.2f}ms",
             response_data,
         )
-    
+
     except httpx.TimeoutException:
         elapsed_time = time.time() - start_time
         response_time = elapsed_time * 1000  # Convert to milliseconds
@@ -300,7 +295,7 @@ async def check_http_endpoint_async(
             f"Request error: {str(e)} - {url} - {response_time:.2f}ms",
             None,
         )
-    except Exception as e:  # pylint: disable=broad-except
+    except (httpx.HTTPError, IOError, ValueError, KeyError) as e:
         elapsed_time = time.time() - start_time
         response_time = elapsed_time * 1000  # Convert to milliseconds
         return (
@@ -342,13 +337,13 @@ def check_http_endpoint(
         # If no event loop is available, create a new one
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     status, message, response_data = loop.run_until_complete(
         check_http_endpoint_async(
             url, method, headers, data, timeout, expected_status, expected_content, verify_ssl
         )
     )
-    
+
     # Create metrics from response data
     metrics = {}
     if response_data and isinstance(response_data, dict):
@@ -357,14 +352,14 @@ def check_http_endpoint(
             metrics["response_time"] = response_data["time"]
         if "status" in response_data:
             metrics["status"] = response_data["status"]
-    
+
     # Add response time to metrics if not already present
     if "response_time" not in metrics:
         # Extract response time from message
         match = re.search(r"(\d+\.\d+)ms", message)
         if match:
             metrics["response_time"] = float(match.group(1))
-    
+
     return CheckResult(
         status=status,
         message=message,
@@ -388,31 +383,31 @@ def parse_size_string(size_str: str) -> int:
     size_str = size_str.strip().upper()
     if not size_str:
         raise ValueError("Empty size string")
-    
+
     # Extract the numeric part and the unit
     match = re.match(r"^([\d.]+)([KMGTP]?)B?$", size_str)
     if not match:
         raise ValueError(f"Invalid size string: {size_str}")
-    
+
     value, unit = match.groups()
     try:
         value = float(value)
     except ValueError as exc:
         raise ValueError(f"Invalid numeric value in size string: {value}") from exc
-    
+
     # Convert to bytes based on the unit
     unit_multipliers = {
         "": 1,
         "K": 1024,
-        "M": 1024 ** 2,
-        "G": 1024 ** 3,
-        "T": 1024 ** 4,
-        "P": 1024 ** 5,
+        "M": 1024**2,
+        "G": 1024**3,
+        "T": 1024**4,
+        "P": 1024**5,
     }
-    
+
     if unit not in unit_multipliers:
         raise ValueError(f"Invalid unit in size string: {unit}")
-    
+
     return int(value * unit_multipliers[unit])
 
 
@@ -428,18 +423,18 @@ def format_bytes(bytes_value: int, precision: int = 2) -> str:
     """
     if bytes_value < 0:
         raise ValueError("Bytes value cannot be negative")
-    
+
     if bytes_value == 0:
         return "0B"
-    
+
     units = ["B", "KB", "MB", "GB", "TB", "PB"]
     unit_index = 0
     value = float(bytes_value)
-    
+
     while value >= 1024 and unit_index < len(units) - 1:
         value /= 1024
         unit_index += 1
-    
+
     return f"{value:.{precision}f}{units[unit_index]}"
 
 
@@ -453,29 +448,31 @@ def is_process_running(process_name: str) -> bool:
         True if the process is running, False otherwise.
     """
     system = platform.system()
-    
+
     if system == "Windows":
         # Windows
         try:
             result = execute_command(
-                ["tasklist", "/FI", f"IMAGENAME eq {process_name}"],
-                shell=True,
+                ["tasklist", "/FI", f"IMAGENAME eq {process_name}"]
             )
             return process_name.lower() in result.stdout.lower()
-        except Exception:  # pylint: disable=broad-except
+        except (OSError, IOError) as e:
+            console.print(f"[bold red]Error checking process status: {e}[/bold red]")
             return False
     elif system == "Darwin":  # macOS
         try:
             result = execute_command(["pgrep", "-i", process_name])
             return result.success and result.stdout.strip() != ""
-        except Exception:  # pylint: disable=broad-except
+        except (OSError, IOError) as e:
+            console.print(f"[bold red]Error checking process status: {e}[/bold red]")
             return False
     else:
         # Linux and other Unix-like
         try:
             result = execute_command(["pgrep", "-f", process_name])
             return result.success and result.stdout.strip() != ""
-        except Exception:  # pylint: disable=broad-except
+        except (OSError, IOError) as e:
+            console.print(f"[bold red]Error checking process status: {e}[/bold red]")
             return False
 
 
@@ -494,7 +491,7 @@ def get_file_age_seconds(file_path: Union[str, Path]) -> int:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
-    
+
     file_mtime = path.stat().st_mtime
     current_time = time.time()
     return int(current_time - file_mtime)
@@ -518,12 +515,12 @@ def get_directory_size(directory: Union[str, Path]) -> int:
         raise FileNotFoundError(f"Directory not found: {path}")
     if not path.is_dir():
         raise NotADirectoryError(f"Not a directory: {path}")
-    
+
     total_size = 0
     for item in path.glob("**/*"):
         if item.is_file():
             total_size += item.stat().st_size
-    
+
     return total_size
 
 
@@ -542,23 +539,23 @@ def get_system_info() -> Dict[str, Any]:
         "processor": platform.processor(),
         "python_version": platform.python_version(),
     }
-    
+
     # Add more system-specific information
     if platform.system() == "Linux":
         try:
             with open("/proc/meminfo", "r", encoding="utf-8") as f:
                 meminfo = f.read()
-            
+
             # Extract total memory
             match = re.search(r"MemTotal:\s+(\d+)", meminfo)
             if match:
                 info["total_memory_kb"] = int(match.group(1))
-            
+
             # Extract free memory
             match = re.search(r"MemFree:\s+(\d+)", meminfo)
             if match:
                 info["free_memory_kb"] = int(match.group(1))
-        except Exception:  # pylint: disable=broad-except
-            pass
-    
+        except (IOError, OSError, FileNotFoundError) as e:
+            console.print(f"[bold yellow]Warning: Could not read system memory info: {e}[/bold yellow]")
+
     return info

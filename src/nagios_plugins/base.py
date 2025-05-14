@@ -67,9 +67,7 @@ class CheckResult:
         """Return the string representation of the check result."""
         output = f"{self.status} - {self.message}"
         if self.metrics:
-            metrics_str = " ".join(
-                f"{key}={value}" for key, value in self.metrics.items()
-            )
+            metrics_str = " ".join(f"{key}={value}" for key, value in self.metrics.items())
             output += f" | {metrics_str}"
         if self.details:
             output += f"\n{self.details}"
@@ -110,11 +108,11 @@ class NagiosPlugin(ABC):
     def _setup_logging(self) -> None:
         """Set up logging for the plugin."""
         self.logger = logging.getLogger(self.__class__.__name__)
-        
+
         # Remove any existing handlers
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
-            
+
         # Add rich handler for better formatting
         handler = RichHandler(console=self.console, rich_tracebacks=True)
         self.logger.addHandler(handler)
@@ -171,13 +169,13 @@ class NagiosPlugin(ABC):
             The parsed arguments.
         """
         parsed_args = self.parser.parse_args(args)
-        
+
         # Set logging level based on verbosity
         if parsed_args.verbose == 1:
             self.logger.setLevel(logging.INFO)
         elif parsed_args.verbose >= 2:
             self.logger.setLevel(logging.DEBUG)
-            
+
         return parsed_args
 
     @abstractmethod
@@ -203,41 +201,39 @@ class NagiosPlugin(ABC):
         try:
             parsed_args = self.parse_args(args)
             result = self.check(parsed_args)
-            
+
             # Output in the requested format
             if parsed_args.json:
                 print(result.to_json())
             else:
                 print(result)
-                
+
             return result.status.value
         except (ValueError, TypeError, KeyError, IOError) as e:
             self.logger.exception("Error during plugin execution")
             error_result = CheckResult(
-                Status.UNKNOWN, 
-                f"Error: {str(e)}",
-                details=f"Exception type: {type(e).__name__}"
+                Status.UNKNOWN, f"Error: {str(e)}", details=f"Exception type: {type(e).__name__}"
             )
-            
+
             if getattr(parsed_args, "json", False):
                 print(error_result.to_json())
             else:
                 print(error_result)
-                
+
             return Status.UNKNOWN.value
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
             error_result = CheckResult(
-                Status.UNKNOWN, 
+                Status.UNKNOWN,
                 f"Unhandled exception: {str(e)}",
-                details=f"Exception type: {type(e).__name__}"
+                details=f"Exception type: {type(e).__name__}",
             )
-            
+
             if getattr(parsed_args, "json", False):
                 print(error_result.to_json())
             else:
                 print(error_result)
-                
+
             return Status.UNKNOWN.value
         finally:
             elapsed_time = time.time() - self.start_time
@@ -248,10 +244,10 @@ class ThresholdRange:
     """Class to represent a threshold range for Nagios checks."""
 
     def __init__(
-        self, 
-        min_value: Optional[float] = None, 
-        max_value: Optional[float] = None, 
-        inclusive: bool = False
+        self,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        inclusive: bool = False,
     ) -> None:
         """Initialize a threshold range.
 
@@ -296,21 +292,21 @@ class ThresholdRange:
             parts = threshold.split(":")
             if len(parts) != 2:
                 raise ValueError(f"Invalid threshold format: {threshold}")
-            
+
             min_val = None
             if parts[0]:
                 try:
                     min_val = float(parts[0])
                 except ValueError as exc:
                     raise ValueError(f"Invalid minimum threshold: {parts[0]}") from exc
-                    
+
             max_val = None
             if parts[1]:
                 try:
                     max_val = float(parts[1])
                 except ValueError as exc:
                     raise ValueError(f"Invalid maximum threshold: {parts[1]}") from exc
-                    
+
             return cls(min_val, max_val, inclusive)
 
     def check(self, value: float) -> bool:
@@ -345,7 +341,7 @@ class ThresholdRange:
     def __str__(self) -> str:
         """Return the string representation of the threshold range."""
         prefix = "@" if self.inclusive else ""
-        
+
         if self.min_value is not None and self.max_value is not None:
             return f"{prefix}{self.min_value}:{self.max_value}"
         elif self.min_value is not None:
@@ -397,9 +393,7 @@ def _parse_threshold(threshold: str) -> Tuple[Optional[float], Optional[float], 
 
 
 # For backward compatibility
-def _is_in_range(
-    value: float, range_tuple: Tuple[Optional[float], Optional[float], bool]
-) -> bool:
+def _is_in_range(value: float, range_tuple: Tuple[Optional[float], Optional[float], bool]) -> bool:
     """Check if a value is in a range.
 
     Args:
