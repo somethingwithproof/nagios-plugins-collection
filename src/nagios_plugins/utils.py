@@ -243,7 +243,7 @@ def check_http_endpoint(
     expected_status: Optional[int] = 200,
     expected_content: Optional[str] = None,
     verify_ssl: bool = True,
-) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
+) -> CheckResult:
     """Check an HTTP endpoint synchronously.
 
     This helper performs an HTTP request using :class:`httpx.Client` and
