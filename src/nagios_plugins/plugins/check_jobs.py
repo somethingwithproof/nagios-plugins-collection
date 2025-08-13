@@ -19,12 +19,13 @@ import argparse
 import json
 import logging
 import sys
+from typing import List
 
 import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
+from nagios_plugins.base import CheckResult, Status
 
 # Configure logging
 logging.basicConfig(
@@ -76,7 +77,7 @@ class JobStatusChecker:
 
             # Create metrics
             metrics = {"root_status": 1 if root_status == "ok" else 0}
-            failed_components = []
+            failed_components: List[str] = []
 
             # Check if overall status is OK
             if root_status != "ok":
