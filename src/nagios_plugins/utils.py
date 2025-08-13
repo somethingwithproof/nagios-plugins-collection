@@ -4,8 +4,8 @@
 This module provides utility functions that are used by multiple Nagios plugins.
 """
 
-import asyncio
 import json
+import platform
 import re
 import socket
 import subprocess
@@ -16,8 +16,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import httpx
+from rich.console import Console
 
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import Status
+
+console = Console()
 
 
 @dataclass
@@ -175,7 +178,11 @@ async def check_http_endpoint_async(
         if expected_status and response.status_code != expected_status:
             return (
                 Status.CRITICAL,
-                f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
+                (
+                    "HTTP "
+                    f"{response.status_code} - Expected {expected_status} - {url} - "
+                    f"{response_time:.2f}ms"
+                ),
                 None,
             )
 
@@ -264,7 +271,11 @@ def check_http_endpoint(
         if expected_status and response.status_code != expected_status:
             return (
                 Status.CRITICAL,
-                f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
+                (
+                    "HTTP "
+                    f"{response.status_code} - Expected {expected_status} - {url} - "
+                    f"{response_time:.2f}ms"
+                ),
                 None,
             )
 
@@ -460,7 +471,7 @@ def get_system_info() -> Dict[str, Any]:
     Returns:
         A dictionary containing system information.
     """
-    info = {
+    info: Dict[str, Any] = {
         "platform": platform.platform(),
         "system": platform.system(),
         "release": platform.release(),
@@ -486,6 +497,8 @@ def get_system_info() -> Dict[str, Any]:
             if match:
                 info["free_memory_kb"] = int(match.group(1))
         except (IOError, OSError, FileNotFoundError) as e:
-            console.print(f"[bold yellow]Warning: Could not read system memory info: {e}[/bold yellow]")
+            console.print(
+                f"[bold yellow]Warning: Could not read system memory info: {e}[/bold yellow]"
+            )
 
     return info
