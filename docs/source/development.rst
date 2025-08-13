@@ -51,6 +51,22 @@ The project is organized as follows:
     ├── README.md               # Project README
     └── CHANGELOG.md            # Project changelog
 
+Common Plugin Patterns
+----------------------
+
+All plugins share a few implementation patterns:
+
+* Derive from ``NagiosPlugin`` or ``NagiosPluginFramework`` to obtain
+  argument parsing, logging, and result handling.
+* Implement a ``check`` or ``async_check`` method that returns a
+  :class:`~nagios_plugins.base.CheckResult` and uses
+  :class:`~nagios_plugins.base.Status` values.
+* Prefer utility helpers from :mod:`nagios_plugins.utils` for common
+  operations such as executing shell commands or verifying HTTP
+  endpoints.
+* Expose thresholds with ``--warning`` and ``--critical`` options and
+  return performance metrics when appropriate.
+
 Creating a New Plugin
 -------------------
 
