@@ -311,7 +311,7 @@ class ThresholdRange:
             elif self.min_value is not None:
                 return not (value > self.min_value)
             elif self.max_value is not None:
-                return not (value < self.max_value)
+                return not (value <= self.max_value)
             return True
         else:
             # Outside the range is bad
