@@ -4,8 +4,8 @@
 This module provides utility functions that are used by multiple Nagios plugins.
 """
 
-import asyncio
 import json
+import platform
 import re
 import socket
 import subprocess
@@ -17,8 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import httpx
 
-from nagios_plugins.base import CheckResult, Status
-
+from nagios_plugins.base import Status
 
 @dataclass
 class CommandResult:
@@ -175,7 +174,11 @@ async def check_http_endpoint_async(
         if expected_status and response.status_code != expected_status:
             return (
                 Status.CRITICAL,
-                f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
+                (
+                    "HTTP "
+                    f"{response.status_code} - Expected {expected_status} - {url} - "
+                    f"{response_time:.2f}ms"
+                ),
                 None,
             )
 
@@ -301,11 +304,6 @@ def check_http_endpoint(
             f"Request error: {exc} - {url} - {response_time:.2f}ms",
             None,
         )
-    except Exception as exc:  # pragma: no cover - defensive
-        elapsed = time.time() - start_time
-        response_time = elapsed * 1000
-        return (
-            Status.UNKNOWN,
     except OSError as exc:  # pragma: no cover - defensive
         elapsed = time.time() - start_time
         response_time = elapsed * 1000
@@ -465,7 +463,7 @@ def get_system_info() -> Dict[str, Any]:
     Returns:
         A dictionary containing system information.
     """
-    info = {
+    info: Dict[str, Any] = {
         "platform": platform.platform(),
         "system": platform.system(),
         "release": platform.release(),
@@ -491,6 +489,7 @@ def get_system_info() -> Dict[str, Any]:
             if match:
                 info["free_memory_kb"] = int(match.group(1))
         except (IOError, OSError, FileNotFoundError) as e:
-            console.print(f"[bold yellow]Warning: Could not read system memory info: {e}[/bold yellow]")
+            # Warning: Could not read system memory info
+            pass
 
     return info
