@@ -306,7 +306,12 @@ def check_http_endpoint(
         response_time = elapsed * 1000
         return (
             Status.UNKNOWN,
-            f"Error: {exc} - {url} - {response_time:.2f}ms",
+    except OSError as exc:  # pragma: no cover - defensive
+        elapsed = time.time() - start_time
+        response_time = elapsed * 1000
+        return (
+            Status.UNKNOWN,
+            f"OS error: {exc} - {url} - {response_time:.2f}ms",
             None,
         )
 
