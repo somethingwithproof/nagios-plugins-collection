@@ -62,6 +62,24 @@ Development Workflow
 
 See the :doc:`development` guide for detailed information on setting up a development environment, running tests, and building documentation.
 
+Pre-commit Hooks
+----------------
+
+This project uses `pre-commit <https://pre-commit.com>`_ to run linters and
+formatters before each commit.  After installing the development dependencies,
+enable the hooks with:
+
+.. code-block:: bash
+
+   pre-commit install
+
+You can then run the hooks against all files or specific paths:
+
+.. code-block:: bash
+
+   pre-commit run --all-files
+   pre-commit run --files path/to/file.py docs/source/file.rst
+
 Commit Message Guidelines
 ----------------------
 
