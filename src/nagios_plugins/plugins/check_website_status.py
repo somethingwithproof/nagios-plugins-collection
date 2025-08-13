@@ -95,6 +95,8 @@ class WebsiteStatusChecker:
             metrics = {"duration": 0}
             return CheckResult(Status.CRITICAL, f"HTTP error: {exc}", metrics)
         except Exception as exc:  # pragma: no cover - defensive
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             metrics = {"duration": 0}
             logger.exception("Unexpected error")
             return CheckResult(Status.UNKNOWN, f"Unexpected error: {exc}", metrics)
