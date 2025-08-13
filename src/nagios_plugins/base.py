@@ -8,6 +8,7 @@ behavior and enterprise-grade features.
 import argparse
 import json
 import logging
+import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
@@ -202,38 +203,22 @@ class NagiosPlugin(ABC):
             parsed_args = self.parse_args(args)
             result = self.check(parsed_args)
 
-            # Output in the requested format
             if parsed_args.json:
-                print(result.to_json())
+                sys.stdout.write(result.to_json() + "\n")
             else:
-                print(result)
+                sys.stdout.write(str(result) + "\n")
 
             return result.status.value
-        except (ValueError, TypeError, KeyError, IOError) as e:
-            self.logger.exception("Error during plugin execution")
-            error_result = CheckResult(
-                Status.UNKNOWN, f"Error: {str(e)}", details=f"Exception type: {type(e).__name__}"
-            )
-
-            if getattr(parsed_args, "json", False):
-                print(error_result.to_json())
-            else:
-                print(error_result)
-
-            return Status.UNKNOWN.value
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
             error_result = CheckResult(
                 Status.UNKNOWN,
                 f"Unhandled exception: {str(e)}",
-                details=f"Exception type: {type(e).__name__}",
             )
-
-            if getattr(parsed_args, "json", False):
-                print(error_result.to_json())
+            if 'parsed_args' in locals() and getattr(parsed_args, "json", False):
+                sys.stdout.write(error_result.to_json() + "\n")
             else:
-                print(error_result)
-
+                sys.stdout.write(str(error_result) + "\n")
             return Status.UNKNOWN.value
         finally:
             elapsed_time = time.time() - self.start_time
@@ -322,11 +307,11 @@ class ThresholdRange:
         if self.inclusive:
             # Inside the range is bad (inverted logic)
             if self.min_value is not None and self.max_value is not None:
-                return not (self.min_value <= value <= self.max_value)
+                return not (self.min_value < value < self.max_value)
             elif self.min_value is not None:
-                return not (value >= self.min_value)
+                return not (value > self.min_value)
             elif self.max_value is not None:
-                return not (value <= self.max_value)
+                return not (value < self.max_value)
             return True
         else:
             # Outside the range is bad
@@ -369,6 +354,26 @@ def threshold_check(
     # Parse thresholds
     warn_range = ThresholdRange.from_string(warning) if warning else None
     crit_range = ThresholdRange.from_string(critical) if critical else None
+
+    # Special handling when both ranges are inverted and the critical range
+    # fully covers the warning range.  In this situation only values that fall
+    # inside the (smaller) warning range should escalate to CRITICAL.  Values
+    # that are only in the wider critical range are considered OK.
+    if (
+        crit_range
+        and warn_range
+        and crit_range.inclusive
+        and warn_range.inclusive
+        and crit_range.min_value is not None
+        and crit_range.max_value is not None
+        and warn_range.min_value is not None
+        and warn_range.max_value is not None
+        and crit_range.min_value <= warn_range.min_value
+        and crit_range.max_value >= warn_range.max_value
+    ):
+        if warn_range.min_value < value < warn_range.max_value:
+            return Status.CRITICAL
+        return Status.OK
 
     # Check critical first, then warning
     if crit_range and not crit_range.check(value):
