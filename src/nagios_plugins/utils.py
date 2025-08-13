@@ -16,12 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import httpx
-from rich.console import Console
 
 from nagios_plugins.base import Status
-
-console = Console()
-
 
 @dataclass
 class CommandResult:
@@ -243,7 +239,7 @@ def check_http_endpoint(
     expected_status: Optional[int] = 200,
     expected_content: Optional[str] = None,
     verify_ssl: bool = True,
-) -> CheckResult:
+) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
     """Check an HTTP endpoint synchronously.
 
     This helper performs an HTTP request using :class:`httpx.Client` and
@@ -271,11 +267,7 @@ def check_http_endpoint(
         if expected_status and response.status_code != expected_status:
             return (
                 Status.CRITICAL,
-                (
-                    "HTTP "
-                    f"{response.status_code} - Expected {expected_status} - {url} - "
-                    f"{response_time:.2f}ms"
-                ),
+                f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
                 None,
             )
 
@@ -312,12 +304,12 @@ def check_http_endpoint(
             f"Request error: {exc} - {url} - {response_time:.2f}ms",
             None,
         )
-    except Exception as exc:  # pragma: no cover - defensive
+    except OSError as exc:  # pragma: no cover - defensive
         elapsed = time.time() - start_time
         response_time = elapsed * 1000
         return (
             Status.UNKNOWN,
-            f"Error: {exc} - {url} - {response_time:.2f}ms",
+            f"OS error: {exc} - {url} - {response_time:.2f}ms",
             None,
         )
 
@@ -497,8 +489,7 @@ def get_system_info() -> Dict[str, Any]:
             if match:
                 info["free_memory_kb"] = int(match.group(1))
         except (IOError, OSError, FileNotFoundError) as e:
-            console.print(
-                f"[bold yellow]Warning: Could not read system memory info: {e}[/bold yellow]"
-            )
+            # Warning: Could not read system memory info
+            pass
 
     return info
