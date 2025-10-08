@@ -38,8 +38,6 @@ jobs:
         pip install tox tox-gh-actions
     
     - name: Test with tox
-      env:
-        TOXENV: py${{ matrix.python-version }}-nagios${{ matrix.nagios-version }}
       run: tox
     
     - name: Upload test results
