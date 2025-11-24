@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v3  # Use latest version
 
       - name: Set up Python
-        uses: actions/setup-python@v4  # Use newer version
+        uses: actions/setup-python@v6  # Use newer version
         with:
           python-version: '3.8'
 
