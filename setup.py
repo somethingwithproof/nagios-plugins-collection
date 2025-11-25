@@ -1,12 +1,6 @@
+#!/usr/bin/env python3
+"""Backwards compatibility shim for pip install."""
 from setuptools import setup
 
-setup(
-    name='MonitoringPlugins',
-    version='',
-    packages=[''],
-    url='',
-    license='MIT',
-    author='thomasvincent',
-    author_email='thomasvincent@gmail.com',
-    description=''
-)
+# All configuration is in pyproject.toml
+setup()

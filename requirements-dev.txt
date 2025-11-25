@@ -1,0 +1,28 @@
+# Development dependencies
+-r requirements.txt
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.21.0
+
+# Code formatting
+black>=23.12.0
+isort>=5.13.0
+
+# Linting
+ruff>=0.1.9
+mypy>=1.8.0
+
+# Security
+bandit>=1.7.6
+safety>=2.3.0
+
+# Pre-commit hooks
+pre-commit>=3.6.0
+
+# Documentation
+sphinx>=7.2.0
+sphinx-rtd-theme>=2.0.0
+myst-parser>=2.0.0

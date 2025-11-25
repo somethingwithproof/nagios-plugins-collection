@@ -1,0 +1,230 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nagios-plugins-collection"
+version = "2.0.0"
+description = "A collection of production-ready Nagios monitoring plugins"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Thomas Vincent", email = "thomas@thomasvincent.io"}
+]
+maintainers = [
+    {name = "Thomas Vincent", email = "thomas@thomasvincent.io"}
+]
+keywords = [
+    "nagios",
+    "monitoring",
+    "plugins",
+    "devops",
+    "infrastructure",
+    "alerting",
+    "icinga",
+    "shinken"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: Plugins",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Networking :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "httpx>=0.26.0",
+]
+
+[project.optional-dependencies]
+ssh = [
+    "paramiko>=3.0.0",
+]
+mongodb = [
+    "pymongo>=4.6.0",
+]
+all = [
+    "paramiko>=3.0.0",
+    "pymongo>=4.6.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.12.0",
+    "isort>=5.13.0",
+    "mypy>=1.8.0",
+    "ruff>=0.1.9",
+    "bandit>=1.7.6",
+    "safety>=2.3.0",
+    "pre-commit>=3.6.0",
+]
+docs = [
+    "sphinx>=7.2.0",
+    "sphinx-rtd-theme>=2.0.0",
+    "myst-parser>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/thomasvincent/nagios-plugins-collection"
+Documentation = "https://github.com/thomasvincent/nagios-plugins-collection#readme"
+Repository = "https://github.com/thomasvincent/nagios-plugins-collection.git"
+Issues = "https://github.com/thomasvincent/nagios-plugins-collection/issues"
+Changelog = "https://github.com/thomasvincent/nagios-plugins-collection/blob/main/CHANGELOG.md"
+
+[project.scripts]
+check_procs = "nagios_plugins.check_procs:main"
+check_ro_mounts = "nagios_plugins.check_ro_mounts:main"
+check_dig = "nagios_plugins.check_dig:main"
+check_hadoop = "nagios_plugins.check_hadoop:main"
+check_monghealth = "nagios_plugins.check_monghealth:main"
+check_jobs = "nagios_plugins.check_jobs:main"
+check_website_status = "nagios_plugins.check_website_status:main"
+check_membase = "nagios_plugins.check_membase:main"
+
+[tool.setuptools]
+packages = ["nagios_plugins"]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+nagios_plugins = ["py.typed"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "-q",
+    "--strict-markers",
+    "--strict-config",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+parallel = true
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+fail_under = 80
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["nagios_plugins"]
+skip_gitignore = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "S",      # flake8-bandit (security)
+    "PTH",    # flake8-use-pathlib
+]
+ignore = [
+    "E501",   # line too long (handled by black)
+    "S101",   # assert usage (ok in tests)
+    "S603",   # subprocess call - check for untrusted input
+    "S607",   # partial path to executable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG001"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+show_column_numbers = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = [
+    "paramiko.*",
+    "pymongo.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs"]
+skips = ["B101"]  # assert_used - ok in plugins for arg validation
+
+[tool.semantic_release]
+version_variable = "pyproject.toml:version"
+branch = "main"
+upload_to_pypi = false
+upload_to_release = true
+build_command = "pip install build && python -m build"
