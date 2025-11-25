@@ -36,10 +36,10 @@ jobs:
         nagios-version: ['4.4.6', '4.4.7', '4.4.8', '4.4.9', '4.4.10']
     
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -53,7 +53,7 @@ jobs:
       run: tox
     
     - name: Upload test results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: test-results-py${{ matrix.python-version }}-nagios${{ matrix.nagios-version }}
@@ -65,10 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -86,10 +86,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -107,10 +107,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -124,7 +124,7 @@ jobs:
       run: tox -e docs
     
     - name: Upload documentation
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: documentation
         path: docs/build/html/
@@ -135,10 +135,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -162,10 +162,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v4
-    
+    - uses: actions/checkout@v6
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -187,12 +187,12 @@ jobs:
     timeout-minutes: 15  # Prevent hung jobs
     needs: [test, lint, type-check, docs, coverage, security]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-    
+
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -209,7 +209,7 @@ jobs:
       run: twine check dist/*
     
     - name: Upload package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: packages
         path: dist/
