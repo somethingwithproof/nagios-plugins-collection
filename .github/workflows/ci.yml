@@ -2,13 +2,13 @@ name: Nagios Plugins Collection CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master ]
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - '.github/*.md'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master ]
   schedule:
     - cron: '0 0 * * 0'  # Weekly run on Sunday at midnight
   workflow_dispatch:  # Allow manual triggering
