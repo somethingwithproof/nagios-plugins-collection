@@ -17,7 +17,8 @@ WORKDIR /app
 # Install runtime deps only from the built wheel
 COPY --from=builder /app/dist /tmp/dist
 RUN python -m pip install --upgrade pip && \
-    pip install /tmp/dist/*-py3-none-any.whl && \
+pip install "/tmp/dist/"*.whl && \
+    pip install "nagios-plugins-collection[all]" --no-deps && \
     rm -rf /tmp/dist
 # Default entrypoint runs a smoke check; override with commands
 ENTRYPOINT ["nagios-plugins-collection"]
