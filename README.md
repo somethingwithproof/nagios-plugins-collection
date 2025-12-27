@@ -12,33 +12,32 @@ A modern, enterprise-grade collection of Nagios plugins for monitoring various s
 
 ## Features
 
-- **Modern Python**: Fully compatible with Python 3.8+ with type hints and modern language features
-- **Async Support**: Asynchronous execution for improved performance in high-load environments
-- **Rich Output**: Beautiful terminal output with progress indicators and formatted results
-- **JSON Support**: All plugins support JSON output format for easier integration with other tools
-- **Consistent Interface**: All plugins follow the same command-line interface pattern
-- **Comprehensive Documentation**: Each plugin is thoroughly documented with examples
-- **Extensive Test Coverage**: All plugins have unit and integration tests
-- **Multi-Version Support**: Compatible with multiple Nagios versions (4.4.6+)
-- **Performance Data**: All plugins provide performance data for trending and analysis
-- **Threshold Handling**: Consistent threshold handling across all plugins
-- **Error Handling**: Robust error handling with detailed error messages
-- **Security Scanning**: Regular security audits with bandit and safety
+- Modern Python: Requires Python 3.11+ with type hints and strict linting/typing (ruff, mypy)
+- Async support where it matters (httpx, asyncio) for high fan‑out checks
+- JSON output across plugins for easy ingestion
+- Consistent CLI interface with common flags: `--timeout`, `--warning`, `--critical`, `--json`, `--verbose`
+- Performance data (Nagios perfdata) standard across checks
+- CI/CD with tests, coverage, SBOM generation, Trivy scanning, and cosign signing
+- Kubernetes Helm chart and Nomad job provided for scheduled runs
+- Security scanning with bandit/safety and dependency pinning
 
-## Available Plugins
+## Available Plugins (modern set)
 
-Note on legacy components: some older, standalone scripts (e.g., under `check_procs/` or `check_dig/`) previously vendored third‑party libraries. These vendored copies have been removed; if you still rely on those legacy scripts, install the appropriate extras (e.g., `pip install "nagios-plugins-collection[legacy]"`) or migrate to the modern plugins under `src/nagios_plugins/plugins/`.
+Note on legacy components: legacy standalone scripts were removed. Prefer the modern, typed plugins under `src/nagios_plugins/plugins/`. Install extras with `pip install "nagios-plugins-collection[all]"` or a subset (e.g., `[aws]`, `[k8s]`, `[pg]`, `[redis]`, `[prom]`, `[dns]`, `[es]`).
 
-The collection includes plugins for monitoring:
-
-- **check_component_status**: Generic component/status checks with thresholds
-- **check_dig**: DNS resolution checks
-- **check_hadoop**: Hadoop/YARN/HDFS health checks
-- **check_jobs**: Job execution monitoring
-- **check_monghealth**: Legacy MongoDB health checks (modern alternative: check_mongodb_health)
-- **check_mongodb_health**: MongoDB health and performance
-- **check_ro_mounts**: Detect read-only mounts on a system
-- **check_website_status**: Simple website status and content checks
+Core plugins:
+- check_tls_expiry: Verify TLS certificate expiry and chain health
+- check_dns_health: DNS resolution/NS health (dnspython optional)
+- check_prometheus_query: Evaluate PromQL expressions and threshold results
+- check_http_sli: Measure latency percentiles and error rate for an endpoint
+- check_log_errors: Count error patterns via Elastic/OpenSearch HTTP
+- check_k8s_node_status: Summarize Kubernetes node health (client optional)
+- check_postgres_replication_lag: Lag in seconds via SQL (psycopg optional)
+- check_queue_depth: AWS SQS queue depth/inflight (boto3 optional)
+- check_redis_saturation: Redis memory/evictions/hitrates (redis-py)
+- check_backup_freshness: Age of latest S3 object by prefix (boto3)
+- check_cloud_budget: AWS Cost Explorer monthly spend (boto3)
+- check_oauth2_token: Validate token endpoint and scopes
 
 ## Installation
 
@@ -128,17 +127,53 @@ docker run --rm nagios-plugins-collection:dev check_website_status --url=https:/
 
 ## Helm (Kubernetes)
 
+General install:
 ```bash
 helm upgrade --install npc charts/nagios-plugins-collection \
   --set image.repository=ghcr.io/thomasvincent/nagios-plugins-collection \
   --set image.tag=latest \
-  --set command="{check_website_status, --url=https://example.com, --pattern=Example}"
+  --set-json 'command=["check_http_sli","--url=https://example.com","--samples","5","--warning","0.2","--critical","0.5"]'
+```
+
+Examples per plugin (values overrides):
+
+TLS expiry
+```bash
+helm upgrade --install tls charts/nagios-plugins-collection \
+  --set-json 'command=["check_tls_expiry","--host","example.com","--port","443","--warning","14","--critical","7"]'
+```
+
+Prometheus query
+```bash
+helm upgrade --install prom charts/nagios-plugins-collection \
+  --set-json 'command=["check_prometheus_query","--server","http://prometheus:9090","--query","sum(rate(http_requests_total[5m]))","--warning","100","--critical","200"]'
+```
+
+Kubernetes nodes
+```bash
+helm upgrade --install k8s charts/nagios-plugins-collection \
+  --set-json 'command=["check_k8s_node_status","--label","node-role.kubernetes.io/worker=true"]'
+```
+
+AWS S3 backup freshness
+```bash
+helm upgrade --install backup charts/nagios-plugins-collection \
+  --set-json 'command=["check_backup_freshness","--bucket","my-bucket","--prefix","backups/","--warning","3600","--critical","7200"]' \
+  --set env[0].name=AWS_REGION --set env[0].value=us-east-1
 ```
 
 ## Nomad
 
-```bash
-nomad job run deploy/nomad/nagios-plugins-collection.nomad.hcl
+General job file ships at `deploy/nomad/nagios-plugins-collection.nomad.hcl`. Override args per plugin. Examples:
+
+HTTP SLI
+```hcl
+args = ["check_http_sli","--url=https://example.com","--samples","5","--warning","0.2","--critical","0.5"]
+```
+
+TLS Expiry
+```hcl
+args = ["check_tls_expiry","--host","example.com","--port","443","--warning","14","--critical","7"]
 ```
 
 ## Publishing
