@@ -58,27 +58,27 @@ class CommandResult:
 def execute_command(
     command: List[str], timeout: int = 30, shell: bool = False
 ) -> Tuple[int, str, str]:
-    """Execute a command and return the result.
+    """Execute a command and return ``(exit_code, stdout, stderr)``.
 
-    This simplified implementation uses :class:`subprocess.Popen` to execute the
-    command synchronously.  It returns a tuple ``(exit_code, stdout, stderr)`` to
-    maintain backwards compatibility with the original utility function used by
-    the tests.
+    Security: ``shell=True`` is disallowed per project standards and will raise
+    ``ValueError``. Callers must pass the command as a list of tokens.
 
     Args:
         command: The command to execute as a list of strings.
         timeout: The timeout in seconds.
-        shell: Whether to execute the command in a shell.
+        shell: Present for backward compatibility; must be False.
 
     Returns:
         Tuple containing the exit code, standard output and standard error.
     """
+    if shell:
+        raise ValueError("shell=True is disallowed by project security standards")
+
     try:
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            shell=shell,
             universal_newlines=True,
         )
         try:
