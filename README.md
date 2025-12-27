@@ -105,6 +105,55 @@ extra-index-url = https://pypi.pkg.github.com/thomasvincent/simple
 
 Then authenticate using a credential helper (e.g., `~/.netrc`) or environment variables when invoking pip.
 
+## Publishing
+
+You can publish releases via GitHub Actions (recommended) or locally with Twine. Never paste tokens in plaintext; use environment variables/secrets.
+
+### GitHub Actions (one-click)
+
+- Publish to GitHub Packages: run the workflow "Publish to GitHub Packages" (on release or manual).
+- Publish to PyPI: run "Publish to PyPI (manual)" and ensure the repo secret `PYPI_API_TOKEN` exists.
+- Multi-destination: run "Publish Release (multi-destination)" and choose one of: `pypi`, `testpypi`, or `github-packages`. You can also set `dry-run=true` to only build and run `twine check`.
+
+Required secrets
+- For PyPI: `PYPI_API_TOKEN` (scoped to the package, from https://pypi.org/manage/account/token/)
+- For TestPyPI: `TESTPYPI_API_TOKEN` (from https://test.pypi.org)
+- GitHub Packages uses the built-in `GITHUB_TOKEN` (no extra setup).
+
+### Local publish (manual)
+
+Build and verify:
+
+```bash
+python -m pip install --upgrade build twine
+python -m build
+python -m twine check dist/*
+```
+
+Upload to GitHub Packages (GPR):
+
+```bash
+export TWINE_USERNAME="${GITHUB_USER}"
+export TWINE_PASSWORD="${GITHUB_TOKEN_WITH_write:packages}"
+python -m twine upload --repository-url "https://pypi.pkg.github.com/thomasvincent" dist/*
+```
+
+Upload to TestPyPI:
+
+```bash
+export TWINE_USERNAME="__token__"
+export TWINE_PASSWORD="{{TESTPYPI_API_TOKEN}}"
+python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+```
+
+Upload to PyPI:
+
+```bash
+export TWINE_USERNAME="__token__"
+export TWINE_PASSWORD="{{PYPI_API_TOKEN}}"
+python -m twine upload dist/*
+```
+
 ## Development
 
 ### Setting Up Development Environment
