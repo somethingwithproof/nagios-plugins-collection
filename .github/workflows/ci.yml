@@ -34,7 +34,7 @@ jobs:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
         nagios-version: ['4.4.6', '4.4.7', '4.4.8', '4.4.9', '4.4.10']
-    
+
     steps:
     - uses: actions/checkout@v6
 
@@ -43,15 +43,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install tox tox-gh-actions
-    
+
     - name: Test with tox
       run: tox
-    
+
     - name: Upload test results
       uses: actions/upload-artifact@v6
       if: always()
@@ -72,12 +72,12 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install tox pre-commit
-    
+
     - name: Run linting via tox
       run: tox -e lint
 
@@ -96,12 +96,12 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install tox
-    
+
     - name: Run type checking
       run: tox -e type
 
@@ -117,15 +117,15 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install tox
-    
+
     - name: Build documentation
       run: tox -e docs
-    
+
     - name: Upload documentation
       uses: actions/upload-artifact@v6
       with:
@@ -145,15 +145,15 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install tox
-    
+
     - name: Run coverage
       run: tox -e coverage
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
@@ -172,15 +172,15 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install bandit safety
-    
+
     - name: Run bandit
       run: bandit -r src/ -c pyproject.toml
-    
+
     - name: Run safety
       run: safety check
 
@@ -199,18 +199,18 @@ jobs:
       with:
         python-version: '3.12'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install build twine
-    
+
     - name: Build package
       run: python -m build
-    
+
     - name: Check package
       run: twine check dist/*
-    
+
     - name: Upload package
       uses: actions/upload-artifact@v6
       with:

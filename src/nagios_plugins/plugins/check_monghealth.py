@@ -24,7 +24,7 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from rich.console import Console

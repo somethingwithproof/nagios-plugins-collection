@@ -1,7 +1,7 @@
 """Nagios Plugins Collection.
 
 This package contains a collection of standardized Nagios plugins
-for monitoring various services and systems. All plugins follow a consistent 
+for monitoring various services and systems. All plugins follow a consistent
 interface and use the plugin framework for standardization.
 
 Available plugins:
@@ -19,10 +19,9 @@ Available plugins:
 __all__ = [
     # New standardized plugins
     "check_component_status",
-    "check_mongodb_health", 
+    "check_mongodb_health",
     "check_website_status",
     "check_ro_mounts",
-    
     # Legacy plugins
     "check_monghealth",
     "check_hadoop",

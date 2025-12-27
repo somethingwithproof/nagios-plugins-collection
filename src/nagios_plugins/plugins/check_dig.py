@@ -29,7 +29,7 @@ from typing import List, Optional
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
+from nagios_plugins.base import CheckResult, Status
 from nagios_plugins.utils import CommandResult
 
 # Configure logging

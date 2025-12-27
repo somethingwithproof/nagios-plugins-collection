@@ -26,7 +26,7 @@ import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
+from nagios_plugins.base import CheckResult, Status
 
 # Configure logging
 logging.basicConfig(
@@ -144,7 +144,7 @@ class HadoopClusterChecker:
             # All checks passed
             return CheckResult(
                 Status.OK,
-                "Hadoop cluster is healthy" 
+                "Hadoop cluster is healthy"
                 + (f", memory: {mem_message}" if "mem_message" in locals() else ""),
                 metrics=metrics,
             )
