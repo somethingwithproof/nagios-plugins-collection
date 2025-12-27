@@ -1,0 +1,18 @@
+image:
+  repository: ghcr.io/thomasvincent/nagios-plugins-collection
+  tag: latest
+  pullPolicy: IfNotPresent
+
+schedule: "*/10 * * * *"  # every 10 minutes
+
+command: ["check_website_status", "--url=https://example.com", "--pattern=Example"]
+
+env: []
+args: []
+resources: {}
+nodeSelector: {}
+affinity: {}
+tolerations: []
+serviceAccount:
+  create: true
+  name: ""
