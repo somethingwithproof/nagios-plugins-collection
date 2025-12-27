@@ -1,0 +1,39 @@
+suite: CronJob renders
+templates:
+  - templates/cronjob.yaml
+values:
+  - values.yaml
+
+tests:
+  - it: uses provided schedule
+    set:
+      schedule: "0 * * * *"
+    asserts:
+      - equal:
+          path: spec.schedule
+          value: "0 * * * *"
+
+  - it: sets image repository and tag
+    set:
+      image:
+        repository: ghcr.io/example/repo
+        tag: v1
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: ghcr.io/example/repo:v1
+
+  - it: passes command and args
+    set:
+      command: ["check_website_status", "--url=https://example.com"]
+      args: ["--pattern=Example"]
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].command
+          value:
+            - check_website_status
+            - --url=https://example.com
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].args
+          value:
+            - --pattern=Example
