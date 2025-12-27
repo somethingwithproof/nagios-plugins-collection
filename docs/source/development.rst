@@ -56,8 +56,8 @@ Common Plugin Patterns
 
 All plugins share a few implementation patterns:
 
-* Derive from ``NagiosPlugin`` or ``NagiosPluginFramework`` to obtain
-  argument parsing, logging, and result handling.
+* Derive from ``NagiosPlugin`` to obtain argument parsing, logging, and result handling.
+  The legacy ``NagiosPluginFramework`` is deprecated and retained only for import compatibility.
 * Implement a ``check`` or ``async_check`` method that returns a
   :class:`~nagios_plugins.base.CheckResult` and uses
   :class:`~nagios_plugins.base.Status` values.
