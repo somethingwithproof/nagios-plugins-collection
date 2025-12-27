@@ -1,3 +1,23 @@
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+
+# Coverage/pytest
+.coverage*
+htmlcov/
+.pytest_cache/
+
+# Editors/OS
+.DS_Store
+.idea/
+.vscode/
+
 *.py[cod]
 .idea
 # C extensions
