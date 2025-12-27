@@ -1,4 +1,0 @@
-httpx
-pytest
-flake8
-black

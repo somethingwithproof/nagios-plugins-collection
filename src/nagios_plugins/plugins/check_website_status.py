@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import re
-import time
 from typing import Optional
 
 import httpx
@@ -41,9 +40,8 @@ class WebsiteStatusChecker:
 
     async def check_website(self) -> CheckResult:
         """Check the configured website and return a :class:`CheckResult`."""
-        start_time = time.time()
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.get(self.url)
 
             duration = response.elapsed.total_seconds()
