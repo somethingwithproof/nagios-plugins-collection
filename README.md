@@ -105,6 +105,42 @@ extra-index-url = https://pypi.pkg.github.com/thomasvincent/simple
 
 Then authenticate using a credential helper (e.g., `~/.netrc`) or environment variables when invoking pip.
 
+## Docker (end-to-end)
+
+Build and run tests inside Docker:
+
+```bash
+docker build -f docker/Dockerfile -t nagios-plugins-collection:dev .
+docker run --rm -it nagios-plugins-collection:dev pytest -q
+```
+
+Or with compose:
+
+```bash
+docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
+```
+
+Run a plugin inside the container:
+
+```bash
+docker run --rm nagios-plugins-collection:dev check_website_status --url=https://example.com --pattern=Example
+```
+
+## Helm (Kubernetes)
+
+```bash
+helm upgrade --install npc charts/nagios-plugins-collection \
+  --set image.repository=ghcr.io/thomasvincent/nagios-plugins-collection \
+  --set image.tag=latest \
+  --set command="{check_website_status, --url=https://example.com, --pattern=Example}"
+```
+
+## Nomad
+
+```bash
+nomad job run deploy/nomad/nagios-plugins-collection.nomad.hcl
+```
+
 ## Publishing
 
 You can publish releases via GitHub Actions (recommended) or locally with Twine. Never paste tokens in plaintext; use environment variables/secrets.

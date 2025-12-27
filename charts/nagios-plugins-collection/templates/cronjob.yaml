@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "nagios-plugins-collection.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "nagios-plugins-collection.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "nagios-plugins-collection.serviceAccountName" . }}
+          restartPolicy: Never
+          containers:
+            - name: plugin
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command: {{ toJson .Values.command }}
+              args: {{ toJson .Values.args }}
+              env:
+                {{- range .Values.env }}
+                - name: {{ .name }}
+                  value: {{ .value | quote }}
+                {{- end }}
+              resources: {{- toYaml .Values.resources | nindent 16 }}

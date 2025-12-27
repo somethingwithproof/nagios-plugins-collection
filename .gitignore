@@ -18,6 +18,12 @@ htmlcov/
 .idea/
 .vscode/
 
+# Helm & Nomad local files
+charts/*/charts/
+charts/*/tmp/
+charts/*/Chart.lock
+.nomad/
+
 *.py[cod]
 .idea
 # C extensions
