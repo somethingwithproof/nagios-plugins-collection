@@ -1,0 +1,37 @@
+name: Auto Prune Merged Branches
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prune merged branches (except main)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch --all --prune
+          default_branch=main
+          # List remote branches excluding default
+          mapfile -t branches < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin | sed 's#^origin/##' | grep -v "^${default_branch}$" || true)
+          for br in "${branches[@]}"; do
+            # Skip protected patterns
+            if [[ "$br" =~ ^dependabot/ ]]; then continue; fi
+            # Check if fully merged into default
+            if git merge-base --is-ancestor "origin/${br}" "origin/${default_branch}"; then
+              echo "Deleting merged branch: ${br}"
+              git push origin --delete "${br}" || true
+            else
+              echo "Keeping unmerged branch: ${br}"
+            fi
+          done
