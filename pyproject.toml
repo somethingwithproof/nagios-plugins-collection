@@ -7,7 +7,7 @@ name = "nagios-plugins-collection"
 version = "1.2.1"
 description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [
     {name = "Thomas Vincent", email = "thomasvincent@gmail.com"}
@@ -120,6 +120,7 @@ check_jobs = "nagios_plugins.plugins.check_jobs:main"
 
 [tool.black]
 line-length = 100
+skip-string-normalization = true
 target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.isort]

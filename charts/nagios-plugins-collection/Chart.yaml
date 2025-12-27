@@ -1,0 +1,12 @@
+apiVersion: v2
+name: nagios-plugins-collection
+version: 0.1.0
+appVersion: "1.2.1"
+description: Run Nagios plugins as Kubernetes CronJobs/Jobs
+keywords:
+  - nagios
+  - monitoring
+  - plugins
+maintainers:
+  - name: Thomas Vincent
+    email: thomasvincent@gmail.com
