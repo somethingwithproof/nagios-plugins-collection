@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-12-27
+
+### Changed
+- Python 3 modernization across the repo; removed legacy standalone scripts and vendored third-party code.
+- Security: disallow shell=True in execute_command.
+- Adopted Ruff + pre-commit; tightened lint/type gates and standardized formatting.
+- CI cleanup and stability improvements.
+
+### Fixed
+- Multiple lint issues (flake8/ruff) and minor type issues in runtime code.
+
 ## [1.1.0] - 2025-04-11
 
 ### Added
