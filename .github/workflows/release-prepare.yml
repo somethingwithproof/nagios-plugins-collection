@@ -1,0 +1,57 @@
+name: Prepare Release (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload-to-testpypi:
+        description: "Upload to TestPyPI after build?"
+        required: true
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Twine check
+        run: python -m twine check dist/*
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: dist-artifacts
+          path: dist/
+          retention-days: 14
+  publish-testpypi:
+    if: ${{ github.event.inputs.upload-to-testpypi == 'true' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist
+      - name: Upload to TestPyPI (manual opt-in)
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install twine
+          python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
