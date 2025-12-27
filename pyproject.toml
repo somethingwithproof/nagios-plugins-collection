@@ -50,6 +50,27 @@ cli = [
 schema = [
     "pydantic>=2.5.0",
 ]
+prom = [
+    "httpx>=0.26.0",
+]
+dns = [
+    "dnspython>=2.6.1",
+]
+k8s = [
+    "kubernetes>=29.0.0",
+]
+pg = [
+    "psycopg[binary]>=3.1.18",
+]
+redis = [
+    "redis>=5.0.0",
+]
+aws = [
+    "boto3>=1.35.0",
+]
+es = [
+    "httpx>=0.26.0",
+]
 legacy = [
     "pexpect>=4.9.0",
     "pynag",
@@ -77,7 +98,7 @@ security = [
     "safety>=2.3.5",
 ]
 all = [
-    "nagios-plugins-collection[mongodb,ssh,cli,schema,legacy,dev,security]",
+    "nagios-plugins-collection[mongodb,ssh,cli,schema,legacy,dev,security,prom,dns,k8s,pg,redis,aws,es]",
 ]
 
 [tool.ruff]
@@ -101,11 +122,24 @@ ignore = [
 ]
 
 [project.scripts]
-# Standard plugins following the new framework
+# Standard plugins
 check_website_status = "nagios_plugins.plugins.check_website_status:main"
 check_component_status = "nagios_plugins.plugins.check_component_status:main"
 check_mongodb_health = "nagios_plugins.plugins.check_mongodb_health:main"
 check_ro_mounts = "nagios_plugins.plugins.check_ro_mounts:main"
+# New enterprise plugins
+check_tls_expiry = "nagios_plugins.plugins.check_tls_expiry:main"
+check_prometheus_query = "nagios_plugins.plugins.check_prometheus_query:main"
+check_http_sli = "nagios_plugins.plugins.check_http_sli:main"
+check_dns_health = "nagios_plugins.plugins.check_dns_health:main"
+check_k8s_node_status = "nagios_plugins.plugins.check_k8s_node_status:main"
+check_postgres_replication_lag = "nagios_plugins.plugins.check_postgres_replication_lag:main"
+check_queue_depth = "nagios_plugins.plugins.check_queue_depth:main"
+check_oauth2_token = "nagios_plugins.plugins.check_oauth2_token:main"
+check_redis_saturation = "nagios_plugins.plugins.check_redis_saturation:main"
+check_log_errors = "nagios_plugins.plugins.check_log_errors:main"
+check_cloud_budget = "nagios_plugins.plugins.check_cloud_budget:main"
+check_backup_freshness = "nagios_plugins.plugins.check_backup_freshness:main"
 
 # Legacy plugins
 check_monghealth = "nagios_plugins.plugins.check_monghealth:main"
