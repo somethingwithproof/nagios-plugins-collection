@@ -46,7 +46,7 @@ The project is organized as follows:
     │   ├── unit/               # Unit tests
     │   └── integration/        # Integration tests
     ├── pyproject.toml          # Project configuration (main configuration)
-    ├── setup.py                # Setup script (for backward compatibility)
+├── (no setup.py)           # Project uses PEP 621 (pyproject.toml)
     ├── tox.ini                 # Tox configuration
     ├── README.md               # Project README
     └── CHANGELOG.md            # Project changelog

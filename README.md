@@ -31,22 +31,14 @@ Note on legacy components: some older, standalone scripts (e.g., under `check_pr
 
 The collection includes plugins for monitoring:
 
-- **check_hadoop**: Monitor Hadoop clusters and HDFS
-- **check_monghealth**: Monitor MongoDB health and performance
-- **check_procs**: Check processes on remote systems via SSH
-- **check_mounts**: Check for read-only mounts on a system
-- **check_counters_db**: Monitor Vertica database counters
-- **check_dig**: Check DNS resolution
-- **check_etl**: Monitor ETL processes
-- **check_http500**: Check for HTTP 500 errors
-- **check_jobs**: Monitor job execution
-- **check_scribe**: Monitor Scribe log aggregation
-- **check_statusthroughweb**: Check status through a web interface
-- **check_website_status**: Check website status
-- **check_advanced_website_status**: Advanced website status checking
-- **membase_stats**: Monitor Membase/Couchbase statistics
-- **url_monitor**: Monitor URLs for availability and content
-- **xml_url_checker**: Check XML content from URLs
+- **check_component_status**: Generic component/status checks with thresholds
+- **check_dig**: DNS resolution checks
+- **check_hadoop**: Hadoop/YARN/HDFS health checks
+- **check_jobs**: Job execution monitoring
+- **check_monghealth**: Legacy MongoDB health checks (modern alternative: check_mongodb_health)
+- **check_mongodb_health**: MongoDB health and performance
+- **check_ro_mounts**: Detect read-only mounts on a system
+- **check_website_status**: Simple website status and content checks
 
 ## Installation
 
@@ -75,11 +67,11 @@ check_hadoop command --url=http://hadoop-master:8088/ws/v1/cluster/info
 # Check MongoDB health
 check_monghealth --host=mongodb.example.com --port=27017 --warning=80 --critical=90
 
-# Check processes
-check_procs --host=server.example.com --process=nginx --min=1 --max=10
+# Check component status (example)
+check_component_status --warning=75 --critical=90
 
 # Check read-only mounts
-check_mounts --exclude=/proc,/sys,/dev
+check_ro_mounts --exclude=/proc,/sys,/dev
 
 # Check website status
 check_website_status --url=https://example.com --pattern="Welcome" --timeout=10
