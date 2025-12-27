@@ -49,9 +49,7 @@ class WebsiteStatusChecker:
 
             if response.status_code != 200:
                 if self.pattern is not None:
-                    metrics["pattern_found"] = (
-                        1 if re.search(self.pattern, response.text) else 0
-                    )
+                    metrics["pattern_found"] = 1 if re.search(self.pattern, response.text) else 0
                 return CheckResult(
                     Status.CRITICAL,
                     f"HTTP {response.status_code} error",

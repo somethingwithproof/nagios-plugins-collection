@@ -95,14 +95,15 @@ select = [
   "SIM" # flake8-simplify
 ]
 ignore = [
-  "E203", # whitespace before ':' (Black compatibility)
-  "E501"  # line length handled by Black
+  "E203",   # whitespace before ':' (Black compatibility)
+  "E501",   # line length handled by Black
+  "UP007"   # union operator not available on py38 syntax
 ]
 
 [project.scripts]
 # Standard plugins following the new framework
 check_website_status = "nagios_plugins.plugins.check_website_status:main"
-check_component_status = "nagios_plugins.plugins.check_component_status:main" 
+check_component_status = "nagios_plugins.plugins.check_component_status:main"
 check_mongodb_health = "nagios_plugins.plugins.check_mongodb_health:main"
 check_ro_mounts = "nagios_plugins.plugins.check_ro_mounts:main"
 
@@ -127,6 +128,7 @@ line_length = 100
 
 [tool.mypy]
 python_version = "3.8"
+files = ["src"]
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

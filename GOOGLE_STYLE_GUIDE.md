@@ -55,7 +55,7 @@ def __init__(
 ) -> None:
     """
     Initialize the ComponentStatusChecker.
-    
+
     Args:
         host: Hostname of the ETL API server
         port: Port number of the ETL API server
@@ -83,10 +83,10 @@ async def check_components(
     self, required_components: List[Tuple[str, bool]]
 ) -> CheckResult:
     """Check the status of MongoDB components.
-    
+
     Args:
         required_components: List of (component_name, expected_value) tuples
-        
+
     Returns:
         CheckResult with the check result
     """
@@ -126,7 +126,7 @@ Example from `check_monghealth/check_monghealth_modernized.py`:
 ```python
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments.
-    
+
     Returns:
         Parsed arguments
     """
@@ -164,7 +164,7 @@ Example from `check_monghealth/check_monghealth_modernized.py`:
 ```python
 async def check_engine_status(self) -> Tuple[bool, Dict[str, Any]]:
     """Check the MongoDB engine status.
-    
+
     Returns:
         A tuple of (is_alive, status_data)
     """
@@ -186,11 +186,11 @@ try:
     ) as client:
         response = await client.get(url)
         response.raise_for_status()
-        
+
         # Parse the JSON response
         data = response.json()
         status = data.get("status", "").lower()
-        
+
         # Parse the updated timestamp
         updated = None
         if "updated" in data:
@@ -200,9 +200,9 @@ try:
                 logger.warning(
                     "Invalid timestamp format: %s", data["updated"]
                 )
-        
+
         return status, updated
-        
+
 except httpx.HTTPStatusError as e:
     logger.error("HTTP error: %s", e)
     return "error", None
@@ -241,7 +241,7 @@ Example from `check_monghealth/check_monghealth_modernized.py`:
 ```python
 def main() -> int:
     """Main function.
-    
+
     Returns:
         Exit code
     """
@@ -250,7 +250,7 @@ def main() -> int:
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     return loop.run_until_complete(main_async())
 
 
