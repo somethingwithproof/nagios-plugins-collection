@@ -84,6 +84,27 @@ check_website_status --url=https://example.com --pattern="Welcome" --timeout=10 
 
 For full documentation, visit [nagios-plugins-collection.readthedocs.io](https://nagios-plugins-collection.readthedocs.io/).
 
+## Install from GitHub Packages
+
+If you prefer installing from GitHub Packages instead of PyPI:
+
+- Create a fine-grained personal access token with the write:packages (for publishing) or read:packages (for install) scope. Do not paste the token into shell history.
+- For installation, set an environment variable and use an extra index URL. Example:
+
+```bash
+export PIP_EXTRA_INDEX_URL="https://__token__:${GITHUB_PACKAGES_TOKEN}@pypi.pkg.github.com/thomasvincent/simple"
+pip install --upgrade nagios-plugins-collection
+```
+
+Alternatively, configure `~/.pip/pip.conf`:
+
+```
+[global]
+extra-index-url = https://pypi.pkg.github.com/thomasvincent/simple
+```
+
+Then authenticate using a credential helper (e.g., `~/.netrc`) or environment variables when invoking pip.
+
 ## Development
 
 ### Setting Up Development Environment
