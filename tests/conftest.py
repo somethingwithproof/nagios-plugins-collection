@@ -1,9 +1,12 @@
 """Pytest configuration for nagios-plugins-collection tests."""
 
 import pytest
+from _pytest.config import Config
+from _pytest.config.argparsing import Parser
+from _pytest.fixtures import FixtureRequest
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: Parser) -> None:
     """Add command-line options to pytest."""
     parser.addoption(
         "--nagios-version",
@@ -14,6 +17,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
-def nagios_version(request):
+def nagios_version(request: FixtureRequest) -> str:
     """Return the Nagios version to test against."""
-    return request.config.getoption("--nagios-version")
+    cfg: Config = request.config
+    return str(cfg.getoption("--nagios-version"))

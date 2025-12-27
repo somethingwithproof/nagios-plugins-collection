@@ -1,5 +1,6 @@
 """Tests for the base module."""
 
+import argparse
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +11,7 @@ from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_che
 class TestStatus:
     """Tests for the Status enum."""
 
-    def test_from_string(self):
+    def test_from_string(self) -> None:
         """Test the from_string method."""
         assert Status.from_string("OK") == Status.OK
         assert Status.from_string("WARNING") == Status.WARNING
@@ -18,7 +19,7 @@ class TestStatus:
         assert Status.from_string("UNKNOWN") == Status.UNKNOWN
         assert Status.from_string("INVALID") == Status.UNKNOWN
 
-    def test_str(self):
+    def test_str(self) -> None:
         """Test the __str__ method."""
         assert str(Status.OK) == "OK"
         assert str(Status.WARNING) == "WARNING"
@@ -29,12 +30,12 @@ class TestStatus:
 class TestCheckResult:
     """Tests for the CheckResult class."""
 
-    def test_str_simple(self):
+    def test_str_simple(self) -> None:
         """Test the __str__ method with a simple result."""
         result = CheckResult(Status.OK, "Everything is fine")
         assert str(result) == "OK - Everything is fine"
 
-    def test_str_with_metrics(self):
+    def test_str_with_metrics(self) -> None:
         """Test the __str__ method with metrics."""
         result = CheckResult(
             Status.WARNING,
@@ -43,7 +44,7 @@ class TestCheckResult:
         )
         assert str(result) == "WARNING - High CPU usage | cpu=85 memory=50"
 
-    def test_str_with_details(self):
+    def test_str_with_details(self) -> None:
         """Test the __str__ method with details."""
         result = CheckResult(
             Status.CRITICAL,
@@ -55,7 +56,7 @@ class TestCheckResult:
             "The service has been down for 10 minutes."
         )
 
-    def test_str_with_metrics_and_details(self):
+    def test_str_with_metrics_and_details(self) -> None:
         """Test the __str__ method with metrics and details."""
         result = CheckResult(
             Status.UNKNOWN,
@@ -75,20 +76,20 @@ class TestNagiosPlugin:
     class TestPlugin(NagiosPlugin):
         """Test plugin implementation."""
 
-        def check(self, args):
+        def check(self, args: argparse.Namespace) -> CheckResult:
             """Perform the check."""
             if args.fail:
                 return CheckResult(Status.CRITICAL, "Test failed")
             return CheckResult(Status.OK, "Test passed")
 
     @pytest.fixture
-    def plugin(self):
+    def plugin(self) -> "TestNagiosPlugin.TestPlugin":
         """Create a test plugin."""
         plugin = self.TestPlugin()
         plugin.parser.add_argument("--fail", action="store_true", help="Fail the test")
         return plugin
 
-    def test_parse_args(self, plugin):
+    def test_parse_args(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the parse_args method."""
         args = plugin.parse_args(["--verbose"])
         assert args.verbose == 1
@@ -97,7 +98,7 @@ class TestNagiosPlugin:
         assert args.critical is None
         assert args.fail is False
 
-    def test_parse_args_with_custom_args(self, plugin):
+    def test_parse_args_with_custom_args(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the parse_args method with custom arguments."""
         args = plugin.parse_args(["--fail", "--timeout", "60"])
         assert args.verbose == 0
@@ -106,21 +107,21 @@ class TestNagiosPlugin:
         assert args.critical is None
         assert args.fail is True
 
-    def test_run_success(self, plugin):
+    def test_run_success(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the run method with a successful check."""
         with patch("sys.stdout", new=MagicMock()) as mock_stdout:
             exit_code = plugin.run(["--verbose"])
             assert exit_code == 0
             mock_stdout.write.assert_called_with("OK - Test passed\n")
 
-    def test_run_failure(self, plugin):
+    def test_run_failure(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the run method with a failed check."""
         with patch("sys.stdout", new=MagicMock()) as mock_stdout:
             exit_code = plugin.run(["--fail"])
             assert exit_code == 2
             mock_stdout.write.assert_called_with("CRITICAL - Test failed\n")
 
-    def test_run_exception(self, plugin):
+    def test_run_exception(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the run method with an exception."""
         with patch.object(plugin, "check", side_effect=ValueError("Test error")), patch(
             "sys.stdout", new=MagicMock()
@@ -133,7 +134,7 @@ class TestNagiosPlugin:
 class TestThresholdCheck:
     """Tests for the threshold_check function."""
 
-    def test_simple_thresholds(self):
+    def test_simple_thresholds(self) -> None:
         """Test simple thresholds."""
         # Value below warning threshold
         assert threshold_check(50, warning="75", critical="90") == Status.OK
@@ -142,7 +143,7 @@ class TestThresholdCheck:
         # Value above critical threshold
         assert threshold_check(95, warning="75", critical="90") == Status.CRITICAL
 
-    def test_range_thresholds(self):
+    def test_range_thresholds(self) -> None:
         """Test range thresholds."""
         # Value within range (OK)
         assert threshold_check(50, warning="10:90", critical="5:95") == Status.OK
@@ -151,7 +152,7 @@ class TestThresholdCheck:
         # Value outside critical range
         assert threshold_check(97, warning="10:90", critical="5:95") == Status.CRITICAL
 
-    def test_inverted_thresholds(self):
+    def test_inverted_thresholds(self) -> None:
         """Test inverted thresholds."""
         # Value outside inverted range (OK)
         assert threshold_check(5, warning="@10:90", critical="@5:95") == Status.OK
@@ -160,7 +161,7 @@ class TestThresholdCheck:
         # Value inside inverted critical range
         assert threshold_check(50, warning="@10:90", critical="@5:95") == Status.CRITICAL
 
-    def test_min_only_thresholds(self):
+    def test_min_only_thresholds(self) -> None:
         """Test thresholds with only a minimum value."""
         # Value above minimum (OK)
         assert threshold_check(50, warning="10:", critical="5:") == Status.OK
@@ -169,7 +170,7 @@ class TestThresholdCheck:
         # Value below critical minimum
         assert threshold_check(3, warning="10:", critical="5:") == Status.CRITICAL
 
-    def test_max_only_thresholds(self):
+    def test_max_only_thresholds(self) -> None:
         """Test thresholds with only a maximum value."""
         # Value below maximum (OK)
         assert threshold_check(50, warning=":90", critical=":95") == Status.OK
@@ -178,7 +179,7 @@ class TestThresholdCheck:
         # Value above critical maximum
         assert threshold_check(97, warning=":90", critical=":95") == Status.CRITICAL
 
-    def test_no_thresholds(self):
+    def test_no_thresholds(self) -> None:
         """Test with no thresholds."""
         assert threshold_check(50) == Status.OK
         assert threshold_check(50, warning=None, critical=None) == Status.OK

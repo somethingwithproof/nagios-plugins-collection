@@ -13,7 +13,7 @@ class TestWebsiteStatusChecker:
     """Tests for the WebsiteStatusChecker class."""
 
     @pytest.fixture
-    def checker(self):
+    def checker(self) -> WebsiteStatusChecker:
         """Create a WebsiteStatusChecker instance."""
         return WebsiteStatusChecker(
             url="https://example.com",
@@ -24,7 +24,7 @@ class TestWebsiteStatusChecker:
         )
 
     @pytest.mark.asyncio
-    async def test_check_website_success(self, checker):
+    async def test_check_website_success(self, checker: WebsiteStatusChecker) -> None:
         """Test a successful website check."""
         # Mock httpx.AsyncClient
         mock_response = MagicMock()
@@ -48,7 +48,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["pattern_found"] == 1
 
     @pytest.mark.asyncio
-    async def test_check_website_warning(self, checker):
+    async def test_check_website_warning(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check with warning response time."""
         # Mock httpx.AsyncClient
         mock_response = MagicMock()
@@ -70,7 +70,9 @@ class TestWebsiteStatusChecker:
             assert result.metrics["duration"] == 1.5
 
     @pytest.mark.asyncio
-    async def test_check_website_critical_response_time(self, checker):
+    async def test_check_website_critical_response_time(
+        self, checker: WebsiteStatusChecker
+    ) -> None:
         """Test a website check with critical response time."""
         # Mock httpx.AsyncClient
         mock_response = MagicMock()
@@ -92,7 +94,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["duration"] == 2.5
 
     @pytest.mark.asyncio
-    async def test_check_website_error_status_code(self, checker):
+    async def test_check_website_error_status_code(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check with an error status code."""
         # Mock httpx.AsyncClient
         mock_response = MagicMock()
@@ -114,7 +116,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["duration"] == 0.5
 
     @pytest.mark.asyncio
-    async def test_check_website_pattern_not_found(self, checker):
+    async def test_check_website_pattern_not_found(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check with the pattern not found in the response."""
         # Mock httpx.AsyncClient
         mock_response = MagicMock()
@@ -137,7 +139,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["pattern_found"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_website_timeout(self, checker):
+    async def test_check_website_timeout(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check that times out."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
@@ -154,7 +156,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["duration"] == 10  # Timeout value
 
     @pytest.mark.asyncio
-    async def test_check_website_http_error(self, checker):
+    async def test_check_website_http_error(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check with an HTTP error."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
@@ -169,7 +171,7 @@ class TestWebsiteStatusChecker:
             assert result.metrics["duration"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_website_unexpected_error(self, checker):
+    async def test_check_website_unexpected_error(self, checker: WebsiteStatusChecker) -> None:
         """Test a website check with an unexpected error."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
