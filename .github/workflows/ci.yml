@@ -76,10 +76,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install tox
+        pip install tox pre-commit
     
-    - name: Run linting
+    - name: Run linting via tox
       run: tox -e lint
+
+    - name: Run pre-commit hooks (ruff, black, isort, misc)
+      run: pre-commit run --all-files --show-diff-on-failure
 
   type-check:
     name: Type check
