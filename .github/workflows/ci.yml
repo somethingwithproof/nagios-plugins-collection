@@ -25,6 +25,34 @@ permissions:
   contents: read
 
 jobs:
+  helm-validate:
+    name: Helm unit tests and kubeconform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+      - name: Install helm-unittest plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: Run helm-unittest
+        run: |
+          helm unittest charts/nagios-plugins-collection --strict
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          KUBECONFORM_VERSION="0.6.7"
+          curl -sSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -v
+      - name: Kubeconform validate rendered manifests
+        run: |
+          helm template charts/nagios-plugins-collection \
+            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
   test:
     name: Test Python ${{ matrix.python-version }} with Nagios ${{ matrix.nagios-version }}
     runs-on: ubuntu-latest
@@ -32,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-python-version: ['3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13']
         nagios-version: ['4.4.6', '4.4.7', '4.4.8', '4.4.9', '4.4.10']
 
     steps:
@@ -89,84 +117,85 @@ python-version: ['3.11', '3.12', '3.13']
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install tox
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
 
-    - name: Run type checking
-      run: tox -e type
+      - name: Run type checking
+        run: tox -e type
 
   docs:
     name: Build documentation
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install tox
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
 
-    - name: Build documentation
-      run: tox -e docs
+      - name: Build documentation
+        run: tox -e docs
 
-    - name: Upload documentation
-      uses: actions/upload-artifact@v6
-      with:
-        name: documentation
-        path: docs/build/html/
-        retention-days: 7
+      - name: Upload documentation
+        uses: actions/upload-artifact@v6
+        with:
+          name: documentation
+          path: docs/build/html/
+          retention-days: 7
 
   coverage:
     name: Test coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install tox
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
 
-    - name: Run coverage
-      run: tox -e coverage
+      - name: Run coverage
+        run: tox -e coverage
 
-- name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        file: ./coverage.xml
-        fail_ci_if_error: true
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: true
 
   container:
-    name: Build, scan, and push container image
+    name: Build, scan, sign, and push container image
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       packages: write
+      id-token: write  # required for keyless signing with cosign
     steps:
       - uses: actions/checkout@v6
       - name: Set up Docker Buildx
@@ -178,6 +207,7 @@ python-version: ['3.11', '3.12', '3.13']
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -197,6 +227,16 @@ python-version: ['3.11', '3.12', '3.13']
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign container images with Cosign (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          set -euo pipefail
+          for TAG in latest ${{ github.sha }}; do
+            cosign sign --yes ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${TAG}
+          done
 
   security:
     name: Security scan
@@ -226,11 +266,11 @@ python-version: ['3.11', '3.12', '3.13']
     name: Build and verify package
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
-    needs: [test, lint, type-check, docs, coverage, security]
+    needs: [test, lint, type-check, docs, coverage, security, helm-validate]
     steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v6
