@@ -8,10 +8,20 @@ sys.path.insert(0, os.path.abspath("../../src"))
 
 # Project information
 project = "Nagios Plugins Collection"
-copyright_str = "2025, Thomas Vincent"  # Using copyright_str to avoid redefining built-in
+
+# Copyright
+copyright_str = "2025, Thomas Vincent"
 author = "Thomas Vincent"
-version = "1.0.0"
-release = "1.0.0"
+
+# Resolve version dynamically; fall back for in-tree builds without an installed package
+try:
+    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    try:
+        release = version = _pkg_version("nagios-plugins-collection")
+    except PackageNotFoundError:
+        release = version = "0.0.0"
+except Exception:  # very defensive
+    release = version = "0.0.0"
 
 # General configuration
 extensions = [

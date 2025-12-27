@@ -27,6 +27,8 @@ A modern, enterprise-grade collection of Nagios plugins for monitoring various s
 
 ## Available Plugins
 
+Note on legacy components: some older, standalone scripts (e.g., under `check_procs/` or `check_dig/`) previously vendored third‑party libraries. These vendored copies have been removed; if you still rely on those legacy scripts, install the appropriate extras (e.g., `pip install "nagios-plugins-collection[legacy]"`) or migrate to the modern plugins under `src/nagios_plugins/plugins/`.
+
 The collection includes plugins for monitoring:
 
 - **check_hadoop**: Monitor Hadoop clusters and HDFS
