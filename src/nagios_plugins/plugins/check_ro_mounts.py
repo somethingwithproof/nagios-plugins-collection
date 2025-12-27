@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
+from nagios_plugins.base import CheckResult, Status
 from nagios_plugins.utils import execute_command
 
 # Configure logging
@@ -69,9 +69,8 @@ class MountStatusChecker:
 
         # Add default excludes if not explicitly excluded (system and special filesystems)
         # Instead of hardcoding /tmp, use tempfile.gettempdir() to get the system temp directory
-        import tempfile
         temp_dir = tempfile.gettempdir()
-        
+
         default_excludes = {"/proc", "/sys", "/dev", "/run", temp_dir, "/var/lib/docker"}
         self.exclude_mounts.update(default_excludes)
 
@@ -149,13 +148,13 @@ class MountStatusChecker:
         try:
             # Execute the command
             cmd = self._build_command()
-            result = execute_command(cmd, timeout=self.timeout)
+            exit_code, stdout, _stderr = execute_command(cmd, timeout=self.timeout)
 
             # Get the mount information
-            ro_mounts = []
+            ro_mounts: List[Dict[str, str]] = []
 
-            if result.success and result.stdout.strip():
-                ro_mounts = self._parse_mount_output(result.stdout)
+            if exit_code == 0 and stdout.strip():
+                ro_mounts = self._parse_mount_output(stdout)
 
             # Determine severity of read-only mounts
             critical_mounts = []

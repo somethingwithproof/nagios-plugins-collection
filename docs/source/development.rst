@@ -108,20 +108,20 @@ To create a new plugin:
            async def async_check(self, args: argparse.Namespace) -> CheckResult:
                """Perform the check asynchronously."""
                self.console.print("[bold blue]Checking example...[/bold blue]")
-               
+
                if args.url:
                    # Use the utility function for HTTP checks
                    return check_http_endpoint(
                        url=args.url,
                        timeout=args.timeout,
                    )
-               
+
                # Implement your check logic here
                metrics: Dict[str, Any] = {
                    "example_metric": 100,
                    "response_time": 42.5,
                }
-               
+
                return CheckResult(
                    status=Status.OK,
                    message="Everything is fine",
@@ -137,7 +137,7 @@ To create a new plugin:
                except RuntimeError:
                    loop = asyncio.new_event_loop()
                    asyncio.set_event_loop(loop)
-               
+
                return loop.run_until_complete(self.async_check(args))
 
        def main() -> int:
@@ -191,7 +191,7 @@ To create a new plugin:
            def test_check(self, plugin):
                """Test the check method."""
                with patch.object(
-                   plugin, 'async_check', 
+                   plugin, 'async_check',
                    return_value=CheckResult(Status.OK, "Everything is fine")
                ):
                    result = plugin.check(plugin.parse_args([]))

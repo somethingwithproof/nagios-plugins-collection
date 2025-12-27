@@ -122,15 +122,12 @@ class TestNagiosPlugin:
 
     def test_run_exception(self, plugin):
         """Test the run method with an exception."""
-        with patch.object(
-            plugin, "check", side_effect=ValueError("Test error")
-        ):
-            with patch("sys.stdout", new=MagicMock()) as mock_stdout:
-                exit_code = plugin.run([])
-                assert exit_code == 3
-                mock_stdout.write.assert_called_with(
-                    "UNKNOWN - Unhandled exception: Test error\n"
-                )
+        with patch.object(plugin, "check", side_effect=ValueError("Test error")), patch(
+            "sys.stdout", new=MagicMock()
+        ) as mock_stdout:
+            exit_code = plugin.run([])
+            assert exit_code == 3
+            mock_stdout.write.assert_called_with("UNKNOWN - Unhandled exception: Test error\n")
 
 
 class TestThresholdCheck:

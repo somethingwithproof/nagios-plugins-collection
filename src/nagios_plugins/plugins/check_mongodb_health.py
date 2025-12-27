@@ -19,14 +19,12 @@ import argparse
 import json
 import logging
 import sys
-from typing import Dict, List, Optional, Tuple, Any
 
-import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
-from nagios_plugins.utils import check_http_endpoint
+from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.utils import check_http_endpoint_async
 
 # Configure logging
 logging.basicConfig(
@@ -64,10 +62,12 @@ class MongoHealthChecker:
         self.mode = mode
         self.timeout = timeout
         self.console = Console()
-        
+
         # Validate mode
         if mode not in self.MODE_CHECKS:
-            raise ValueError(f"Invalid mode: {mode}. Must be one of {list(self.MODE_CHECKS.keys())}")
+            raise ValueError(
+                f"Invalid mode: {mode}. Must be one of {list(self.MODE_CHECKS.keys())}"
+            )
 
     async def check(self) -> CheckResult:
         """Perform the MongoDB health check.
@@ -81,20 +81,20 @@ class MongoHealthChecker:
                 normalized_url = f"http://{self.url}"
             else:
                 normalized_url = self.url
-            
+
             # Get health status using HTTP endpoint check utility
-            status, message, response_data = await check_http_endpoint(
+            status, message, response_data = await check_http_endpoint_async(
                 url=normalized_url,
                 timeout=self.timeout,
             )
-            
+
             # Create metrics dictionary
             metrics = {
                 "engine_alive": 0,
                 "check_count": 0,
                 "passing_checks": 0,
             }
-            
+
             # Handle connection failures
             if status != Status.OK or not response_data:
                 return CheckResult(
@@ -102,31 +102,33 @@ class MongoHealthChecker:
                     f"Error connecting to MongoDB health endpoint: {message}",
                     metrics=metrics,
                 )
-            
+
             # Check if engine is alive
             engine_alive = response_data.get("alive", False)
             metrics["engine_alive"] = 1 if engine_alive else 0
-            
+
             if not engine_alive:
                 return CheckResult(
                     Status.CRITICAL,
                     "CRITICAL - MongoDB engine is not alive!",
                     metrics=metrics,
                 )
-            
+
             # Verify required checks based on mode
             required_checks = self.MODE_CHECKS[self.mode]
             metrics["check_count"] = len(required_checks)
-            
+
             failing_checks = []
             for check_key, check_name in required_checks:
-                metrics[f"check_{check_key}"] = 1 if check_key in response_data and response_data.get(check_key) else 0
-                
+                metrics[f"check_{check_key}"] = (
+                    1 if check_key in response_data and response_data.get(check_key) else 0
+                )
+
                 if check_key not in response_data or not response_data.get(check_key):
                     failing_checks.append(check_name)
                 else:
                     metrics["passing_checks"] += 1
-            
+
             if failing_checks:
                 failing_list = ", ".join(failing_checks)
                 return CheckResult(
@@ -135,7 +137,7 @@ class MongoHealthChecker:
                     metrics=metrics,
                     details=json.dumps(response_data, indent=2),
                 )
-            
+
             # All checks passed
             return CheckResult(
                 Status.OK,
@@ -143,7 +145,7 @@ class MongoHealthChecker:
                 metrics=metrics,
                 details=json.dumps(response_data, indent=2),
             )
-                
+
         except Exception as e:
             logger.exception("Error checking MongoDB health")
             return CheckResult(
@@ -164,14 +166,14 @@ def parse_args() -> argparse.Namespace:
         description="Check MongoDB health status",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    
+
     # Required arguments
     parser.add_argument(
         "--url",
         required=True,
         help="URL of the MongoDB health endpoint",
     )
-    
+
     # Optional arguments
     parser.add_argument(
         "--mode",
@@ -197,7 +199,7 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Increase verbosity (can be used multiple times)",
     )
-    
+
     return parser.parse_args()
 
 
@@ -224,6 +226,7 @@ def main() -> int:
 
     # Run the check with asyncio
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:

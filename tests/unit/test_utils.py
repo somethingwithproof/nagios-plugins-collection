@@ -178,8 +178,8 @@ class TestCheckHttpEndpoint:
     def test_timeout(self):
         """Test an HTTP request that times out."""
         with patch("httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.request.side_effect = httpx.TimeoutException(
-                "Request timed out"
+            mock_client.return_value.__enter__.return_value.request.side_effect = (
+                httpx.TimeoutException("Request timed out")
             )
 
             status, message, data = check_http_endpoint("http://example.com")
@@ -191,8 +191,8 @@ class TestCheckHttpEndpoint:
     def test_request_error(self):
         """Test an HTTP request that raises a RequestError."""
         with patch("httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.request.side_effect = httpx.RequestError(
-                "Request failed"
+            mock_client.return_value.__enter__.return_value.request.side_effect = (
+                httpx.RequestError("Request failed")
             )
 
             status, message, data = check_http_endpoint("http://example.com")
@@ -218,27 +218,27 @@ class TestParseSizeString:
 
     def test_parse_megabytes(self):
         """Test parsing a size string in megabytes."""
-        assert parse_size_string("1M") == 1024 ** 2
-        assert parse_size_string("1MB") == 1024 ** 2
-        assert parse_size_string("1.5M") == int(1.5 * 1024 ** 2)
+        assert parse_size_string("1M") == 1024**2
+        assert parse_size_string("1MB") == 1024**2
+        assert parse_size_string("1.5M") == int(1.5 * 1024**2)
 
     def test_parse_gigabytes(self):
         """Test parsing a size string in gigabytes."""
-        assert parse_size_string("1G") == 1024 ** 3
-        assert parse_size_string("1GB") == 1024 ** 3
-        assert parse_size_string("1.5G") == int(1.5 * 1024 ** 3)
+        assert parse_size_string("1G") == 1024**3
+        assert parse_size_string("1GB") == 1024**3
+        assert parse_size_string("1.5G") == int(1.5 * 1024**3)
 
     def test_parse_terabytes(self):
         """Test parsing a size string in terabytes."""
-        assert parse_size_string("1T") == 1024 ** 4
-        assert parse_size_string("1TB") == 1024 ** 4
-        assert parse_size_string("1.5T") == int(1.5 * 1024 ** 4)
+        assert parse_size_string("1T") == 1024**4
+        assert parse_size_string("1TB") == 1024**4
+        assert parse_size_string("1.5T") == int(1.5 * 1024**4)
 
     def test_parse_petabytes(self):
         """Test parsing a size string in petabytes."""
-        assert parse_size_string("1P") == 1024 ** 5
-        assert parse_size_string("1PB") == 1024 ** 5
-        assert parse_size_string("1.5P") == int(1.5 * 1024 ** 5)
+        assert parse_size_string("1P") == 1024**5
+        assert parse_size_string("1PB") == 1024**5
+        assert parse_size_string("1.5P") == int(1.5 * 1024**5)
 
     def test_invalid_size_string(self):
         """Test parsing an invalid size string."""
@@ -265,23 +265,23 @@ class TestFormatBytes:
 
     def test_format_megabytes(self):
         """Test formatting megabytes."""
-        assert format_bytes(1024 ** 2) == "1.00MB"
-        assert format_bytes(int(1.5 * 1024 ** 2)) == "1.50MB"
+        assert format_bytes(1024**2) == "1.00MB"
+        assert format_bytes(int(1.5 * 1024**2)) == "1.50MB"
 
     def test_format_gigabytes(self):
         """Test formatting gigabytes."""
-        assert format_bytes(1024 ** 3) == "1.00GB"
-        assert format_bytes(int(1.5 * 1024 ** 3)) == "1.50GB"
+        assert format_bytes(1024**3) == "1.00GB"
+        assert format_bytes(int(1.5 * 1024**3)) == "1.50GB"
 
     def test_format_terabytes(self):
         """Test formatting terabytes."""
-        assert format_bytes(1024 ** 4) == "1.00TB"
-        assert format_bytes(int(1.5 * 1024 ** 4)) == "1.50TB"
+        assert format_bytes(1024**4) == "1.00TB"
+        assert format_bytes(int(1.5 * 1024**4)) == "1.50TB"
 
     def test_format_petabytes(self):
         """Test formatting petabytes."""
-        assert format_bytes(1024 ** 5) == "1.00PB"
-        assert format_bytes(int(1.5 * 1024 ** 5)) == "1.50PB"
+        assert format_bytes(1024**5) == "1.00PB"
+        assert format_bytes(int(1.5 * 1024**5)) == "1.50PB"
 
     def test_format_with_custom_precision(self):
         """Test formatting with a custom precision."""

@@ -83,12 +83,12 @@ class ServiceChecker:
         """
         try:
             [perform check logic]
-            
+
             # Create metrics dictionary
             metrics = {
                 "key": value,
             }
-            
+
             # Evaluate results against thresholds
             if [critical condition]:
                 return CheckResult(
@@ -108,7 +108,7 @@ class ServiceChecker:
                     "[ok message]",
                     metrics=metrics,
                 )
-                
+
         except Exception as e:
             logger.exception("Error checking [service]")
             return CheckResult(
@@ -146,10 +146,10 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Increase verbosity (can be used multiple times)",
     )
-    
+
     # Plugin-specific arguments
     [add plugin-specific arguments]
-    
+
     return parser.parse_args()
 
 

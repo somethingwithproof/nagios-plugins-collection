@@ -15,7 +15,9 @@ author = "Thomas Vincent"
 
 # Resolve version dynamically; fall back for in-tree builds without an installed package
 try:
-    from importlib.metadata import PackageNotFoundError, version as _pkg_version
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
+
     try:
         release = version = _pkg_version("nagios-plugins-collection")
     except PackageNotFoundError:

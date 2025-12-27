@@ -22,14 +22,13 @@ import datetime
 import json
 import logging
 import sys
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
-import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import Status, CheckResult
-from nagios_plugins.utils import check_http_endpoint
+from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.utils import check_http_endpoint_async
 
 # Configure logging
 logging.basicConfig(
@@ -68,7 +67,9 @@ class ComponentStatusChecker:
         self.timeout = timeout
         self.console = Console()
 
-    async def get_component_status(self, component: str) -> Tuple[str, Optional[datetime.datetime], Dict[str, Any]]:
+    async def get_component_status(
+        self, component: str
+    ) -> Tuple[str, Optional[datetime.datetime], Dict[str, Any]]:
         """Check the status of a component by querying the JSON API.
 
         Args:
@@ -82,18 +83,18 @@ class ComponentStatusChecker:
         """
         # Ensure URL has proper format
         api_url = f"http://{self.url}/api/component/{component}"
-        
+
         # Use the utility function for HTTP checking
-        status, message, response_data = await check_http_endpoint(
+        status, message, response_data = await check_http_endpoint_async(
             url=api_url,
             timeout=self.timeout,
             expected_status=200,
         )
-        
+
         # Process response
         if status == Status.OK and response_data:
             component_status = response_data.get("status", "").lower()
-            
+
             # Parse updated timestamp
             updated_str = response_data.get("updated")
             updated_time = None
@@ -102,13 +103,13 @@ class ComponentStatusChecker:
                     updated_time = datetime.datetime.fromisoformat(updated_str)
                 except (ValueError, TypeError):
                     logger.warning(f"Invalid timestamp format: {updated_str}")
-            
+
             # Extract metrics
             metrics = {
                 "status": component_status,
                 "response_time_ms": response_data.get("response_time", 0),
             }
-            
+
             return component_status, updated_time, metrics
         else:
             logger.error(f"Error fetching component status: {message}")
@@ -126,39 +127,43 @@ class ComponentStatusChecker:
             all_metrics = {}
             critical_components = []
             warning_components = []
-            
+
             # Get current time for freshness checks
             current_time = datetime.datetime.now()
-            
+
             for component in self.components:
                 status, updated_time, metrics = await self.get_component_status(component)
                 component_statuses[component] = (status, updated_time)
-                
+
                 # Add component-specific metrics
                 for metric_name, metric_value in metrics.items():
                     all_metrics[f"{component}_{metric_name}"] = metric_value
-                
+
                 # Check component status
                 if status != "ok":
                     critical_components.append(component)
                     continue
-                
+
                 # Check update freshness if we have a timestamp
                 if updated_time:
                     minutes_since_update = (current_time - updated_time).total_seconds() / 60
-                    all_metrics[f"{component}_minutes_since_update"] = round(minutes_since_update, 2)
-                    
+                    all_metrics[f"{component}_minutes_since_update"] = round(
+                        minutes_since_update, 2
+                    )
+
                     if minutes_since_update > self.critical_threshold:
                         critical_components.append(component)
                     elif minutes_since_update > self.warning_threshold:
                         warning_components.append(component)
-            
+
             # Add summary metrics
             all_metrics["total_components"] = len(self.components)
             all_metrics["critical_components"] = len(critical_components)
             all_metrics["warning_components"] = len(warning_components)
-            all_metrics["ok_components"] = len(self.components) - len(critical_components) - len(warning_components)
-            
+            all_metrics["ok_components"] = (
+                len(self.components) - len(critical_components) - len(warning_components)
+            )
+
             # Determine overall status and message
             if critical_components:
                 component_list = ", ".join(critical_components)
@@ -204,7 +209,7 @@ def parse_args() -> argparse.Namespace:
         description="Check component status via JSON API",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    
+
     # Required arguments
     parser.add_argument(
         "--url",
@@ -217,7 +222,7 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         help="List of component names to check",
     )
-    
+
     # Optional arguments
     parser.add_argument(
         "--warning",
@@ -247,7 +252,7 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Increase verbosity (can be used multiple times)",
     )
-    
+
     return parser.parse_args()
 
 
@@ -276,6 +281,7 @@ def main() -> int:
 
     # Run the check with asyncio
     import asyncio
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:

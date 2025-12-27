@@ -1,6 +1,5 @@
 """Tests for the check_hadoop plugin."""
 
-import asyncio
 import json
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -28,7 +27,6 @@ class TestHadoopClusterChecker:
         """Create a mock response with the given status and components."""
         now = datetime.now()
         one_hour_ago = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-        two_hours_ago = (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
 
         if components is None:
             components = [
@@ -65,9 +63,7 @@ class TestHadoopClusterChecker:
     @pytest.mark.asyncio
     async def test_check_cluster_success(self, checker):
         """Test a successful cluster check."""
-        mock_data = self.create_mock_response(
-            status="ok", mem_component="1024k"
-        )
+        mock_data = self.create_mock_response(status="ok", mem_component="1024k")
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
@@ -111,7 +107,7 @@ class TestHadoopClusterChecker:
         """Test a cluster check with a component in warning status."""
         now = datetime.now()
         one_hour_ago = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-        
+
         mock_data = self.create_mock_response(
             status="ok",
             components=[
@@ -152,7 +148,7 @@ class TestHadoopClusterChecker:
         now = datetime.now()
         one_hour_ago = (now - timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
         three_hours_ago = (now - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
-        
+
         mock_data = self.create_mock_response(
             status="ok",
             components=[

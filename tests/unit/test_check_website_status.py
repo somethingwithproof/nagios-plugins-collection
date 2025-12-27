@@ -1,6 +1,5 @@
 """Tests for the check_website_status plugin."""
 
-import asyncio
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -142,7 +141,9 @@ class TestWebsiteStatusChecker:
         """Test a website check that times out."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = httpx.TimeoutException("Timeout")
+            mock_instance.__aenter__.return_value.get.side_effect = httpx.TimeoutException(
+                "Timeout"
+            )
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()

@@ -215,7 +215,7 @@ class NagiosPlugin(ABC):
                 Status.UNKNOWN,
                 f"Unhandled exception: {str(e)}",
             )
-            if 'parsed_args' in locals() and getattr(parsed_args, "json", False):
+            if "parsed_args" in locals() and getattr(parsed_args, "json", False):
                 sys.stdout.write(error_result.to_json() + "\n")
             else:
                 sys.stdout.write(str(error_result) + "\n")

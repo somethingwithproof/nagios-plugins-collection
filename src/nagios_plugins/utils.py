@@ -19,6 +19,7 @@ import httpx
 
 from nagios_plugins.base import Status
 
+
 @dataclass
 class CommandResult:
     """Data class to store command execution results."""
@@ -125,10 +126,10 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Option
     except Exception as exc:  # pragma: no cover - defensive
         return False, f"Error checking port {port} on {host}: {exc}"
     finally:
-        try:
+        from contextlib import suppress
+
+        with suppress(Exception):
             sock.close()
-        except Exception:
-            pass
 
 
 async def check_http_endpoint_async(
@@ -192,11 +193,10 @@ async def check_http_endpoint_async(
 
         # Try to parse JSON response
         response_data = None
-        try:
+        from contextlib import suppress
+
+        with suppress(json.JSONDecodeError, ValueError):
             response_data = response.json()
-        except (json.JSONDecodeError, ValueError):
-            # Not JSON, that's fine
-            pass
 
         return (
             Status.OK,
@@ -220,7 +220,7 @@ async def check_http_endpoint_async(
             f"Request error: {str(e)} - {url} - {response_time:.2f}ms",
             None,
         )
-    except (httpx.HTTPError, IOError, ValueError, KeyError) as e:
+    except (OSError, httpx.HTTPError, ValueError, KeyError) as e:
         elapsed_time = time.time() - start_time
         response_time = elapsed_time * 1000  # Convert to milliseconds
         return (
@@ -278,10 +278,10 @@ def check_http_endpoint(
                 None,
             )
 
-        try:
+        from contextlib import suppress
+
+        with suppress(json.JSONDecodeError, ValueError):
             response_data = response.json()
-        except (json.JSONDecodeError, ValueError):
-            response_data = None
 
         return (
             Status.OK,
@@ -476,7 +476,7 @@ def get_system_info() -> Dict[str, Any]:
     # Add more system-specific information
     if platform.system() == "Linux":
         try:
-            with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            with open("/proc/meminfo", encoding="utf-8") as f:
                 meminfo = f.read()
 
             # Extract total memory
@@ -488,7 +488,7 @@ def get_system_info() -> Dict[str, Any]:
             match = re.search(r"MemFree:\s+(\d+)", meminfo)
             if match:
                 info["free_memory_kb"] = int(match.group(1))
-        except (IOError, OSError, FileNotFoundError) as e:
+        except (OSError, FileNotFoundError):
             # Warning: Could not read system memory info
             pass
 
