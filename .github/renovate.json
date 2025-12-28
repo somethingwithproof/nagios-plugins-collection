@@ -1,0 +1,45 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "group:allNonMajor",
+    "schedule:daily",
+    "workarounds:all"
+  ],
+  "timezone": "UTC",
+  "prConcurrentLimit": 10,
+  "rangeStrategy": "bump",
+  "rebaseWhen": "conflicted",
+  "labels": ["dependencies", "bot"],
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "packageRules": [
+    {
+      "matchManagers": ["pep621", "pip_requirements", "pip_setup"],
+      "labels": ["python"],
+      "groupName": "python non-major"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "labels": ["ci"],
+      "groupName": "gh-actions non-major"
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "labels": ["docker"],
+      "groupName": "docker non-major"
+    },
+    {
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "matchDepTypes": ["devDependencies", "dev-dependencies"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true
+    }
+  ]
+}
