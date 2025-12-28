@@ -1,5 +1,14 @@
 version: "3.9"
 services:
+  http_ok:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost"]
+      interval: 5s
+      timeout: 2s
+      retries: 15
   app:
     build:
       context: ..
@@ -9,6 +18,9 @@ services:
       - PYTHONUNBUFFERED=1
     entrypoint: ["bash", "-lc"]
     working_dir: /app
+    depends_on:
+      http_ok:
+        condition: service_healthy
     command: |
       "pytest -q && echo 'OK'"
   tests:
