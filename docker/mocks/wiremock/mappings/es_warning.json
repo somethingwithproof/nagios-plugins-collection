@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPattern": "/es/.*/_search",
+    "bodyPatterns": [ { "contains": "errors some" } ]
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": { "hits": { "total": { "value": 5 } } }
+  },
+  "priority": 1
+}

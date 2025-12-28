@@ -16,6 +16,17 @@ services:
     image: npc-mocks:dev
     ports:
       - "8000:8000"
+  wiremock:
+    image: wiremock/wiremock:latest
+    ports:
+      - "9000:8080"
+    volumes:
+      - ./mocks/wiremock/mappings:/home/wiremock/mappings:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/__admin/mappings"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
   app:
     build:
       context: ..
