@@ -291,6 +291,12 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm app \
             check_prometheus_query --server http://mocks:8000 --query up --warning 1 --critical 2
+      - name: Run Prometheus query WARNING against mocks (expect exit 1)
+        run: |
+          set +e
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_prometheus_query --server http://mocks:8000 --query warn --warning 1 --critical 2
+          ec=$?; if [ "$ec" -ne 1 ]; then echo "expected exit 1, got $ec"; exit 1; fi
       - name: Run Prometheus query CRITICAL against mocks (expect exit 2)
         run: |
           set +e
@@ -301,6 +307,12 @@ jobs:
         run: |
           docker compose -f docker/docker-compose.yml run --rm app \
             check_log_errors --endpoint http://mocks:8000/es --index logs --minutes 1 --query "errors" --warning 1 --critical 10
+      - name: Run Elasticsearch log errors WARNING against mocks (expect exit 1)
+        run: |
+          set +e
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_log_errors --endpoint http://mocks:8000/es --index logs --minutes 1 --query "errors some" --warning 1 --critical 10
+          ec=$?; if [ "$ec" -ne 1 ]; then echo "expected exit 1, got $ec"; exit 1; fi
       - name: Run Elasticsearch log errors CRITICAL against mocks (expect exit 2)
         run: |
           set +e
