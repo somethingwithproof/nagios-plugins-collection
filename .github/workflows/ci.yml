@@ -30,7 +30,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
+      - \1e32d7e603df1aa1ba07e981f2a23455dee596825
         with:
           ignoreLabels: |
             dependencies
@@ -46,9 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
+        \154c9adbab1582c2ef04b2016b760714a4bfde3cf
         with:
           dockerfile: docker/Dockerfile
 
@@ -57,18 +57,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: actionlint
-        uses: rhysd/actionlint@v1
+        \10800169b4c59323556720efa019c4325e18fb129
 
   helm-validate:
     name: Helm unit tests and kubeconform
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        \11a275c3b69536ee54be43f2070a358922e12c8d4
         with:
           version: v3.14.4
       - name: Install helm-unittest plugin
@@ -112,10 +112,10 @@ jobs:
         nagios-version: ['4.4.6', '4.4.7', '4.4.8', '4.4.9', '4.4.10']
 
     steps:
-    - uses: actions/checkout@v6
+    - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -129,7 +129,7 @@ jobs:
       run: tox
 
     - name: Upload test results
-      uses: actions/upload-artifact@v6
+      \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
       if: always()
       with:
         name: test-results-py${{ matrix.python-version }}-nagios${{ matrix.nagios-version }}
@@ -141,10 +141,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - uses: actions/checkout@v6
+    - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -165,10 +165,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -186,10 +186,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -203,7 +203,7 @@ jobs:
         run: tox -e docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v6
+        \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: documentation
           path: docs/build/html/
@@ -214,10 +214,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -242,7 +242,7 @@ jobs:
           PY
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        \1671740ac38dd9b0130fbe1cec585b89eea48d3de
         with:
           file: ./coverage.xml
           fail_ci_if_error: true
@@ -256,18 +256,18 @@ jobs:
       packages: write
       id-token: write  # required for keyless signing with cosign
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        \15e57cd118135c172c3672efd75eb46360885c0ef
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
         id: build
-        uses: docker/build-push-action@v6
+        \1263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: .
           file: docker/Dockerfile
@@ -276,18 +276,18 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:latest
             ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
       - name: Generate SBOM (syft)
-        uses: anchore/sbom-action@v0
+        \1a930d0ac434e3182448fe678398ba5713717112a
         with:
           image: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
       - name: Scan image (Trivy)
-        uses: aquasecurity/trivy-action@0.24.0
+        \16e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        \1398d4b0eeef1380460a10c8013a76f728fb906ac
       - name: Sign container images with Cosign (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
@@ -337,10 +337,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -357,12 +357,12 @@ jobs:
         run: safety check
 
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
+        \1ff98106e4c7b2bc287b24eaf42907196329070c7
         with:
           args: detect --redact --no-banner
 
       - name: Trivy config scan (IaC)
-        uses: aquasecurity/trivy-action@0.24.0
+        \16e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
         with:
           scan-type: config
           hide-progress: true
@@ -374,9 +374,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build app and mocks images
         run: docker compose -f docker/docker-compose.yml build app mocks
       - name: Start mock services
@@ -435,9 +435,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build app image
         run: docker compose -f docker/docker-compose.yml build app
       - name: Start WireMock
@@ -478,9 +478,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -518,12 +518,12 @@ jobs:
     timeout-minutes: 15  # Prevent hung jobs
     needs: [test, lint, type-check, docs, coverage, security, docker-lint, workflow-lint, helm-validate, e2e, e2e-wiremock, license]
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -540,7 +540,7 @@ jobs:
       run: twine check dist/*
 
     - name: Upload package
-      uses: actions/upload-artifact@v6
+      \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: packages
         path: dist/

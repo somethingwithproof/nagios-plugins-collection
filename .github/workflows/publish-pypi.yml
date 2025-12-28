@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - uses: actions/checkout@v6
+      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
