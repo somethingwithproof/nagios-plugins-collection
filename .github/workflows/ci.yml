@@ -263,7 +263,7 @@ jobs:
       run: safety check
 
   e2e:
-    name: E2E (docker-compose)
+    name: E2E (docker-compose FastAPI mocks)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -323,11 +323,54 @@ jobs:
         if: always()
         run: docker compose -f docker/docker-compose.yml down -v
 
+  e2e-wiremock:
+    name: E2E (docker-compose WireMock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build app image
+        run: docker compose -f docker/docker-compose.yml build app
+      - name: Start WireMock
+        run: docker compose -f docker/docker-compose.yml up -d wiremock
+      - name: Wait for WireMock to be healthy
+        run: |
+          for i in $(seq 1 40); do
+            if [ "$(docker inspect -f '{{json .State.Health.Status}}' $(docker compose -f docker/docker-compose.yml ps -q wiremock))" = '"healthy"' ]; then
+              echo "wiremock healthy"; exit 0; fi; sleep 2; done; echo "timeout"; docker compose -f docker/docker-compose.yml ps; exit 1
+      - name: Run OAuth2 token check against WireMock
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_oauth2_token --token-url http://wiremock:8080/token --client-id id --client-secret secret --scope openid --scope profile
+      - name: Run Prometheus OK/WARN/CRIT against WireMock
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_prometheus_query --server http://wiremock:8080 --query up --warning 1 --critical 2
+          set +e
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_prometheus_query --server http://wiremock:8080 --query warn --warning 1 --critical 2; ec=$?; [ "$ec" -eq 1 ] || { echo "expected 1"; exit 1; }
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_prometheus_query --server http://wiremock:8080 --query errors --warning 1 --critical 2; ec=$?; [ "$ec" -eq 2 ] || { echo "expected 2"; exit 1; }
+      - name: Run ES OK/WARN/CRIT against WireMock
+        run: |
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_log_errors --endpoint http://wiremock:8080/es --index logs --minutes 1 --query "errors" --warning 1 --critical 10
+          set +e
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_log_errors --endpoint http://wiremock:8080/es --index logs --minutes 1 --query "errors some" --warning 1 --critical 10; ec=$?; [ "$ec" -eq 1 ] || { echo "expected 1"; exit 1; }
+          docker compose -f docker/docker-compose.yml run --rm app \
+            check_log_errors --endpoint http://wiremock:8080/es --index logs --minutes 1 --query "errors many" --warning 1 --critical 10; ec=$?; [ "$ec" -eq 2 ] || { echo "expected 2"; exit 1; }
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker/docker-compose.yml down -v
+
   package:
     name: Build and verify package
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
-    needs: [test, lint, type-check, docs, coverage, security, helm-validate, e2e]
+    needs: [test, lint, type-check, docs, coverage, security, helm-validate, e2e, e2e-wiremock]
     steps:
       - uses: actions/checkout@v6
         with:

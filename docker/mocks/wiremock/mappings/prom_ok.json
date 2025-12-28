@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/api/v1/query",
+    "queryParameters": {
+      "query": { "absent": true }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "jsonBody": {
+      "status": "success",
+      "data": {
+        "resultType": "vector",
+        "result": [ { "metric": {}, "value": [0, "0.42"] } ]
+      }
+    }
+  },
+  "priority": 10
+}
