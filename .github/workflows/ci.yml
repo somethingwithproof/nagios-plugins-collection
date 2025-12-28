@@ -25,6 +25,26 @@ permissions:
   contents: read
 
 jobs:
+  docker-lint:
+    name: Dockerfile lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: actionlint
+        uses: rhysd/actionlint@v1
+
   helm-validate:
     name: Helm unit tests and kubeconform
     runs-on: ubuntu-latest
@@ -38,6 +58,9 @@ jobs:
       - name: Install helm-unittest plugin
         run: |
           helm plugin install https://github.com/helm-unittest/helm-unittest
+      - name: Helm lint
+        run: |
+          helm lint charts/nagios-plugins-collection
       - name: Run helm-unittest
         run: |
           helm unittest charts/nagios-plugins-collection --strict
@@ -182,6 +205,17 @@ jobs:
       - name: Run coverage
         run: tox -e coverage
 
+      - name: Enforce coverage threshold (80%)
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse('coverage.xml').getroot()
+          rate = float(root.attrib.get('line-rate', '0'))
+          thr = 0.80
+          print(f"line-rate={rate:.3f} threshold={thr:.2f}")
+          import sys; sys.exit(0 if rate >= thr else 1)
+          PY
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
@@ -241,26 +275,39 @@ jobs:
   security:
     name: Security scan
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Prevent hung jobs
+    timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit safety
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety
 
-    - name: Run bandit
-      run: bandit -r src/ -c pyproject.toml
+      - name: Run bandit
+        run: bandit -r src/ -c pyproject.toml
 
-    - name: Run safety
-      run: safety check
+      - name: Run safety
+        run: safety check
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --redact --no-banner
+
+      - name: Trivy config scan (IaC)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: config
+          hide-progress: true
+          format: table
+          severity: HIGH,CRITICAL
 
   e2e:
     name: E2E (docker-compose FastAPI mocks)
@@ -370,7 +417,7 @@ jobs:
     name: Build and verify package
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
-    needs: [test, lint, type-check, docs, coverage, security, helm-validate, e2e, e2e-wiremock]
+    needs: [test, lint, type-check, docs, coverage, security, docker-lint, workflow-lint, helm-validate, e2e, e2e-wiremock]
     steps:
       - uses: actions/checkout@v6
         with:
