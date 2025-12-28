@@ -1,0 +1,8 @@
+# Default owners
+* @thomasvincent
+
+# Areas (override or expand as needed)
+/src/ @thomasvincent
+/charts/ @thomasvincent
+/docker/ @thomasvincent
+/.github/ @thomasvincent

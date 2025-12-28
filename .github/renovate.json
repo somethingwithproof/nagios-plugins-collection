@@ -14,6 +14,8 @@
   "labels": ["dependencies", "bot"],
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
+  "dependencyDashboard": true,
+  "dependencyDashboardLabels": ["dependencies", "bot"],
   "packageRules": [
     {
       "matchManagers": ["pep621", "pip_requirements", "pip_setup"],
