@@ -32,7 +32,13 @@ def token(
 @app.get("/api/v1/query")
 def prom_query(query: str = Query(...)) -> JSONResponse:  # pragma: no cover - e2e only
     # Return a scalar result that varies by query string
-    value = "5" if "errors" in query.lower() else "0.42"
+    q = query.lower()
+    if "errors" in q:
+        value = "5"  # critical path
+    elif "warn" in q:
+        value = "1.5"  # warning path (between default thresholds 1 and 2 in CI)
+    else:
+        value = "0.42"  # ok path
     payload = {
         "status": "success",
         "data": {
@@ -65,5 +71,11 @@ def es_search(
         )
     except Exception:
         q = ""
-    hits = 25 if ("errors" in q.lower() and "many" in q.lower()) else 0
+    ql = q.lower()
+    if "errors" in ql and "many" in ql:
+        hits = 25  # CRITICAL
+    elif "errors" in ql and "some" in ql:
+        hits = 5  # WARNING
+    else:
+        hits = 0  # OK
     return JSONResponse(content={"hits": {"total": {"value": hits}}})
