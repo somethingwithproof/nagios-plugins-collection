@@ -1,6 +1,6 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, Form, Query
+from fastapi import Body, FastAPI, Form, Query
 from fastapi.responses import JSONResponse
 
 app = FastAPI(title="NPC E2E Mocks")
@@ -46,3 +46,24 @@ def prom_query(query: str = Query(...)) -> JSONResponse:  # pragma: no cover - e
         },
     }
     return JSONResponse(content=payload)
+
+
+@app.post("/es/{index}/_search")
+def es_search(
+    index: str, body: Optional[Dict[str, Any]] = None
+) -> JSONResponse:  # pragma: no cover
+    # Very small subset of ES search for tests: returns hits.total.value
+    if body is None:
+        body = Body(...)
+    try:
+        q = (
+            body.get("query", {})
+            .get("bool", {})
+            .get("filter", [])[1]
+            .get("query_string", {})
+            .get("query", "")
+        )
+    except Exception:
+        q = ""
+    hits = 25 if ("errors" in q.lower() and "many" in q.lower()) else 0
+    return JSONResponse(content={"hits": {"total": {"value": hits}}})
