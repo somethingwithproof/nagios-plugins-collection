@@ -9,6 +9,13 @@ services:
       interval: 5s
       timeout: 2s
       retries: 15
+  mocks:
+    build:
+      context: ./mocks
+      dockerfile: Dockerfile
+    image: npc-mocks:dev
+    ports:
+      - "8000:8000"
   app:
     build:
       context: ..
@@ -21,6 +28,8 @@ services:
     depends_on:
       http_ok:
         condition: service_healthy
+      mocks:
+        condition: service_started
     command: |
       "pytest -q && echo 'OK'"
   tests:
