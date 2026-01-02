@@ -57,7 +57,6 @@ class Status(Enum):
 
 
 @dataclass
-@dataclass
 class CheckResult:
     """Data class to store check results."""
 
