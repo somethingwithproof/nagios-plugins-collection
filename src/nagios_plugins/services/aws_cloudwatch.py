@@ -14,7 +14,7 @@ def get_metric_statistics(
     minutes_back: int = 5,
     region: str | None = None,
     timeout: int = 10,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     """Get CloudWatch metric statistics.
 
     Args:

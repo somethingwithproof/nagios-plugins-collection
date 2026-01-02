@@ -136,10 +136,10 @@ class CheckAwsCloudwatch(NagiosPlugin):
                 metrics=metrics,
             )
 
-        except RuntimeError as e:
-            return CheckResult(Status.UNKNOWN, str(e))
-        except Exception as e:  # pylint: disable=broad-except
-            return CheckResult(Status.UNKNOWN, f"Unexpected error: {str(e)}")
+        except RuntimeError as exc:
+            return CheckResult(Status.UNKNOWN, str(exc))
+        except Exception as exc:  # pylint: disable=broad-except
+            return CheckResult(Status.UNKNOWN, f"Unexpected error: {str(exc)}")
 
     def _build_dimensions(self, args: argparse.Namespace) -> list[dict[str, str]]:
         """Build CloudWatch dimensions from arguments.

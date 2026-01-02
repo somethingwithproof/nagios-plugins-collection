@@ -37,6 +37,7 @@ Core plugins:
 - check_redis_saturation: Redis memory/evictions/hitrates (redis-py)
 - check_backup_freshness: Age of latest S3 object by prefix (boto3)
 - check_cloud_budget: AWS Cost Explorer monthly spend (boto3)
+- check_aws_cloudwatch: AWS CloudWatch metrics for EC2, RDS, Lambda, ELB (boto3 optional)
 - check_oauth2_token: Validate token endpoint and scopes
 
 ## Installation
@@ -74,6 +75,31 @@ check_ro_mounts --exclude=/proc,/sys,/dev
 
 # Check website status
 check_website_status --url=https://example.com --pattern="Welcome" --timeout=10
+
+# Check AWS CloudWatch metrics
+check_aws_cloudwatch \
+  --namespace AWS/EC2 \
+  --metric CPUUtilization \
+  --instance-id i-1234567890abcdef0 \
+  --warning 70 \
+  --critical 90
+
+# Check RDS database connections
+check_aws_cloudwatch \
+  --namespace AWS/RDS \
+  --metric DatabaseConnections \
+  --db-instance-id mydb-instance \
+  --warning 50 \
+  --critical 100
+
+# Check Lambda function duration
+check_aws_cloudwatch \
+  --namespace AWS/Lambda \
+  --metric Duration \
+  --function-name my-function \
+  --statistic Maximum \
+  --warning 2000 \
+  --critical 3000
 
 # Get JSON output
 check_website_status --url=https://example.com --pattern="Welcome" --timeout=10 --json
