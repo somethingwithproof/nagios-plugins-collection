@@ -17,6 +17,8 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
+from __future__ import annotations
+
 import argparse
 import datetime
 import json

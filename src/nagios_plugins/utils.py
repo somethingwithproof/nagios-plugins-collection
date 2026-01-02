@@ -4,6 +4,8 @@
 This module provides utility functions that are used by multiple Nagios plugins.
 """
 
+from __future__ import annotations
+
 import json
 import platform
 import re

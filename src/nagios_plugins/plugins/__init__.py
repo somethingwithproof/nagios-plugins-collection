@@ -15,6 +15,8 @@ Available plugins:
 - check_procs: Process check
 """
 
+from __future__ import annotations
+
 # List all standardized plugins here for easy import and discovery
 __all__ = [
     "check_component_status",
