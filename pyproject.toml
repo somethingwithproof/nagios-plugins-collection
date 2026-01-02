@@ -139,6 +139,7 @@ check_redis_saturation = "nagios_plugins.plugins.check_redis_saturation:main"
 check_log_errors = "nagios_plugins.plugins.check_log_errors:main"
 check_cloud_budget = "nagios_plugins.plugins.check_cloud_budget:main"
 check_backup_freshness = "nagios_plugins.plugins.check_backup_freshness:main"
+check_aws_cloudwatch = "nagios_plugins.plugins.check_aws_cloudwatch:main"
 
 # Legacy plugins
 check_monghealth = "nagios_plugins.plugins.check_monghealth:main"
