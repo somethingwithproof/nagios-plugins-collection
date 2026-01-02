@@ -52,7 +52,7 @@ class ComponentStatusChecker:
         warning_threshold: int = 10,
         critical_threshold: int | None = None,
         timeout: int = 10,
-    ):
+    ) -> None:
         """Initialize the component status checker.
 
         Args:

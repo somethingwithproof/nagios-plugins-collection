@@ -15,7 +15,7 @@ def latest_object_age_seconds(
         "s3",
         region_name=region,
         config=boto3.session.Config(connect_timeout=timeout, read_timeout=timeout),
-    )  # type: ignore
+    )
     paginator = s3.get_paginator("list_objects_v2")
     latest: dt.datetime | None = None
     for page in paginator.paginate(

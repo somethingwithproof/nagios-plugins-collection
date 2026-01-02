@@ -51,7 +51,7 @@ class MountStatusChecker:
         ssh_port: int = 22,
         exclude_mounts: list[str] | None = None,
         timeout: int = 30,
-    ):
+    ) -> None:
         """Initialize the mount status checker.
 
         Args:

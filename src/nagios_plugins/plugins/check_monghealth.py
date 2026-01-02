@@ -57,6 +57,7 @@ class Status(Enum):
 
 
 @dataclass
+@dataclass
 class CheckResult:
     """Data class to store check results."""
 
@@ -98,7 +99,7 @@ class MongoHealthChecker:
         username: str | None = None,
         password: str | None = None,
         ssl: bool = False,
-    ):
+    ) -> None:
         """Initialize the MongoDB health checker.
 
         Args:

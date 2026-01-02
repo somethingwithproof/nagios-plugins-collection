@@ -47,7 +47,7 @@ class HadoopClusterChecker:
         url: str,
         max_update_minutes: int | None = None,
         timeout: int = 30,
-    ):
+    ) -> None:
         """Initialize the Hadoop cluster health checker.
 
         Args:
