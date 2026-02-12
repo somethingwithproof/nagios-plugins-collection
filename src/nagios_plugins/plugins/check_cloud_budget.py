@@ -8,7 +8,7 @@ from nagios_plugins.base import CheckResult, NagiosPlugin, Status
 
 
 def _month_range_utc() -> tuple[str, str]:
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return start.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
 

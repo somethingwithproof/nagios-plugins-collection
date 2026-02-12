@@ -4,12 +4,11 @@
 import argparse
 import json
 import logging
-import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -20,6 +19,7 @@ install_rich_traceback(show_locals=True)
 
 class Status(Enum):
     """Nagios status codes."""
+
     OK = 0
     WARNING = 1
     CRITICAL = 2
@@ -27,8 +27,12 @@ class Status(Enum):
 
     @classmethod
     def from_string(cls, s: str) -> "Status":
-        return {"OK": cls.OK, "WARNING": cls.WARNING,
-                "CRITICAL": cls.CRITICAL, "UNKNOWN": cls.UNKNOWN}.get(s.upper(), cls.UNKNOWN)
+        return {
+            "OK": cls.OK,
+            "WARNING": cls.WARNING,
+            "CRITICAL": cls.CRITICAL,
+            "UNKNOWN": cls.UNKNOWN,
+        }.get(s.upper(), cls.UNKNOWN)
 
     def __str__(self) -> str:
         return self.name
@@ -37,10 +41,11 @@ class Status(Enum):
 @dataclass
 class CheckResult:
     """Stores check results with status, message, and optional metrics."""
+
     status: Status
     message: str
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    details: Optional[str] = None
+    metrics: dict[str, Any] = field(default_factory=dict)
+    details: str | None = None
     timestamp: float = field(default_factory=time.time)
 
     def __str__(self) -> str:
@@ -83,7 +88,7 @@ class NagiosPlugin(ABC):
         parser.add_argument("--json", action="store_true", help="JSON output")
         return parser
 
-    def parse_args(self, args: Optional[List[str]] = None) -> argparse.Namespace:
+    def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         parsed = self.parser.parse_args(args)
         if parsed.verbose == 1:
             self.logger.setLevel(logging.INFO)
@@ -95,7 +100,7 @@ class NagiosPlugin(ABC):
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Perform the check. Implement in subclasses."""
 
-    def run(self, args: Optional[List[str]] = None) -> int:
+    def run(self, args: list[str] | None = None) -> int:
         try:
             parsed = self.parse_args(args)
             result = self.check(parsed)
@@ -104,14 +109,20 @@ class NagiosPlugin(ABC):
         except Exception as e:
             self.logger.exception("Unhandled exception")
             result = CheckResult(Status.UNKNOWN, f"Error: {e}")
-            print(result.to_json() if "parsed" in locals() and getattr(parsed, "json", False) else str(result))
+            print(
+                result.to_json()
+                if "parsed" in locals() and getattr(parsed, "json", False)
+                else str(result)
+            )
             return Status.UNKNOWN.value
 
 
 class ThresholdRange:
     """Nagios threshold range (e.g., '10', '10:', '@10:20')."""
 
-    def __init__(self, min_val: Optional[float] = None, max_val: Optional[float] = None, inclusive: bool = False):
+    def __init__(
+        self, min_val: float | None = None, max_val: float | None = None, inclusive: bool = False
+    ):
         self.min_value = min_val
         self.max_value = max_val
         self.inclusive = inclusive
@@ -159,16 +170,26 @@ class ThresholdRange:
         return ""
 
 
-def threshold_check(value: float, warning: Optional[str] = None, critical: Optional[str] = None) -> Status:
+def threshold_check(
+    value: float, warning: str | None = None, critical: str | None = None
+) -> Status:
     """Check value against warning/critical thresholds."""
     warn = ThresholdRange.from_string(warning) if warning else None
     crit = ThresholdRange.from_string(critical) if critical else None
 
     # Handle inverted ranges where critical fully covers warning
-    if (crit and warn and crit.inclusive and warn.inclusive and
-        crit.min_value is not None and crit.max_value is not None and
-        warn.min_value is not None and warn.max_value is not None and
-        crit.min_value <= warn.min_value and crit.max_value >= warn.max_value):
+    if (
+        crit
+        and warn
+        and crit.inclusive
+        and warn.inclusive
+        and crit.min_value is not None
+        and crit.max_value is not None
+        and warn.min_value is not None
+        and warn.max_value is not None
+        and crit.min_value <= warn.min_value
+        and crit.max_value >= warn.max_value
+    ):
         if warn.min_value < value < warn.max_value:
             return Status.CRITICAL
         return Status.OK
@@ -181,10 +202,10 @@ def threshold_check(value: float, warning: Optional[str] = None, critical: Optio
 
 
 # Backward compatibility
-def _parse_threshold(s: str) -> Tuple[Optional[float], Optional[float], bool]:
+def _parse_threshold(s: str) -> tuple[float | None, float | None, bool]:
     r = ThresholdRange.from_string(s)
     return (r.min_value, r.max_value, r.inclusive)
 
 
-def _is_in_range(value: float, range_tuple: Tuple[Optional[float], Optional[float], bool]) -> bool:
+def _is_in_range(value: float, range_tuple: tuple[float | None, float | None, bool]) -> bool:
     return ThresholdRange(*range_tuple).check(value)

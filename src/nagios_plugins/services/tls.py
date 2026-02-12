@@ -3,8 +3,8 @@ from __future__ import annotations
 import datetime as dt
 import socket
 import ssl
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 
 @dataclass
@@ -19,14 +19,12 @@ def fetch_server_cert(host: str, port: int = 443, timeout: int = 10) -> TlsCertI
     context = ssl.create_default_context()
     with context.wrap_socket(
         socket.create_connection((host, port), timeout=timeout), server_hostname=host
-    ) as ssock:  # noqa: SIM117
+    ) as ssock:
         cert = ssock.getpeercert() or {}
     not_after_obj = cert.get("notAfter")
     if not isinstance(not_after_obj, str):
         raise ValueError("Peer certificate missing notAfter")
-    not_after = dt.datetime.strptime(not_after_obj, "%b %d %H:%M:%S %Y %Z").replace(
-        tzinfo=dt.timezone.utc
-    )
+    not_after = dt.datetime.strptime(not_after_obj, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=dt.UTC)
     from typing import cast
 
     issuer_tuples = cast(
@@ -42,6 +40,6 @@ def fetch_server_cert(host: str, port: int = 443, timeout: int = 10) -> TlsCertI
 
 
 def days_remaining(info: TlsCertInfo, now: dt.datetime | None = None) -> int:
-    now = now or dt.datetime.now(dt.timezone.utc)
+    now = now or dt.datetime.now(dt.UTC)
     delta = info.not_after - now
     return max(0, int(delta.total_seconds() // 86400))
