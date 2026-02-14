@@ -34,7 +34,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.6.0"]
-ssh = ["paramiko>=3.0.0"]
+ssh = ["paramiko>=3.5.0"]
 cli = ["typer>=0.9.0"]
 schema = ["pydantic>=2.5.0"]
 prom = ["httpx>=0.26.0"]
