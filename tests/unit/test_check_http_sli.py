@@ -17,14 +17,15 @@ async def test_http_sli_ok() -> None:
         def __init__(self, t: float):
             self.elapsed = MagicMock(total_seconds=lambda: t)
 
-        def raise_for_status(self) -> None:  # noqa: D401 - simple stub
+        def raise_for_status(self) -> None:
             return None
 
-    async def fake_get(url: str, follow_redirects: bool = True) -> Resp:  # noqa: ARG001
+    async def fake_get(url: str, follow_redirects: bool = True) -> Resp:
         return Resp(0.05)
 
-    with patch("httpx.AsyncClient.__aenter__", new=MagicMock()), patch(
-        "httpx.AsyncClient.get", side_effect=fake_get
+    with (
+        patch("httpx.AsyncClient.__aenter__", new=MagicMock()),
+        patch("httpx.AsyncClient.get", side_effect=fake_get),
     ):
         # Build args
         code = plugin.run(["--url", "https://example.com", "--samples", "2"])
