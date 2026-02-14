@@ -29,7 +29,7 @@ class NagiosPluginFramework:  # pragma: no cover - compatibility shim
     provide any functionality. Please migrate to nagios_plugins.base.NagiosPlugin.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         warnings.warn(
             "NagiosPluginFramework is deprecated; migrate to base.NagiosPlugin",
             DeprecationWarning,
@@ -38,4 +38,4 @@ class NagiosPluginFramework:  # pragma: no cover - compatibility shim
         # No-op
 
 
-__all__ = ["CheckResult", "Status", "NagiosPluginFramework"]
+__all__ = ["CheckResult", "NagiosPluginFramework", "Status"]

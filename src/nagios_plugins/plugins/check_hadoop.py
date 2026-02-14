@@ -20,7 +20,6 @@ import json
 import logging
 import sys
 from datetime import datetime
-from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -44,7 +43,7 @@ class HadoopClusterChecker:
     def __init__(
         self,
         url: str,
-        max_update_minutes: Optional[int] = None,
+        max_update_minutes: int | None = None,
         timeout: int = 30,
     ):
         """Initialize the Hadoop cluster health checker.
@@ -153,21 +152,21 @@ class HadoopClusterChecker:
             logger.error(f"HTTP error: {e}")
             return CheckResult(
                 Status.CRITICAL,
-                f"Failed to connect to Hadoop API: {str(e)}",
+                f"Failed to connect to Hadoop API: {e!s}",
                 metrics={"status": 0},
             )
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             return CheckResult(
                 Status.CRITICAL,
-                f"Invalid JSON response from Hadoop API: {str(e)}",
+                f"Invalid JSON response from Hadoop API: {e!s}",
                 metrics={"status": 0},
             )
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Unexpected error: {str(e)}",
+                f"Unexpected error: {e!s}",
                 metrics={"status": 0},
             )
 

@@ -19,6 +19,7 @@ import argparse
 import json
 import logging
 import sys
+from typing import ClassVar
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -39,7 +40,7 @@ logger = logging.getLogger("check_mongodb_health")
 class MongoHealthChecker:
     """MongoDB health checker."""
 
-    MODE_CHECKS = {
+    MODE_CHECKS: ClassVar[dict[int, list[tuple[str, str]]]] = {
         1: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
         2: [("search_reachable", "Search service"), ("site_api_reachable", "Site API")],
         3: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
@@ -150,7 +151,7 @@ class MongoHealthChecker:
             logger.exception("Error checking MongoDB health")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Error checking MongoDB health: {str(e)}",
+                f"Error checking MongoDB health: {e!s}",
                 metrics={"error": 1},
                 details=str(e),
             )

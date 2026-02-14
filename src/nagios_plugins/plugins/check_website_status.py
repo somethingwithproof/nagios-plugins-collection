@@ -3,7 +3,7 @@
 
 The original project contains a much more feature rich implementation that is
 integrated with a plugin framework.  For the purposes of the kata we only need a
-light‑weight class that can be instantiated directly and whose behaviour is easy
+light-weight class that can be instantiated directly and whose behaviour is easy
 to mock in tests.
 """
 
@@ -13,7 +13,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -29,18 +29,18 @@ class WebsiteStatusChecker:
     def __init__(
         self,
         url: str,
-        pattern: Optional[str] = None,
+        pattern: str | None = None,
         timeout: int = 10,
         warning_threshold: float = 1.0,
         critical_threshold: float = 2.0,
         method: str = "GET",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[str | dict[str, Any]] = None,
-        auth: Optional[tuple[str, str]] = None,
+        headers: dict[str, str] | None = None,
+        body: str | dict[str, Any] | None = None,
+        auth: tuple[str, str] | None = None,
         retries: int = 0,
         retry_delay: float = 1.0,
         verbose: bool = False,
-        log_file: Optional[str | Path] = None,
+        log_file: str | Path | None = None,
     ) -> None:
         self.url = url
         self.pattern = pattern
@@ -59,7 +59,7 @@ class WebsiteStatusChecker:
         if log_file:
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(
-                logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             logger.addHandler(file_handler)
             if verbose:
@@ -96,13 +96,13 @@ class WebsiteStatusChecker:
                 metrics = {"status_code": response.status_code, "duration": duration}
 
                 if self.verbose:
-                    logger.debug(
-                        f"Response: {response.status_code} in {duration:.3f}s"
-                    )
+                    logger.debug(f"Response: {response.status_code} in {duration:.3f}s")
 
                 if response.status_code != 200:
                     if self.pattern is not None:
-                        metrics["pattern_found"] = 1 if re.search(self.pattern, response.text) else 0
+                        metrics["pattern_found"] = (
+                            1 if re.search(self.pattern, response.text) else 0
+                        )
                     return CheckResult(
                         Status.CRITICAL,
                         f"HTTP {response.status_code} error",

@@ -22,7 +22,7 @@ import datetime
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -46,9 +46,9 @@ class ComponentStatusChecker:
     def __init__(
         self,
         url: str,
-        components: List[str],
+        components: list[str],
         warning_threshold: int = 10,
-        critical_threshold: Optional[int] = None,
+        critical_threshold: int | None = None,
         timeout: int = 10,
     ):
         """Initialize the component status checker.
@@ -69,7 +69,7 @@ class ComponentStatusChecker:
 
     async def get_component_status(
         self, component: str
-    ) -> Tuple[str, Optional[datetime.datetime], Dict[str, Any]]:
+    ) -> tuple[str, datetime.datetime | None, dict[str, Any]]:
         """Check the status of a component by querying the JSON API.
 
         Args:
@@ -193,7 +193,7 @@ class ComponentStatusChecker:
             logger.exception("Error checking components")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Error checking components: {str(e)}",
+                f"Error checking components: {e!s}",
                 metrics={"error": 1},
                 details=str(e),
             )
