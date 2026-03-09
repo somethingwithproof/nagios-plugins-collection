@@ -16,6 +16,8 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -49,7 +51,7 @@ class MountStatusChecker:
         ssh_port: int = 22,
         exclude_mounts: list[str] | None = None,
         timeout: int = 30,
-    ):
+    ) -> None:
         """Initialize the mount status checker.
 
         Args:

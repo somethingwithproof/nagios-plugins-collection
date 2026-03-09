@@ -27,7 +27,7 @@ class CheckCloudBudget(NagiosPlugin):
         except Exception:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, "boto3 not installed; install [aws]")
         start, end = _month_range_utc()
-        ce = boto3.client("ce", region_name=args.region)  # type: ignore
+        ce = boto3.client("ce", region_name=args.region)
         resp = ce.get_cost_and_usage(
             TimePeriod={"Start": start, "End": end},
             Granularity="MONTHLY",
