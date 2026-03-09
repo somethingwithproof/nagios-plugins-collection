@@ -18,6 +18,8 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -96,7 +98,7 @@ class MongoHealthChecker:
         username: str | None = None,
         password: str | None = None,
         ssl: bool = False,
-    ):
+    ) -> None:
         """Initialize the MongoDB health checker.
 
         Args:

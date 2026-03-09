@@ -15,6 +15,8 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
@@ -45,7 +47,7 @@ class HadoopClusterChecker:
         url: str,
         max_update_minutes: int | None = None,
         timeout: int = 30,
-    ):
+    ) -> None:
         """Initialize the Hadoop cluster health checker.
 
         Args:

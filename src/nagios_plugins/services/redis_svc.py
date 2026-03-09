@@ -8,7 +8,7 @@ def get_stats(url: str, timeout: int = 5) -> dict[str, float | int]:
         raise RuntimeError("redis extra not installed") from e
 
     r = redis.from_url(url, socket_timeout=timeout)
-    info = r.info()  # type: ignore
+    info = r.info()
     hits = float(info.get("keyspace_hits", 0))
     misses = float(info.get("keyspace_misses", 0))
     total = hits + misses

@@ -19,6 +19,8 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import logging
@@ -58,7 +60,7 @@ class SSHDNSChecker:
         retries: int = 1,
         warning_threshold: float | None = None,
         critical_threshold: float | None = None,
-    ):
+    ) -> None:
         """Initialize the SSH DNS checker.
 
         Args:

@@ -8,7 +8,7 @@ version = "1.2.1"
 description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
 readme = "README.md"
 requires-python = ">=3.12"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Thomas Vincent", email = "thomasvincent@gmail.com"}
 ]
@@ -114,10 +114,19 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.12"
 files = ["src", "tests"]
+# Strict mode enabled
+strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+disallow_any_unimported = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+no_implicit_optional = true
+strict_equality = true
+plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["tests.*"]
@@ -141,3 +150,16 @@ skips = ["B101"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nagios_plugins"]
+
+[tool.pylint]
+max-line-length = 100
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+    "C0330",  # bad-continuation
+    "C0326",  # bad-whitespace
+    "W0511",  # fixme
+]
+
+[tool.setuptools]
+license-files = ["LICENSE*"]

@@ -68,7 +68,7 @@ class WebsiteStatusChecker:
     async def check_website(self) -> CheckResult:
         """Check the configured website and return a :class:`CheckResult`."""
         attempt = 0
-        last_error = None
+        last_error: Exception | None = None
 
         while attempt <= self.retries:
             try:
@@ -82,7 +82,7 @@ class WebsiteStatusChecker:
                     follow_redirects=True,
                     auth=self.auth,
                 ) as client:
-                    request_kwargs = {"headers": self.headers}
+                    request_kwargs: dict[str, Any] = {"headers": self.headers}
 
                     if self.body is not None:
                         if isinstance(self.body, dict):
