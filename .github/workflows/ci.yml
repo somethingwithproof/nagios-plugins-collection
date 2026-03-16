@@ -36,7 +36,7 @@ jobs:
 
   test:
     name: Test (Python ${{ matrix.python-version }})
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -55,7 +55,7 @@ jobs:
 
   type-check:
     name: Type check
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -70,7 +70,7 @@ jobs:
 
   security:
     name: Security scan
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -85,7 +85,7 @@ jobs:
 
   package:
     name: Build package
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     needs: [lint, test]
     steps:
