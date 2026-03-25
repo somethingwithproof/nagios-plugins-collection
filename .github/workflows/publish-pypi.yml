@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     environment: pypi
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8

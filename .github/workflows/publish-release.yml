@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     outputs:
       destination: ${{ github.event.inputs.destination }}
       dry: ${{ github.event.inputs.dry-run }}
@@ -49,7 +49,7 @@ jobs:
           retention-days: 14
 
   publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     needs: build
     if: ${{ needs.build.outputs.dry == 'false' }}
     steps:

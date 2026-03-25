@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Python
@@ -40,7 +40,7 @@ jobs:
   publish-testpypi:
     if: ${{ github.event.inputs.upload-to-testpypi == 'true' }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     environment: testpypi
     steps:
       - \1d3f86a106a0bac45b974a628896c90dbdf5c8093

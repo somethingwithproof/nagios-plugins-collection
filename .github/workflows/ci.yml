@@ -28,7 +28,7 @@ jobs:
   semantic-pr:
     name: Semantic PR title
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     steps:
       - \1e32d7e603df1aa1ba07e981f2a23455dee596825
         with:
@@ -43,7 +43,7 @@ jobs:
 
   docker-lint:
     name: Dockerfile lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -54,7 +54,7 @@ jobs:
 
   workflow-lint:
     name: Workflow lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -63,7 +63,7 @@ jobs:
 
   helm-validate:
     name: Helm unit tests and kubeconform
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -103,7 +103,7 @@ jobs:
           kube-linter lint rendered.yaml
   test:
     name: Test Python ${{ matrix.python-version }} with Nagios ${{ matrix.nagios-version }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     strategy:
       fail-fast: false
@@ -138,7 +138,7 @@ jobs:
 
   lint:
     name: Lint code
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     steps:
     - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -162,7 +162,7 @@ jobs:
 
   type-check:
     name: Type check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -183,7 +183,7 @@ jobs:
 
   docs:
     name: Build documentation
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -211,7 +211,7 @@ jobs:
 
   coverage:
     name: Test coverage
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -249,7 +249,7 @@ jobs:
 
   container:
     name: Build, scan, sign, and push container image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -334,7 +334,7 @@ jobs:
 
   security:
     name: Security scan
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -371,7 +371,7 @@ jobs:
 
   e2e:
     name: E2E (docker-compose FastAPI mocks)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -432,7 +432,7 @@ jobs:
 
   e2e-wiremock:
     name: E2E (docker-compose WireMock)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -475,7 +475,7 @@ jobs:
 
   license:
     name: License allowlist
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - \18e8c483db84b4bee98b60c0593521ed34d9990e8
@@ -514,7 +514,7 @@ jobs:
 
   package:
     name: Build and verify package
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15  # Prevent hung jobs
     needs: [test, lint, type-check, docs, coverage, security, docker-lint, workflow-lint, helm-validate, e2e, e2e-wiremock, license]
     steps:
