@@ -15,20 +15,20 @@ Available plugins:
 - check_procs: Process check
 """
 
-from __future__ import annotations
-
 # List all standardized plugins here for easy import and discovery
 __all__ = [
+    # New standardized plugins
     "check_component_status",
-    "check_dig",
-    "check_etl",
+    "check_mongodb_health",
+    "check_website_status",
+    "check_ro_mounts",
+    # Legacy plugins
+    "check_monghealth",
     "check_hadoop",
     "check_jobs",
-    "check_monghealth",
-    "check_mongodb_health",
+    "check_etl",
+    "check_dig",
     "check_procs",
-    "check_ro_mounts",
-    "check_website_status",
 ]
 
 # Plugin version

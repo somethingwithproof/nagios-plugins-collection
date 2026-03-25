@@ -8,7 +8,7 @@ from nagios_plugins.base import CheckResult, NagiosPlugin, Status
 
 
 def _month_range_utc() -> tuple[str, str]:
-    now = dt.datetime.now(dt.UTC)
+    now = dt.datetime.now(dt.timezone.utc)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     return start.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
 
@@ -27,7 +27,7 @@ class CheckCloudBudget(NagiosPlugin):
         except Exception:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, "boto3 not installed; install [aws]")
         start, end = _month_range_utc()
-        ce = boto3.client("ce", region_name=args.region)
+        ce = boto3.client("ce", region_name=args.region)  # type: ignore
         resp = ce.get_cost_and_usage(
             TimePeriod={"Start": start, "End": end},
             Granularity="MONTHLY",

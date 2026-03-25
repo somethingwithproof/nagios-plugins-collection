@@ -11,7 +11,7 @@ def queue_depth(queue_url: str, region: str | None = None, timeout: int = 10) ->
         "sqs",
         region_name=region,
         config=boto3.session.Config(connect_timeout=timeout, read_timeout=timeout),
-    )
+    )  # type: ignore
     attrs = sqs.get_queue_attributes(
         QueueUrl=queue_url,
         AttributeNames=[

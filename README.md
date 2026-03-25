@@ -12,15 +12,14 @@ A modern, enterprise-grade collection of Nagios plugins for monitoring various s
 
 ## Features
 
-- **Modern Python**: Requires Python 3.12+ with full type hints and strict linting/typing (ruff, mypy)
-- **100% Type Hint Coverage**: All code is fully type-annotated and passes mypy strict mode
-- **Async Support**: Uses httpx and asyncio for high-performance concurrent checks
-- **JSON Output**: All plugins support JSON output for easy integration and parsing
-- **Consistent CLI**: Common flags across all plugins: `--timeout`, `--warning`, `--critical`, `--json`, `--verbose`
-- **Performance Data**: Standard Nagios perfdata across all checks
-- **Enterprise CI/CD**: Tests, coverage, SBOM generation, Trivy scanning, and cosign signing
-- **Deployment Ready**: Kubernetes Helm chart and Nomad job templates included
-- **Security First**: Continuous security scanning with bandit/safety and dependency pinning
+- Modern Python: Requires Python 3.11+ with type hints and strict linting/typing (ruff, mypy)
+- Async support where it matters (httpx, asyncio) for high fan‑out checks
+- JSON output across plugins for easy ingestion
+- Consistent CLI interface with common flags: `--timeout`, `--warning`, `--critical`, `--json`, `--verbose`
+- Performance data (Nagios perfdata) standard across checks
+- CI/CD with tests, coverage, SBOM generation, Trivy scanning, and cosign signing
+- Kubernetes Helm chart and Nomad job provided for scheduled runs
+- Security scanning with bandit/safety and dependency pinning
 
 ## Available Plugins (modern set)
 
@@ -38,16 +37,10 @@ Core plugins:
 - check_redis_saturation: Redis memory/evictions/hitrates (redis-py)
 - check_backup_freshness: Age of latest S3 object by prefix (boto3)
 - check_cloud_budget: AWS Cost Explorer monthly spend (boto3)
+- check_aws_cloudwatch: AWS CloudWatch metrics for EC2, RDS, Lambda, ELB (boto3 optional)
 - check_oauth2_token: Validate token endpoint and scopes
 
 ## Installation
-
-### Requirements
-
-- **Python 3.12+** is required
-- Python 3.11 and earlier are not supported
-
-### Install
 
 ```bash
 # Basic installation
@@ -62,16 +55,6 @@ pip install "nagios-plugins-collection[security]"
 # With all extras
 pip install "nagios-plugins-collection[all]"
 ```
-
-### Upgrading from Previous Versions
-
-If you're upgrading from a version that supported Python 3.11:
-
-1. **Upgrade Python**: Ensure you have Python 3.12 or later
-2. **Update package**: `pip install --upgrade nagios-plugins-collection`
-3. **Read migration guide**: See [MIGRATION.md](MIGRATION.md) for detailed guidance
-
-**Backwards Compatibility**: All runtime behavior remains unchanged. Type hints are purely for static analysis and don't affect plugin execution. All command-line interfaces, configuration files, and Nagios integration points remain the same.
 
 ## Quick Start
 
@@ -92,6 +75,31 @@ check_ro_mounts --exclude=/proc,/sys,/dev
 
 # Check website status
 check_website_status --url=https://example.com --pattern="Welcome" --timeout=10
+
+# Check AWS CloudWatch metrics
+check_aws_cloudwatch \
+  --namespace AWS/EC2 \
+  --metric CPUUtilization \
+  --instance-id i-1234567890abcdef0 \
+  --warning 70 \
+  --critical 90
+
+# Check RDS database connections
+check_aws_cloudwatch \
+  --namespace AWS/RDS \
+  --metric DatabaseConnections \
+  --db-instance-id mydb-instance \
+  --warning 50 \
+  --critical 100
+
+# Check Lambda function duration
+check_aws_cloudwatch \
+  --namespace AWS/Lambda \
+  --metric Duration \
+  --function-name my-function \
+  --statistic Maximum \
+  --warning 2000 \
+  --critical 3000
 
 # Get JSON output
 check_website_status --url=https://example.com --pattern="Welcome" --timeout=10 --json

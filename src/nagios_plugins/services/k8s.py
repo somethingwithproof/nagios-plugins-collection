@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -12,7 +13,7 @@ class NodeSummary:
     pid_pressure: int
 
 
-def summarize_nodes(label_selector: str | None = None, timeout: int = 10) -> NodeSummary:
+def summarize_nodes(label_selector: Optional[str] = None, timeout: int = 10) -> NodeSummary:
     try:
         # Optional dependency; import locally
         from kubernetes import client, config  # type: ignore

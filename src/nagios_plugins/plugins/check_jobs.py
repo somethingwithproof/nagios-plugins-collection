@@ -15,12 +15,11 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import logging
 import sys
+from typing import List
 
 import httpx
 from rich.console import Console
@@ -78,13 +77,14 @@ class JobStatusChecker:
 
             # Create metrics
             metrics = {"root_status": 1 if root_status == "ok" else 0}
-            failed_components: list[str] = []
+            failed_components: List[str] = []
 
             # Check if overall status is OK
             if root_status != "ok":
                 return CheckResult(
                     Status.WARNING,
-                    f"Root status {root_title} is {root_status.upper()}.Message: {root_message}",
+                    f"Root status {root_title} is {root_status.upper()}."
+                    f"Message: {root_message}",
                     metrics=metrics,
                     details=json.dumps(data, indent=2),
                 )
@@ -127,21 +127,21 @@ class JobStatusChecker:
             logger.error(f"HTTP error: {e}")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Failed to connect to jobs API: {e!s}",
+                f"Failed to connect to jobs API: {str(e)}",
                 metrics={"root_status": 0},
             )
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Invalid JSON response from jobs API: {e!s}",
+                f"Invalid JSON response from jobs API: {str(e)}",
                 metrics={"root_status": 0},
             )
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Unexpected error: {e!s}",
+                f"Unexpected error: {str(e)}",
                 metrics={"root_status": 0},
             )
 

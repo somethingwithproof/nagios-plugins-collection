@@ -4,8 +4,6 @@
 This module provides utility functions that are used by multiple Nagios plugins.
 """
 
-from __future__ import annotations
-
 import json
 import platform
 import re
@@ -15,7 +13,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import httpx
 
@@ -59,8 +57,8 @@ class CommandResult:
 
 
 def execute_command(
-    command: list[str], timeout: int = 30, shell: bool = False
-) -> tuple[int, str, str]:
+    command: List[str], timeout: int = 30, shell: bool = False
+) -> Tuple[int, str, str]:
     """Execute a command and return ``(exit_code, stdout, stderr)``.
 
     Security: ``shell=True`` is disallowed per project standards and will raise
@@ -99,7 +97,7 @@ def execute_command(
         return 1, "", f"Error executing command: {exc}"
 
 
-def check_tcp_port(host: str, port: int, timeout: int = 5) -> tuple[bool, str | None]:
+def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Optional[str]]:
     """Check if a TCP port is open.
 
     A straightforward implementation that relies on ``socket.socket`` so the
@@ -123,7 +121,7 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> tuple[bool, str | 
         return False, f"Port {port} is closed on {host}"
     except socket.gaierror:
         return False, f"Could not resolve hostname: {host}"
-    except TimeoutError:
+    except socket.timeout:
         return False, f"Connection to {host}:{port} timed out"
     except Exception as exc:  # pragma: no cover - defensive
         return False, f"Error checking port {port} on {host}: {exc}"
@@ -137,13 +135,13 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> tuple[bool, str | 
 async def check_http_endpoint_async(
     url: str,
     method: str = "GET",
-    headers: dict[str, str] | None = None,
-    data: dict[str, Any] | None = None,
+    headers: Optional[Dict[str, str]] = None,
+    data: Optional[Dict[str, Any]] = None,
     timeout: int = 30,
-    expected_status: int | None = 200,
-    expected_content: str | None = None,
+    expected_status: Optional[int] = 200,
+    expected_content: Optional[str] = None,
     verify_ssl: bool = True,
-) -> tuple[Status, str, dict[str, Any] | None]:
+) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
     """Check an HTTP endpoint asynchronously.
 
     Args:
@@ -219,7 +217,7 @@ async def check_http_endpoint_async(
         response_time = elapsed_time * 1000  # Convert to milliseconds
         return (
             Status.CRITICAL,
-            f"Request error: {e!s} - {url} - {response_time:.2f}ms",
+            f"Request error: {str(e)} - {url} - {response_time:.2f}ms",
             None,
         )
     except (OSError, httpx.HTTPError, ValueError, KeyError) as e:
@@ -227,7 +225,7 @@ async def check_http_endpoint_async(
         response_time = elapsed_time * 1000  # Convert to milliseconds
         return (
             Status.UNKNOWN,
-            f"Error: {e!s} - {url} - {response_time:.2f}ms",
+            f"Error: {str(e)} - {url} - {response_time:.2f}ms",
             None,
         )
 
@@ -235,13 +233,13 @@ async def check_http_endpoint_async(
 def check_http_endpoint(
     url: str,
     method: str = "GET",
-    headers: dict[str, str] | None = None,
-    data: dict[str, Any] | None = None,
+    headers: Optional[Dict[str, str]] = None,
+    data: Optional[Dict[str, Any]] = None,
     timeout: int = 30,
-    expected_status: int | None = 200,
-    expected_content: str | None = None,
+    expected_status: Optional[int] = 200,
+    expected_content: Optional[str] = None,
     verify_ssl: bool = True,
-) -> tuple[Status, str, dict[str, Any] | None]:
+) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
     """Check an HTTP endpoint synchronously.
 
     This helper performs an HTTP request using :class:`httpx.Client` and
@@ -411,7 +409,7 @@ def is_process_running(process_name: str) -> bool:
         return False
 
 
-def get_file_age_seconds(file_path: str | Path) -> int:
+def get_file_age_seconds(file_path: Union[str, Path]) -> int:
     """Get the age of a file in seconds.
 
     Args:
@@ -432,7 +430,7 @@ def get_file_age_seconds(file_path: str | Path) -> int:
     return int(current_time - file_mtime)
 
 
-def get_directory_size(directory: str | Path) -> int:
+def get_directory_size(directory: Union[str, Path]) -> int:
     """Get the total size of a directory in bytes.
 
     Args:
@@ -459,13 +457,13 @@ def get_directory_size(directory: str | Path) -> int:
     return total_size
 
 
-def get_system_info() -> dict[str, Any]:
+def get_system_info() -> Dict[str, Any]:
     """Get system information.
 
     Returns:
         A dictionary containing system information.
     """
-    info: dict[str, Any] = {
+    info: Dict[str, Any] = {
         "platform": platform.platform(),
         "system": platform.system(),
         "release": platform.release(),

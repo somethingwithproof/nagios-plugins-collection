@@ -18,15 +18,13 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import logging
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 from rich.console import Console
@@ -62,8 +60,8 @@ class CheckResult:
 
     status: Status
     message: str
-    metrics: dict[str, Any] = field(default_factory=dict)
-    details: str | None = None
+    metrics: Dict[str, Any] = field(default_factory=dict)
+    details: Optional[str] = None
 
     def __str__(self) -> str:
         """Return the string representation of the check result."""
@@ -95,10 +93,10 @@ class MongoHealthChecker:
         host: str,
         port: int = 27017,
         timeout: int = 5,
-        username: str | None = None,
-        password: str | None = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
         ssl: bool = False,
-    ) -> None:
+    ):
         """Initialize the MongoDB health checker.
 
         Args:
@@ -126,7 +124,7 @@ class MongoHealthChecker:
         if username and password:
             self.auth = (username, password)
 
-    async def check_engine_status(self) -> tuple[bool, dict[str, Any]]:
+    async def check_engine_status(self) -> Tuple[bool, Dict[str, Any]]:
         """Check the MongoDB engine status.
 
         Returns:
@@ -149,7 +147,7 @@ class MongoHealthChecker:
             logger.error(f"Error checking engine status: {e}")
             return False, {}
 
-    async def check_components(self, required_components: list[tuple[str, bool]]) -> CheckResult:
+    async def check_components(self, required_components: List[Tuple[str, bool]]) -> CheckResult:
         """Check the status of MongoDB components.
 
         Args:

@@ -118,7 +118,7 @@ class TestCheckTcpPort:
         """Test checking a port that times out."""
         with patch("socket.socket") as mock_socket:
             mock_sock = MagicMock()
-            mock_sock.connect_ex.side_effect = TimeoutError("Connection timed out")
+            mock_sock.connect_ex.side_effect = socket.timeout("Connection timed out")
             mock_socket.return_value = mock_sock
 
             success, error = check_tcp_port("slow_host", 80)

@@ -15,15 +15,10 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
-import asyncio
 import json
 import logging
 import sys
-
-from typing import Any, ClassVar
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -44,10 +39,7 @@ logger = logging.getLogger("check_mongodb_health")
 class MongoHealthChecker:
     """MongoDB health checker."""
 
-
-    MODE_CHECKS: ClassVar[dict[int, list[tuple[str, str]]]] = {
     MODE_CHECKS = {
-    MODE_CHECKS: dict[int, list[tuple[str, str]]] = {
         1: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
         2: [("search_reachable", "Search service"), ("site_api_reachable", "Site API")],
         3: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
@@ -58,7 +50,7 @@ class MongoHealthChecker:
         url: str,
         mode: int = 1,
         timeout: int = 10,
-    ) -> None:
+    ):
         """Initialize the MongoDB health checker.
 
         Args:
@@ -97,7 +89,7 @@ class MongoHealthChecker:
             )
 
             # Create metrics dictionary
-            metrics: dict[str, Any] = {
+            metrics = {
                 "engine_alive": 0,
                 "check_count": 0,
                 "passing_checks": 0,
@@ -126,7 +118,7 @@ class MongoHealthChecker:
             required_checks = self.MODE_CHECKS[self.mode]
             metrics["check_count"] = len(required_checks)
 
-            failing_checks: list[str] = []
+            failing_checks = []
             for check_key, check_name in required_checks:
                 metrics[f"check_{check_key}"] = (
                     1 if check_key in response_data and response_data.get(check_key) else 0
@@ -158,7 +150,7 @@ class MongoHealthChecker:
             logger.exception("Error checking MongoDB health")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Error checking MongoDB health: {e!s}",
+                f"Error checking MongoDB health: {str(e)}",
                 metrics={"error": 1},
                 details=str(e),
             )
@@ -233,6 +225,8 @@ def main() -> int:
     )
 
     # Run the check with asyncio
+    import asyncio
+
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:

@@ -17,14 +17,12 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import datetime
 import json
 import logging
 import sys
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -48,11 +46,11 @@ class ComponentStatusChecker:
     def __init__(
         self,
         url: str,
-        components: list[str],
+        components: List[str],
         warning_threshold: int = 10,
-        critical_threshold: int | None = None,
+        critical_threshold: Optional[int] = None,
         timeout: int = 10,
-    ) -> None:
+    ):
         """Initialize the component status checker.
 
         Args:
@@ -71,7 +69,7 @@ class ComponentStatusChecker:
 
     async def get_component_status(
         self, component: str
-    ) -> tuple[str, datetime.datetime | None, dict[str, Any]]:
+    ) -> Tuple[str, Optional[datetime.datetime], Dict[str, Any]]:
         """Check the status of a component by querying the JSON API.
 
         Args:
@@ -195,7 +193,7 @@ class ComponentStatusChecker:
             logger.exception("Error checking components")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Error checking components: {e!s}",
+                f"Error checking components: {str(e)}",
                 metrics={"error": 1},
                 details=str(e),
             )

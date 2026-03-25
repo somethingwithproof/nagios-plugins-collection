@@ -1,35 +1,27 @@
-name: Dependabot Auto-Merge
+name: Dependabot auto-merge
 
 on:
-  pull_request:
-  workflow_dispatch:
-    branches: [ main ]
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  dependabot-auto-merge:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' }}
-    
     steps:
       - name: Dependabot metadata
-        id: metadata
-        uses: dependabot/fetch-metadata@v2
+        id: meta
+        \108eff52bf64351f401fb50d4972fa95b9f2c2d1b
         with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-      
-      - name: Approve PR
-        run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Auto-merge PR
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor' }}
-        run: gh pr merge --auto --merge "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge for patch updates
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch'
+        \145fc124d949b19b6b8bf6645b6c9d55f4f9ac61a
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          target: patch
+          merge-method: squash

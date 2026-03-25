@@ -15,13 +15,12 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import logging
 import sys
 from datetime import datetime
+from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -45,9 +44,9 @@ class HadoopClusterChecker:
     def __init__(
         self,
         url: str,
-        max_update_minutes: int | None = None,
+        max_update_minutes: Optional[int] = None,
         timeout: int = 30,
-    ) -> None:
+    ):
         """Initialize the Hadoop cluster health checker.
 
         Args:
@@ -154,21 +153,21 @@ class HadoopClusterChecker:
             logger.error(f"HTTP error: {e}")
             return CheckResult(
                 Status.CRITICAL,
-                f"Failed to connect to Hadoop API: {e!s}",
+                f"Failed to connect to Hadoop API: {str(e)}",
                 metrics={"status": 0},
             )
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {e}")
             return CheckResult(
                 Status.CRITICAL,
-                f"Invalid JSON response from Hadoop API: {e!s}",
+                f"Invalid JSON response from Hadoop API: {str(e)}",
                 metrics={"status": 0},
             )
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Unexpected error: {e!s}",
+                f"Unexpected error: {str(e)}",
                 metrics={"status": 0},
             )
 

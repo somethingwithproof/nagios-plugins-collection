@@ -16,14 +16,13 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import logging
 import re
 import sys
 import tempfile
+from typing import Dict, List, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -46,12 +45,12 @@ class MountStatusChecker:
 
     def __init__(
         self,
-        host: str | None = None,
-        ssh_user: str | None = None,
+        host: Optional[str] = None,
+        ssh_user: Optional[str] = None,
         ssh_port: int = 22,
-        exclude_mounts: list[str] | None = None,
+        exclude_mounts: Optional[List[str]] = None,
         timeout: int = 30,
-    ) -> None:
+    ):
         """Initialize the mount status checker.
 
         Args:
@@ -75,7 +74,7 @@ class MountStatusChecker:
         default_excludes = {"/proc", "/sys", "/dev", "/run", temp_dir, "/var/lib/docker"}
         self.exclude_mounts.update(default_excludes)
 
-    def _build_command(self) -> list[str]:
+    def _build_command(self) -> List[str]:
         """Build the command to execute.
 
         Returns:
@@ -105,7 +104,7 @@ class MountStatusChecker:
 
         return cmd
 
-    def _parse_mount_output(self, output: str) -> list[dict[str, str]]:
+    def _parse_mount_output(self, output: str) -> List[Dict[str, str]]:
         """Parse mount command output.
 
         Args:
@@ -152,7 +151,7 @@ class MountStatusChecker:
             exit_code, stdout, _stderr = execute_command(cmd, timeout=self.timeout)
 
             # Get the mount information
-            ro_mounts: list[dict[str, str]] = []
+            ro_mounts: List[Dict[str, str]] = []
 
             if exit_code == 0 and stdout.strip():
                 ro_mounts = self._parse_mount_output(stdout)
@@ -203,7 +202,7 @@ class MountStatusChecker:
             logger.exception("Error checking mounts")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Error checking mounts: {e!s}",
+                f"Error checking mounts: {str(e)}",
                 metrics={"ro_mounts_count": 0},
                 details=str(e),
             )

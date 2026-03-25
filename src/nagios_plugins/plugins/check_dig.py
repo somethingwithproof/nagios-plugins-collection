@@ -19,13 +19,12 @@ Returns:
     3 (UNKNOWN): An unexpected error occurred during the check
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import logging
 import sys
 import time
+from typing import List, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -50,17 +49,17 @@ class SSHDNSChecker:
         self,
         ssh_host: str,
         query_address: str,
-        ssh_user: str | None = None,
+        ssh_user: Optional[str] = None,
         ssh_port: int = 22,
         dns_port: int = 53,
         record_type: str = "A",
-        dig_arguments: str | None = None,
-        expected_address: str | None = None,
+        dig_arguments: Optional[str] = None,
+        expected_address: Optional[str] = None,
         timeout: int = 30,
         retries: int = 1,
-        warning_threshold: float | None = None,
-        critical_threshold: float | None = None,
-    ) -> None:
+        warning_threshold: Optional[float] = None,
+        critical_threshold: Optional[float] = None,
+    ):
         """Initialize the SSH DNS checker.
 
         Args:
@@ -91,7 +90,7 @@ class SSHDNSChecker:
         self.critical_threshold = critical_threshold
         self.console = Console()
 
-    def _build_ssh_command(self, dig_command: str) -> list[str]:
+    def _build_ssh_command(self, dig_command: str) -> List[str]:
         """Build the SSH command to execute.
 
         Args:
@@ -208,7 +207,7 @@ class SSHDNSChecker:
 
 
 async def execute_command_async(
-    command: list[str], timeout: int = 30, shell: bool = False
+    command: List[str], timeout: int = 30, shell: bool = False
 ) -> CommandResult:
     """Execute a command asynchronously and return the result.
 
@@ -246,7 +245,7 @@ async def execute_command_async(
             stderr=stderr.decode("utf-8", errors="replace"),
             execution_time=execution_time,
         )
-    except TimeoutError:
+    except asyncio.TimeoutError:
         process.kill()
         stdout, stderr = await process.communicate()
         execution_time = time.time() - start_time
@@ -261,7 +260,7 @@ async def execute_command_async(
         return CommandResult(
             exit_code=1,
             stdout="",
-            stderr=f"Error executing command: {exc!s}",
+            stderr=f"Error executing command: {str(exc)}",
             execution_time=execution_time,
         )
 

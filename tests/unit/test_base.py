@@ -52,7 +52,8 @@ class TestCheckResult:
             details="The service has been down for 10 minutes.",
         )
         assert (
-            str(result) == "CRITICAL - Service is down\nThe service has been down for 10 minutes."
+            str(result) == "CRITICAL - Service is down\n"
+            "The service has been down for 10 minutes."
         )
 
     def test_str_with_metrics_and_details(self) -> None:
@@ -122,10 +123,9 @@ class TestNagiosPlugin:
 
     def test_run_exception(self, plugin: "TestNagiosPlugin.TestPlugin") -> None:
         """Test the run method with an exception."""
-        with (
-            patch.object(plugin, "check", side_effect=ValueError("Test error")),
-            patch("sys.stdout", new=MagicMock()) as mock_stdout,
-        ):
+        with patch.object(plugin, "check", side_effect=ValueError("Test error")), patch(
+            "sys.stdout", new=MagicMock()
+        ) as mock_stdout:
             exit_code = plugin.run([])
             assert exit_code == 3
             mock_stdout.write.assert_called_with("UNKNOWN - Unhandled exception: Test error\n")

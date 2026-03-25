@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, Optional
 
 from fastapi import Body, FastAPI, Form, Query
 from fastapi.responses import JSONResponse
@@ -7,7 +7,7 @@ app = FastAPI(title="NPC E2E Mocks")
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
@@ -16,7 +16,7 @@ def token(
     client_id: str = Form(...),
     client_secret: str = Form(...),
     grant_type: str = Form("client_credentials"),
-    scope: str | None = Form(None),
+    scope: Optional[str] = Form(None),
 ) -> JSONResponse:
     # Minimal OAuth2 token endpoint
     data = {
@@ -55,7 +55,9 @@ def prom_query(query: str = Query(...)) -> JSONResponse:  # pragma: no cover - e
 
 
 @app.post("/es/{index}/_search")
-def es_search(index: str, body: dict[str, Any] | None = None) -> JSONResponse:  # pragma: no cover
+def es_search(
+    index: str, body: Optional[Dict[str, Any]] = None
+) -> JSONResponse:  # pragma: no cover
     # Very small subset of ES search for tests: returns hits.total.value
     if body is None:
         body = Body(...)
