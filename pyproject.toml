@@ -47,7 +47,7 @@ cli = [
     "typer>=0.9.0",
 ]
 schema = [
-    "pydantic>=2.5.0",
+    "pydantic>=2.13.0",
 ]
 prom = [
     "httpx>=0.26.0",
