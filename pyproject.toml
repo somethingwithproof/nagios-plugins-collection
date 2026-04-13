@@ -32,7 +32,7 @@ classifiers = [
 dependencies = [
     # Core dependencies needed by all plugins
     "httpx>=0.26.0",
-    "rich>=13.7.0",
+    "rich>=15.0.0",
 ]
 
 # Optional dependencies grouped by functionality
