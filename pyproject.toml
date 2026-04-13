@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     # Core dependencies needed by all plugins
-    "httpx>=0.26.0",
+    "httpx>=0.28.1",
     "rich>=13.7.0",
 ]
 
@@ -50,7 +50,7 @@ schema = [
     "pydantic>=2.5.0",
 ]
 prom = [
-    "httpx>=0.26.0",
+    "httpx>=0.28.1",
 ]
 dns = [
     "dnspython>=2.6.1",
@@ -68,7 +68,7 @@ aws = [
     "boto3>=1.35.0",
 ]
 es = [
-    "httpx>=0.26.0",
+    "httpx>=0.28.1",
 ]
 legacy = [
     "pexpect>=4.9.0",
