@@ -59,7 +59,7 @@ k8s = [
     "kubernetes>=29.0.0",
 ]
 pg = [
-    "psycopg[binary]>=3.1.18",
+    "psycopg[binary]>=3.3.3",
 ]
 redis = [
     "redis>=5.0.0",
