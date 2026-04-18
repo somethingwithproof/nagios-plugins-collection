@@ -93,7 +93,7 @@ dev = [
     "twine>=6.2.0",
 ]
 security = [
-    "bandit>=1.7.5",
+    "bandit>=1.9.4",
     "safety>=2.3.5",
 ]
 all = [
