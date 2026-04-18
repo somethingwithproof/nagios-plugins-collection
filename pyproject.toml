@@ -62,7 +62,7 @@ pg = [
     "psycopg[binary]>=3.1.18",
 ]
 redis = [
-    "redis>=5.0.0",
+    "redis>=7.4.0",
 ]
 aws = [
     "boto3>=1.35.0",
