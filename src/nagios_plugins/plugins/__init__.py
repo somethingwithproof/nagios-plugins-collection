@@ -26,9 +26,7 @@ __all__ = [
     "check_monghealth",
     "check_hadoop",
     "check_jobs",
-    "check_etl",
     "check_dig",
-    "check_procs",
 ]
 
 # Plugin version
