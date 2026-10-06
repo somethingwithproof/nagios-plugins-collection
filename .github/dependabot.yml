@@ -6,7 +6,7 @@ updates:
   directory: /
   schedule:
     interval: daily
-    time: 04:00
+    time: '04:00'
     timezone: UTC
   open-pull-requests-limit: 10
   versioning-strategy: increase
@@ -22,7 +22,7 @@ updates:
   directory: /
   schedule:
     interval: daily
-    time: 04:10
+    time: '04:10'
     timezone: UTC
   open-pull-requests-limit: 10
   labels:
@@ -36,7 +36,7 @@ updates:
   directory: /docker
   schedule:
     interval: daily
-    time: 04:20
+    time: '04:20'
     timezone: UTC
   open-pull-requests-limit: 10
   labels:
