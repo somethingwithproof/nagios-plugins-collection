@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Tests for DNS health plugin."""
 
 from nagios_plugins.base import Status

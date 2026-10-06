@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Security policy
 
 Security fixes target the latest maintained 2.x release. Older project lines

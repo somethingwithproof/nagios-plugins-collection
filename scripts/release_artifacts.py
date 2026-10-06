@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Validate SemVer and build the project's archives and native release artifacts."""
 
 from __future__ import annotations

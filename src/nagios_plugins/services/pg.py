@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Read PostgreSQL replication lag using a database connection."""
 
 from __future__ import annotations

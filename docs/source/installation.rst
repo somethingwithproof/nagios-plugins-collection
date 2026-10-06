@@ -1,3 +1,6 @@
+.. SPDX-FileCopyrightText: 2025 Thomas Vincent
+.. SPDX-License-Identifier: Apache-2.0
+
 Installation
 ============
 
@@ -14,9 +17,9 @@ the same GitHub release. Verify the files before installing:
 
    sha256sum --check --ignore-missing SHA256SUMS
 
-   sudo apt install ./nagios-plugins-collection_2.0.0_all.deb
+   sudo apt install ./nagios-plugins-collection_2.0.1_all.deb
    # On Rocky Linux 9:
-   sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm
+   sudo dnf install ./nagios-plugins-collection_2.0.1_noarch.rpm
    /usr/lib/nagios/plugins/check_website_status --help
 
 Require the artifact you selected to report ``OK`` in the checksum output.
@@ -35,7 +38,7 @@ Install into an isolated environment rather than modifying system Python:
 .. code-block:: bash
 
    mise exec python@3.12 -- python -m venv .venv
-   .venv/bin/python -m pip install ./nagios_plugins_collection-2.0.0-py3-none-any.whl
+   .venv/bin/python -m pip install ./nagios_plugins_collection-2.0.1-py3-none-any.whl
    .venv/bin/check_website_status --help
 
 For source development, clone the public repository, install the hash-locked

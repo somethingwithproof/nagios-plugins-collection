@@ -1,3 +1,7 @@
+{{/*
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+*/}}
 {{- if .Values.rbac.create }}
 {{- if not .Values.serviceAccount.automountServiceAccountToken }}
 {{- fail "Node monitoring RBAC requires serviceAccount.automountServiceAccountToken=true" }}

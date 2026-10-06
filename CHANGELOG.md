@@ -1,6 +1,18 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Changelog
 
-## 2.0.0 — 2026-10-06
+## 2.0.1 — 2026-10-06
+
+- Align package metadata and SPDX headers with the existing Apache-2.0 LICENSE.
+- Add file-level SPDX identifiers and REUSE mappings for non-commentable files.
+- Parse shipping license expressions without regex backtracking.
+- Supersede the unpublished 2.0.0 candidate after the license consistency audit.
+
+## 2.0.0 — 2026-10-06 (unpublished candidate)
 
 Verified TLS defaults, async cancellation ownership, maintained-platform policy and wheel/Helm/DEB/RPM releases.
 

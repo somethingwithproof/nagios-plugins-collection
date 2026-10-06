@@ -1,14 +1,16 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 [build-system]
 requires = ["setuptools>=82.0.1", "wheel>=0.37.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nagios-plugins-collection"
-version = "2.0.0"
+version = "2.0.1"
 description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICENSE*"]
 authors = [
     {name = "Thomas Vincent", email = "thomasvincent@gmail.com"}

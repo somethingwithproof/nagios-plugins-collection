@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Nagios Plugins Collection.
 
 This package contains a collection of standardized Nagios plugins

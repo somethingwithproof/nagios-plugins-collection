@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Validate health schemas, freshness thresholds and monitoring failures."""
 
 import datetime as dt

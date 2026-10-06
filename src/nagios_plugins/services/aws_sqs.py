@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Read SQS queue backlog and in-flight counts."""
 
 from __future__ import annotations

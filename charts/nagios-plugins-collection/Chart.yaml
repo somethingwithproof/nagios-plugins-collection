@@ -1,7 +1,9 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 apiVersion: v2
 name: nagios-plugins-collection
-version: 2.0.0
-appVersion: "2.0.0"
+version: 2.0.1
+appVersion: "2.0.1"
 kubeVersion: ">=1.35.0 <1.38.0"
 description: Run Nagios plugins as Kubernetes CronJobs/Jobs
 keywords:

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Utility functions for Nagios plugins.
 
 This module provides utility functions that are used by multiple Nagios plugins.

@@ -1,3 +1,6 @@
+.. SPDX-FileCopyrightText: 2025 Thomas Vincent
+.. SPDX-License-Identifier: Apache-2.0
+
 Contributing
 ============
 
@@ -134,7 +137,7 @@ Release Process
 License
 -------
 
-By contributing to this project, you agree that your contributions will be licensed under the project's MIT License.
+Contributions use the project's Apache-2.0 license, matching the LICENSE file.
 
 Contact
 -------

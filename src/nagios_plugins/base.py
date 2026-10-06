@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Base module for all Nagios plugins.
 
 This module provides a base class for all Nagios plugins to ensure consistent

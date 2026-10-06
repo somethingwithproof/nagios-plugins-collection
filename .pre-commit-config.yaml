@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.10

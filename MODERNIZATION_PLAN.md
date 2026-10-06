@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Nagios Plugins Collection Modernization Plan
 
 > Historical planning notes. Current implemented behavior, supported platforms,

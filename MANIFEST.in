@@ -1,4 +1,7 @@
-include LICENSE README.md MIGRATION.md CHANGELOG.md tox.ini uv.lock
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
+include LICENSE REUSE.toml README.md MIGRATION.md CHANGELOG.md tox.ini uv.lock
+recursive-include LICENSES *.txt
 recursive-include packaging *.in *.txt *.yaml *.json
 recursive-include scripts *.py
 recursive-include charts *.yaml *.tpl
