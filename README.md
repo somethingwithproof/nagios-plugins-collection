@@ -324,6 +324,8 @@ milliseconds; website-status thresholds are seconds.
 
 This project uses Apache-2.0, matching [LICENSE](LICENSE). Source files use SPDX
 headers; [REUSE.toml](REUSE.toml) maps files that cannot contain comments.
+Run `python scripts/check_spdx.py` to verify coverage; CI runs the same check.
+Preserve upstream license notices when adding third-party material.
 
 ![Release validation flow](docs/source/_static/release-flow.svg)
 
