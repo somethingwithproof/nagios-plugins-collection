@@ -221,6 +221,9 @@ jobs:
 
   coverage:
     name: Test coverage
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
@@ -251,10 +254,11 @@ jobs:
           PY
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: true
+          use_oidc: true
 
   container:
     name: Build, scan, sign, and push container image
@@ -377,9 +381,15 @@ jobs:
         run: pip-audit --local
 
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          args: detect --redact --no-banner
+          version: 2026.10.1
+          install: false
+          cache: false
+      - name: Scan Git history with the verified open-source CLI
+        run: |
+          mise install gitleaks@8.30.1
+          mise exec gitleaks@8.30.1 -- gitleaks git --redact --no-banner
 
       - name: Trivy config scan (IaC)
         uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
@@ -515,7 +525,7 @@ jobs:
           import json, sys
           allowed = {
             'MIT License', 'BSD-2-Clause', 'BSD-3-Clause', 'PSF-2.0',
-            'Mozilla Public License 2.0 (MPL 2.0)','MIT','Apache 2.0','Apache-2.0','BSD 3-Clause','BSD-3-Clause','BSD License','ISC','Python Software Foundation License'
+            'Mozilla Public License 2.0 (MPL 2.0)','MIT','Apache 2.0','Apache-2.0','Apache Software License','BSD 3-Clause','BSD-3-Clause','BSD License','ISC','Python Software Foundation License'
           }
           bad = []
           with open('licenses.json') as f:

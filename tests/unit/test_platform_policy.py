@@ -24,8 +24,9 @@ def test_release_platforms_are_currently_maintained() -> None:
 
 
 def test_expired_platform_prevents_release() -> None:
+    expired_date = date(2031, 1, 1)
     with pytest.raises(ValueError, match="Retire"):
-        support.validate_policy(date(2031, 1, 1))
+        support.validate_policy(expired_date)
 
 
 def test_python_ci_and_package_metadata_match_support_policy() -> None:

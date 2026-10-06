@@ -135,7 +135,7 @@ Build and run tests inside Docker:
 
 ```bash
 docker build -f docker/Dockerfile -t nagios-plugins-collection:dev .
-docker run --rm nagios-plugins-collection:dev --help
+docker run --rm nagios-plugins-collection:dev
 docker build --target tests -f docker/Dockerfile -t nagios-plugins-collection-tests:dev .
 docker run --rm nagios-plugins-collection-tests:dev
 ```

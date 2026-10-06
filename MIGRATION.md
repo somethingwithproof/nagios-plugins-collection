@@ -43,8 +43,8 @@ checks use system libpq. Native packages exclude optional compiled accelerators;
 the container installs its platform-specific wheels. Python wheel installs place
 commands in their environment's `bin` directory.
 
-Containers run as UID/GID 10001. The default entrypoint is `check_website_status`;
-override the entrypoint to run another plugin. Helm targets maintained Kubernetes
+Containers run as UID/GID 10001. The default command displays website-status
+help; pass any installed plugin as the container command. Helm targets maintained Kubernetes
 1.35–1.37. Node monitoring needs token automount and the chart's opt-in, list-only
 node RBAC. Other checks do not need those permissions.
 

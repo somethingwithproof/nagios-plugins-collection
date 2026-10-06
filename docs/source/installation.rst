@@ -55,7 +55,7 @@ Containers and Kubernetes
 -------------------------
 
 The GHCR image runs as UID/GID 10001 and defaults to website-status CLI help.
-Override the entrypoint for another plugin. Deploy the release's Helm chart on
+Pass another installed plugin as the container command. Deploy the release's Helm chart on
 maintained Kubernetes 1.35–1.37. Enable token automount and ``rbac.create`` only
 for Kubernetes node monitoring; the opt-in ClusterRole grants list access to
 nodes. Use the README's complete Helm and Nomad examples.
