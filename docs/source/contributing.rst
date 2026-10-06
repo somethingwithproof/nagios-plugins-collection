@@ -113,7 +113,7 @@ Examples:
 
     feat(check_hadoop): add support for Hadoop 3.x
 
-    fix(check_procs): handle processes with spaces in names
+    fix(check_website_status): reject invalid response patterns
 
     docs: update installation instructions
 
@@ -122,17 +122,14 @@ Examples:
 Release Process
 ---------------
 
-1. Update version number in:
-   - ``pyproject.toml``
-   - ``setup.py``
-   - ``src/nagios_plugins/__init__.py``
-   - ``docs/source/conf.py``
+1. Update ``pyproject.toml`` and both Helm chart version fields together.
+2. Update the changelog and merge the reviewed change into main.
+3. Push the matching SemVer tag; the Release workflow verifies CI, native
+   packages, container signatures and GitHub artifacts before publication.
+4. PyPI and TestPyPI publication is a separate manual workflow using the
+   already-published, checksum-verified and provenance-verified Python assets.
 
-2. Update the changelog
-
-3. Create a new release on GitHub with release notes
-
-4. The CI pipeline will automatically build and publish the package to PyPI
+See :doc:`releasing` for the complete release contract.
 
 License
 -------
