@@ -319,3 +319,8 @@ milliseconds; website-status thresholds are seconds.
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ![Release validation flow](docs/source/_static/release-flow.svg)
+
+Third-party runtime clients retain their original license notices. The reviewed
+license policy explicitly records Paramiko and Psycopg LGPL client exceptions;
+CI audits the actual locked runtime distributions, separately from development tools.
+See [the license policy](packaging/license-policy.json).

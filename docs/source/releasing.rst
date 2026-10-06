@@ -31,3 +31,8 @@ All 21 entrypoints are exercised by native-package installation tests. Native
 packages use portable Python implementations and OS libpq; the container uses
 platform-specific runtime wheels. The public repository's ``MIGRATION.md``
 provides the complete version-2 upgrade checklist.
+
+Third-party clients retain their original notices. The runtime license audit
+uses the locked shipping distributions and explicit named exceptions for the
+existing Paramiko and Psycopg LGPL clients; development tools do not expand
+the runtime distribution policy.
