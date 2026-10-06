@@ -4,14 +4,14 @@ Installation
 This guide will help you install the Nagios Plugins Collection.
 
 Requirements
------------
+------------
 
 - Python 3.8 or higher
 - pip (Python package installer)
 - Nagios 4.4.6 or higher (or compatible monitoring system)
 
 Installation Methods
-------------------
+--------------------
 
 From PyPI (Recommended)
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,7 +41,7 @@ For a specific version:
     pip install nagios-plugins-collection==1.1.0
 
 From Source
-~~~~~~~~~~
+~~~~~~~~~~~
 
 You can also install the package directly from the source code:
 
@@ -49,7 +49,7 @@ You can also install the package directly from the source code:
 
    .. code-block:: bash
 
-       git clone https://github.com/thomasvincent/nagios-plugins-collection.git
+       git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
        cd nagios-plugins-collection
 
 2. Install the package:
@@ -65,7 +65,7 @@ You can also install the package directly from the source code:
        pip install -e ".[dev,security]"
 
 Installation for Nagios
-----------------------
+-----------------------
 
 After installing the Python package, you need to configure Nagios to use the plugins:
 
@@ -99,7 +99,7 @@ After installing the Python package, you need to configure Nagios to use the plu
        systemctl restart nagios
 
 Verifying Installation
---------------------
+----------------------
 
 To verify that the plugins are installed correctly, you can run:
 
@@ -110,7 +110,7 @@ To verify that the plugins are installed correctly, you can run:
 This should display the help message for the plugin.
 
 Troubleshooting
---------------
+---------------
 
 Common installation issues:
 

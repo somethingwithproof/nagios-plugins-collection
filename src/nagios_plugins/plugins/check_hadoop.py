@@ -20,7 +20,6 @@ import json
 import logging
 import sys
 from datetime import datetime
-from typing import Optional
 
 import httpx
 from rich.console import Console
@@ -44,7 +43,7 @@ class HadoopClusterChecker:
     def __init__(
         self,
         url: str,
-        max_update_minutes: Optional[int] = None,
+        max_update_minutes: int | None = None,
         timeout: int = 30,
     ):
         """Initialize the Hadoop cluster health checker.

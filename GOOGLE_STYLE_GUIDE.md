@@ -79,9 +79,7 @@ def __init__(
 Example from `check_monghealth/check_monghealth_modernized.py`:
 
 ```python
-async def check_components(
-    self, required_components: List[Tuple[str, bool]]
-) -> CheckResult:
+async def check_components(self, required_components: List[Tuple[str, bool]]) -> CheckResult:
     """Check the status of MongoDB components.
 
     Args:
@@ -145,6 +143,7 @@ Example from `check_etl/etl_modernized.py`:
 @dataclass
 class CheckResult:
     """Data class to store check results."""
+
     status: Status
     message: str
     metrics: Dict[str, Any] = field(default_factory=dict)
@@ -181,9 +180,7 @@ Example from `check_etl/etl_modernized.py`:
 
 ```python
 try:
-    async with httpx.AsyncClient(
-        timeout=self.timeout, auth=self.auth
-    ) as client:
+    async with httpx.AsyncClient(timeout=self.timeout, auth=self.auth) as client:
         response = await client.get(url)
         response.raise_for_status()
 
@@ -197,9 +194,7 @@ try:
             try:
                 updated = datetime.fromisoformat(data["updated"])
             except (ValueError, TypeError):
-                logger.warning(
-                    "Invalid timestamp format: %s", data["updated"]
-                )
+                logger.warning("Invalid timestamp format: %s", data["updated"])
 
         return status, updated
 
@@ -221,9 +216,7 @@ def __str__(self) -> str:
     """Return the string representation of the check result."""
     output = f"{self.status} - {self.message}"
     if self.metrics:
-        metrics_str = " ".join(
-            f"{key}={value}" for key, value in self.metrics.items()
-        )
+        metrics_str = " ".join(f"{key}={value}" for key, value in self.metrics.items())
         output += f" | {metrics_str}"
     if self.details:
         output += f"\n{self.details}"

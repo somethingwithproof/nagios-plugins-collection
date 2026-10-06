@@ -78,7 +78,7 @@ class MongoHealthChecker:
         try:
             # Normalize URL format
             if not self.url.startswith(("http://", "https://")):
-                normalized_url = f"http://{self.url}"
+                normalized_url = f"https://{self.url}"
             else:
                 normalized_url = self.url
 

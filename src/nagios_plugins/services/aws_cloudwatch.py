@@ -44,7 +44,7 @@ def get_metric_statistics(
         config=boto3.session.Config(connect_timeout=timeout, read_timeout=timeout),
     )  # type: ignore
 
-    end_time = dt.datetime.now(dt.timezone.utc)
+    end_time = dt.datetime.now(dt.UTC)
     start_time = end_time - dt.timedelta(minutes=minutes_back)
 
     response = cloudwatch.get_metric_statistics(

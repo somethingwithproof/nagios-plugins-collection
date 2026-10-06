@@ -15,7 +15,7 @@ Features
 - **Error Handling**: Robust error handling to ensure plugins fail gracefully and provide useful error messages.
 
 Available Plugins
-----------------
+-----------------
 
 The collection includes plugins for monitoring:
 
@@ -37,7 +37,7 @@ The collection includes plugins for monitoring:
 - **xml_url_checker**: Check XML content from URLs
 
 Requirements
------------
+------------
 
 - Python 3.7 or higher
 - Nagios 4.4.6 or higher (or compatible monitoring system)

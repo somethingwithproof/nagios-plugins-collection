@@ -1,5 +1,5 @@
 Nagios Plugins Collection
-=======================
+=========================
 
 A modern, enterprise-grade collection of Nagios plugins for monitoring various systems.
 
@@ -17,7 +17,7 @@ A modern, enterprise-grade collection of Nagios plugins for monitoring various s
    changelog
 
 Introduction
------------
+------------
 
 The Nagios Plugins Collection is a comprehensive set of monitoring plugins for Nagios and compatible monitoring systems. These plugins are designed to be modern and enterprise-grade, with features such as:
 

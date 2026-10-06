@@ -1,7 +1,10 @@
+"""Read SQS queue backlog and in-flight counts."""
+
 from __future__ import annotations
 
 
 def queue_depth(queue_url: str, region: str | None = None, timeout: int = 10) -> dict[str, int]:
+    """Return visible and in-flight message counts for an SQS queue."""
     try:
         import boto3  # type: ignore
     except Exception as e:  # pragma: no cover

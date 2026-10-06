@@ -4,7 +4,7 @@ Usage
 This guide explains how to use the Nagios Plugins Collection.
 
 Common Command-Line Options
---------------------------
+---------------------------
 
 All plugins in the collection share a common set of command-line options:
 
@@ -20,7 +20,7 @@ All plugins in the collection share a common set of command-line options:
     -h, --help            Show help message and exit
 
 Threshold Formats
----------------
+-----------------
 
 Thresholds follow the standard Nagios plugin threshold format:
 
@@ -38,45 +38,45 @@ Examples:
 - ``-w @10:80 -c @5:90``: Warning if inside 10-80, critical if inside 5-90
 
 Basic Usage Examples
-------------------
+--------------------
 
 Check Hadoop Cluster
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
     check_hadoop command --url=http://hadoop-master:8088/ws/v1/cluster/info
 
 Check MongoDB Health
-~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
     check_monghealth --host=mongodb.example.com --port=27017 --warning=80 --critical=90
 
 Check Processes
-~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
     check_procs --host=server.example.com --process=nginx --min=1 --max=10
 
 Check Read-Only Mounts
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
     check_mounts --exclude=/proc,/sys,/dev
 
 Check Website Status
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
     check_website_status --url=https://example.com --pattern="Welcome" --timeout=10
 
 Integration with Nagios
----------------------
+-----------------------
 
 Example Nagios configuration for the check_hadoop plugin:
 
@@ -98,10 +98,10 @@ Example Nagios configuration for the check_hadoop plugin:
     }
 
 Output Formats
------------
+--------------
 
 Standard Output Format
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 By default, all plugins produce output in the standard Nagios plugin format:
 
@@ -122,7 +122,7 @@ Example output:
     OK - Hadoop cluster is healthy | nodes=10 memory_used=85% cpu_used=60%
 
 JSON Output Format
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 All plugins also support JSON output format, which is useful for integration with other tools:
 
@@ -144,7 +144,7 @@ Example JSON output:
     }
 
 Return Codes
-----------
+------------
 
 All plugins return standard Nagios return codes:
 
@@ -154,19 +154,19 @@ All plugins return standard Nagios return codes:
 - 3: UNKNOWN
 
 Advanced Usage
-------------
+--------------
 
 Asynchronous Execution
-~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 Many plugins now support asynchronous execution for improved performance in high-load environments. This is particularly useful when monitoring multiple endpoints or services simultaneously.
 
 Rich Terminal Output
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 When running plugins directly in the terminal (not through Nagios), you'll see rich, colorized output with progress indicators and formatted results.
 
 Plugin-Specific Options
-~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For more advanced usage and plugin-specific options, refer to the individual plugin documentation in the :doc:`plugins/index` section.

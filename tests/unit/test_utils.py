@@ -100,6 +100,7 @@ class TestCheckTcpPort:
             success, error = check_tcp_port("localhost", 80)
 
             assert success is False
+            assert error is not None
             assert "Port 80 is closed on localhost" in error
 
     def test_hostname_resolution_error(self) -> None:
@@ -112,18 +113,20 @@ class TestCheckTcpPort:
             success, error = check_tcp_port("invalid_hostname", 80)
 
             assert success is False
+            assert error is not None
             assert "Could not resolve hostname: invalid_hostname" in error
 
     def test_connection_timeout(self) -> None:
         """Test checking a port that times out."""
         with patch("socket.socket") as mock_socket:
             mock_sock = MagicMock()
-            mock_sock.connect_ex.side_effect = socket.timeout("Connection timed out")
+            mock_sock.connect_ex.side_effect = TimeoutError("Connection timed out")
             mock_socket.return_value = mock_sock
 
             success, error = check_tcp_port("slow_host", 80)
 
             assert success is False
+            assert error is not None
             assert "Connection to slow_host:80 timed out" in error
 
 

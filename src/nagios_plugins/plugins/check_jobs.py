@@ -19,7 +19,6 @@ import argparse
 import json
 import logging
 import sys
-from typing import List
 
 import httpx
 from rich.console import Console
@@ -77,14 +76,13 @@ class JobStatusChecker:
 
             # Create metrics
             metrics = {"root_status": 1 if root_status == "ok" else 0}
-            failed_components: List[str] = []
+            failed_components: list[str] = []
 
             # Check if overall status is OK
             if root_status != "ok":
                 return CheckResult(
                     Status.WARNING,
-                    f"Root status {root_title} is {root_status.upper()}."
-                    f"Message: {root_message}",
+                    f"Root status {root_title} is {root_status.upper()}.Message: {root_message}",
                     metrics=metrics,
                     details=json.dumps(data, indent=2),
                 )

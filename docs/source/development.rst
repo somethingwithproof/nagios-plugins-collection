@@ -4,13 +4,13 @@ Development
 This guide provides information for developers who want to contribute to the Nagios Plugins Collection.
 
 Development Environment Setup
----------------------------
+-----------------------------
 
 1. Clone the repository:
 
    .. code-block:: bash
 
-       git clone https://github.com/thomasvincent/nagios-plugins-collection.git
+       git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
        cd nagios-plugins-collection
 
 2. Create a virtual environment:
@@ -27,7 +27,7 @@ Development Environment Setup
        pip install -e ".[dev,security]"
 
 Project Structure
----------------
+-----------------
 
 The project is organized as follows:
 
@@ -46,7 +46,7 @@ The project is organized as follows:
     │   ├── unit/               # Unit tests
     │   └── integration/        # Integration tests
     ├── pyproject.toml          # Project configuration (main configuration)
-├── (no setup.py)           # Project uses PEP 621 (pyproject.toml)
+    ├── (no setup.py)           # Project uses PEP 621 (pyproject.toml)
     ├── tox.ini                 # Tox configuration
     ├── README.md               # Project README
     └── CHANGELOG.md            # Project changelog
@@ -68,7 +68,7 @@ All plugins share a few implementation patterns:
   return performance metrics when appropriate.
 
 Creating a New Plugin
--------------------
+---------------------
 
 To create a new plugin:
 
@@ -240,7 +240,7 @@ To create a new plugin:
            OK - Everything is fine
 
 Testing
-------
+-------
 
 Run the tests with tox:
 
@@ -261,7 +261,7 @@ To run specific tests:
     tox -e security          # Run security checks
 
 Code Style
----------
+----------
 
 This project follows these code style guidelines:
 
@@ -289,7 +289,7 @@ To check for security issues:
     safety check
 
 Documentation
-------------
+-------------
 
 Documentation is built with Sphinx. To build the documentation:
 
@@ -300,7 +300,7 @@ Documentation is built with Sphinx. To build the documentation:
 The documentation will be available in ``docs/build/html/``.
 
 Continuous Integration
---------------------
+----------------------
 
 This project uses GitHub Actions for continuous integration. The CI pipeline runs:
 
@@ -313,7 +313,7 @@ This project uses GitHub Actions for continuous integration. The CI pipeline run
 - Package building and verification
 
 Pull Request Process
------------------
+--------------------
 
 1. Fork the repository
 2. Create a feature branch

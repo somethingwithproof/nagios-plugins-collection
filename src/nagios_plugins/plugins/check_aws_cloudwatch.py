@@ -13,6 +13,7 @@ Example:
         --warning 70 \\
         --critical 90
 """
+
 from __future__ import annotations
 
 import argparse
@@ -107,7 +108,7 @@ class CheckAwsCloudwatch(NagiosPlugin):
                 timeout=args.timeout,
             )
 
-            value = result["value"]
+            value = float(result["value"])
             unit = result["unit"]
 
             # Check against thresholds

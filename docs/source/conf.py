@@ -36,11 +36,11 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns: list[str] = []
 
 # HTML output
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+html_static_path: list[str] = []
 html_title = "Nagios Plugins Collection Documentation"
 html_logo = None
 html_favicon = None

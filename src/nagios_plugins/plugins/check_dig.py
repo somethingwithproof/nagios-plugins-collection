@@ -22,9 +22,9 @@ Returns:
 import argparse
 import asyncio
 import logging
+import shlex
 import sys
 import time
-from typing import List, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -49,16 +49,16 @@ class SSHDNSChecker:
         self,
         ssh_host: str,
         query_address: str,
-        ssh_user: Optional[str] = None,
+        ssh_user: str | None = None,
         ssh_port: int = 22,
         dns_port: int = 53,
         record_type: str = "A",
-        dig_arguments: Optional[str] = None,
-        expected_address: Optional[str] = None,
+        dig_arguments: str | None = None,
+        expected_address: str | None = None,
         timeout: int = 30,
         retries: int = 1,
-        warning_threshold: Optional[float] = None,
-        critical_threshold: Optional[float] = None,
+        warning_threshold: float | None = None,
+        critical_threshold: float | None = None,
     ):
         """Initialize the SSH DNS checker.
 
@@ -90,7 +90,7 @@ class SSHDNSChecker:
         self.critical_threshold = critical_threshold
         self.console = Console()
 
-    def _build_ssh_command(self, dig_command: str) -> List[str]:
+    def _build_ssh_command(self, dig_command: str) -> list[str]:
         """Build the SSH command to execute.
 
         Args:
@@ -99,6 +99,8 @@ class SSHDNSChecker:
         Returns:
             List of command arguments for SSH
         """
+        if self.ssh_host.startswith("-"):
+            raise ValueError("SSH host must not begin with an option prefix")
         cmd = ["ssh", "-p", str(self.ssh_port)]
 
         # Add SSH user if specified
@@ -117,12 +119,18 @@ class SSHDNSChecker:
         Returns:
             Dig command string
         """
-        cmd = f"dig -p {self.dns_port} -t {self.record_type} +short {self.query_address}"
-
+        arguments = [
+            "dig",
+            "-p",
+            str(self.dns_port),
+            "-t",
+            self.record_type,
+            "+short",
+            self.query_address,
+        ]
         if self.dig_arguments:
-            cmd += f" {self.dig_arguments}"
-
-        return cmd
+            arguments.extend(shlex.split(self.dig_arguments))
+        return shlex.join(arguments)
 
     async def check_dns(self) -> CheckResult:
         """Check DNS via SSH.
@@ -207,7 +215,7 @@ class SSHDNSChecker:
 
 
 async def execute_command_async(
-    command: List[str], timeout: int = 30, shell: bool = False
+    command: list[str], timeout: int = 30, shell: bool = False
 ) -> CommandResult:
     """Execute a command asynchronously and return the result.
 
@@ -222,19 +230,12 @@ async def execute_command_async(
     start_time = time.time()
 
     if shell:
-        # If shell is True, join the command list into a string
-        cmd = " ".join(command) if isinstance(command, list) else command
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    else:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        raise ValueError("shell=True is disallowed by project security standards")
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
 
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
@@ -245,14 +246,14 @@ async def execute_command_async(
             stderr=stderr.decode("utf-8", errors="replace"),
             execution_time=execution_time,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         process.kill()
         stdout, stderr = await process.communicate()
         execution_time = time.time() - start_time
         return CommandResult(
             exit_code=1,
             stdout=stdout.decode("utf-8", errors="replace") if stdout else "",
-            stderr=f"Command timed out after {timeout} seconds: {' '.join(command)}",
+            stderr=f"Command timed out after {timeout} seconds",
             execution_time=execution_time,
         )
     except Exception as exc:
@@ -263,6 +264,10 @@ async def execute_command_async(
             stderr=f"Error executing command: {str(exc)}",
             execution_time=execution_time,
         )
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
 
 
 def parse_args() -> argparse.Namespace:

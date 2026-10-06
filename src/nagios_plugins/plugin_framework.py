@@ -30,6 +30,7 @@ class NagiosPluginFramework:  # pragma: no cover - compatibility shim
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: D401
+        """Initialize the deprecated compatibility shim."""
         warnings.warn(
             "NagiosPluginFramework is deprecated; migrate to base.NagiosPlugin",
             DeprecationWarning,

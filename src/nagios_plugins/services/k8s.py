@@ -1,11 +1,14 @@
+"""Summarize Kubernetes node readiness from the API."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class NodeSummary:
+    """Counts of total, ready and unready Kubernetes nodes."""
+
     ready: int
     not_ready: int
     disk_pressure: int
@@ -13,7 +16,8 @@ class NodeSummary:
     pid_pressure: int
 
 
-def summarize_nodes(label_selector: Optional[str] = None, timeout: int = 10) -> NodeSummary:
+def summarize_nodes(label_selector: str | None = None, timeout: int = 10) -> NodeSummary:
+    """Read nodes and count ready and unready conditions."""
     try:
         # Optional dependency; import locally
         from kubernetes import client, config  # type: ignore

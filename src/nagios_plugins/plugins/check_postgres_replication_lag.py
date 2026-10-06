@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Monitor PostgreSQL replication lag in seconds."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,11 +10,15 @@ from nagios_plugins.services.pg import replication_lag_seconds
 
 
 class CheckPostgresReplicationLag(NagiosPlugin):
+    """Monitor PostgreSQL replication lag in seconds."""
+
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--dsn", required=True, help="PostgreSQL DSN for primary")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         try:
             lag = replication_lag_seconds(args.dsn, timeout=args.timeout)
         except RuntimeError as e:
@@ -28,6 +34,7 @@ class CheckPostgresReplicationLag(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckPostgresReplicationLag().run()
 
 

@@ -21,11 +21,10 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Monitoring",
     "Topic :: System :: Systems Administration",
 ]
@@ -79,22 +78,20 @@ dev = [
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=1.3.0",
     "tox>=4.11.0",
-    "black>=23.11.0",
-    "isort>=8.0.1",
     "ruff>=0.6.0",
     "pre-commit>=3.6.0",
-    "pylint>=3.0.0",
     "mypy>=1.20.1",
-    "flake8>=6.1.0",
-    "pydocstyle>=6.3.0",
     "sphinx>=7.2.0",
     "sphinx-rtd-theme>=3.1.0",
     "build>=1.0.0",
     "twine>=6.2.0",
+    "pydantic>=2.13.0",
+    "myst-parser>=2.0.0",
+    "cryptography>=46.0.0",
 ]
 security = [
     "bandit>=1.9.4",
-    "safety>=2.3.5",
+    "pip-audit>=2.10.0",
 ]
 all = [
     "nagios-plugins-collection[mongodb,ssh,cli,schema,legacy,dev,security,prom,dns,k8s,pg,redis,aws,es]",
@@ -103,7 +100,7 @@ all = [
 [tool.ruff]
 line-length = 100
 # Match Black target versions
-target-version = "py38"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -148,21 +145,21 @@ check_dig = "nagios_plugins.plugins.check_dig:main"
 check_jobs = "nagios_plugins.plugins.check_jobs:main"
 
 [project.urls]
-"Homepage" = "https://github.com/thomasvincent/nagios-plugins-collection"
-"Bug Tracker" = "https://github.com/thomasvincent/nagios-plugins-collection/issues"
+"Homepage" = "https://github.com/somethingwithproof/nagios-plugins-collection"
+"Bug Tracker" = "https://github.com/somethingwithproof/nagios-plugins-collection/issues"
 "Documentation" = "https://nagios-plugins-collection.readthedocs.io/"
 
 [tool.black]
 line-length = 100
 skip-string-normalization = true
-target-version = ["py38", "py39", "py310", "py311", "py312"]
+target-version = ["py311", "py312", "py313", "py314"]
 
 [tool.isort]
 profile = "black"
 line_length = 100
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.11"
 files = ["src", "tests"]
 warn_return_any = true
 warn_unused_configs = true

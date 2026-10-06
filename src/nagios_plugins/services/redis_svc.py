@@ -1,7 +1,10 @@
+"""Read Redis memory and cache statistics."""
+
 from __future__ import annotations
 
 
 def get_stats(url: str, timeout: int = 5) -> dict[str, float | int]:
+    """Read Redis statistics with the configured connection timeout."""
     try:
         import redis  # type: ignore
     except Exception as e:  # pragma: no cover

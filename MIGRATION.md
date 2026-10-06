@@ -64,9 +64,9 @@ If you're extending the plugin classes or importing types, note these changes:
 ```python
 from typing import Dict, List, Optional, Tuple
 
+
 def check_components(
-    components: List[str],
-    config: Optional[Dict[str, str]] = None
+    components: List[str], config: Optional[Dict[str, str]] = None
 ) -> Tuple[bool, str]:
     pass
 ```
@@ -76,9 +76,9 @@ def check_components(
 ```python
 from __future__ import annotations
 
+
 def check_components(
-    components: list[str],
-    config: dict[str, str] | None = None
+    components: list[str], config: dict[str, str] | None = None
 ) -> tuple[bool, str]:
     pass
 ```

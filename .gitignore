@@ -10,6 +10,9 @@ venv/
 
 # Coverage/pytest
 .coverage*
+coverage.xml
+test-reports/
+docs/build/
 htmlcov/
 .pytest_cache/
 

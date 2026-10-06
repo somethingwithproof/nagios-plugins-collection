@@ -7,7 +7,7 @@ on:
         description: "Where to publish"
         required: true
         type: choice
-        options: ["pypi", "testpypi", "github-packages"]
+        options: ["pypi", "testpypi"]
         default: "pypi"
       dry-run:
         description: "Build and check only (no upload)"
@@ -18,7 +18,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
@@ -27,11 +26,11 @@ jobs:
       destination: ${{ github.event.inputs.destination }}
       dry: ${{ github.event.inputs.dry-run }}
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -42,7 +41,7 @@ jobs:
           python -m build
           python -m twine check dist/*
       - name: Upload artifacts
-        \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: dist-artifacts
           path: dist/
@@ -53,7 +52,7 @@ jobs:
     needs: build
     if: ${{ needs.build.outputs.dry == 'false' }}
     steps:
-      - \1d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: dist-artifacts
           path: dist
@@ -75,12 +74,3 @@ jobs:
           python -m pip install --upgrade pip
           pip install twine
           python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-      - name: Publish to GitHub Packages
-        if: ${{ needs.build.outputs.destination == 'github-packages' }}
-        env:
-          TWINE_USERNAME: ${{ github.actor }}
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install twine
-          python -m twine upload --repository-url https://pypi.pkg.github.com/${{ github.repository_owner }} dist/*

@@ -9,15 +9,16 @@ to mock in tests.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status
 
 # Module level logger so tests can patch it
 logger = logging.getLogger(__name__)
@@ -29,19 +30,20 @@ class WebsiteStatusChecker:
     def __init__(
         self,
         url: str,
-        pattern: Optional[str] = None,
+        pattern: str | None = None,
         timeout: int = 10,
         warning_threshold: float = 1.0,
         critical_threshold: float = 2.0,
         method: str = "GET",
-        headers: Optional[dict[str, str]] = None,
-        body: Optional[str | dict[str, Any]] = None,
-        auth: Optional[tuple[str, str]] = None,
+        headers: dict[str, str] | None = None,
+        body: str | dict[str, Any] | None = None,
+        auth: tuple[str, str] | None = None,
         retries: int = 0,
         retry_delay: float = 1.0,
         verbose: bool = False,
-        log_file: Optional[str | Path] = None,
+        log_file: str | Path | None = None,
     ) -> None:
+        """Configure HTTP request, retry and latency settings."""
         self.url = url
         self.pattern = pattern
         self.timeout = timeout
@@ -59,7 +61,7 @@ class WebsiteStatusChecker:
         if log_file:
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(
-                logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             logger.addHandler(file_handler)
             if verbose:
@@ -68,7 +70,7 @@ class WebsiteStatusChecker:
     async def check_website(self) -> CheckResult:
         """Check the configured website and return a :class:`CheckResult`."""
         attempt = 0
-        last_error = None
+        last_error: Exception | None = None
 
         while attempt <= self.retries:
             try:
@@ -82,7 +84,7 @@ class WebsiteStatusChecker:
                     follow_redirects=True,
                     auth=self.auth,
                 ) as client:
-                    request_kwargs = {"headers": self.headers}
+                    request_kwargs: dict[str, Any] = {"headers": self.headers}
 
                     if self.body is not None:
                         if isinstance(self.body, dict):
@@ -96,13 +98,13 @@ class WebsiteStatusChecker:
                 metrics = {"status_code": response.status_code, "duration": duration}
 
                 if self.verbose:
-                    logger.debug(
-                        f"Response: {response.status_code} in {duration:.3f}s"
-                    )
+                    logger.debug(f"Response: {response.status_code} in {duration:.3f}s")
 
                 if response.status_code != 200:
                     if self.pattern is not None:
-                        metrics["pattern_found"] = 1 if re.search(self.pattern, response.text) else 0
+                        metrics["pattern_found"] = (
+                            1 if re.search(self.pattern, response.text) else 0
+                        )
                     return CheckResult(
                         Status.CRITICAL,
                         f"HTTP {response.status_code} error",
@@ -184,3 +186,40 @@ class WebsiteStatusChecker:
             f"All retry attempts exhausted. Last error: {last_error}",
             metrics,
         )
+
+
+class CheckWebsiteStatus(NagiosPlugin):
+    """Check website content, status and response time in seconds."""
+
+    def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
+        super().__init__()
+        self.parser.add_argument("--url", required=True)
+        self.parser.add_argument("--pattern")
+        self.parser.add_argument("--method", choices=["GET", "HEAD", "POST"], default="GET")
+        self.parser.add_argument("--retries", type=int, default=0)
+        self.parser.add_argument("--retry-delay", type=float, default=1.0)
+
+    def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
+        checker = WebsiteStatusChecker(
+            url=args.url,
+            pattern=args.pattern,
+            timeout=args.timeout,
+            warning_threshold=float(args.warning) if args.warning is not None else 1.0,
+            critical_threshold=float(args.critical) if args.critical is not None else 2.0,
+            method=args.method,
+            retries=args.retries,
+            retry_delay=args.retry_delay,
+            verbose=bool(args.verbose),
+        )
+        return asyncio.run(checker.check_website())
+
+
+def main() -> int:
+    """Run the installed website-status command."""
+    return CheckWebsiteStatus().run()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
