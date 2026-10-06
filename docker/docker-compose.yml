@@ -1,8 +1,6 @@
 services:
   http_ok:
     image: nginx:alpine
-    ports:
-      - "8080:80"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost"]
       interval: 5s
@@ -13,12 +11,8 @@ services:
       context: ./mocks
       dockerfile: Dockerfile
     image: npc-mocks:dev
-    ports:
-      - "8000:8000"
   wiremock:
     image: wiremock/wiremock:latest
-    ports:
-      - "9000:8080"
     volumes:
       - ./mocks/wiremock/mappings:/home/wiremock/mappings:ro
     healthcheck:
@@ -39,7 +33,7 @@ services:
       http_ok:
         condition: service_healthy
       mocks:
-        condition: service_started
+        condition: service_healthy
     command: ["check_website_status", "--help"]
   tests:
     extends:
@@ -49,4 +43,4 @@ services:
       dockerfile: docker/Dockerfile
       target: tests
     image: nagios-plugins-collection-tests:dev
-    command: ["pytest", "-q", "--cov=src", "--cov-report=term-missing", "--cov-fail-under=80"]
+    command: ["pytest", "-q", "--cov=nagios_plugins", "--cov-report=term-missing", "--cov-fail-under=80"]

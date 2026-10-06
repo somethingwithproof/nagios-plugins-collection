@@ -7,7 +7,7 @@ name = "nagios-plugins-collection"
 version = "2.0.0"
 description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = "MIT"
 license-files = ["LICENSE*"]
 authors = [
@@ -70,10 +70,6 @@ aws = [
 es = [
     "httpx>=0.26.0",
 ]
-legacy = [
-    "pexpect>=4.9.0",
-    "pynag",
-]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -95,7 +91,7 @@ security = [
     "pip-audit>=2.10.0",
 ]
 all = [
-    "nagios-plugins-collection[mongodb,ssh,cli,schema,legacy,dev,security,prom,dns,k8s,pg,redis,aws,es]",
+    "nagios-plugins-collection[mongodb,ssh,cli,schema,prom,dns,k8s,pg,redis,aws,es]",
 ]
 
 [tool.ruff]

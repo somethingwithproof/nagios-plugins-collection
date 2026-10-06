@@ -23,7 +23,7 @@ CMD ["pytest", "-q"]
 
 # Runtime: minimal image with package installed
 FROM python:3.14-slim AS runtime
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 # Install runtime deps only from the built wheel
 COPY --from=builder /wheels /tmp/wheels

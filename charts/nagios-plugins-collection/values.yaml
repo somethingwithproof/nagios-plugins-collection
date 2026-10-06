@@ -1,6 +1,6 @@
 image:
   repository: ghcr.io/somethingwithproof/nagios-plugins-collection
-  tag: latest
+  tag: "2.0.0"
   pullPolicy: IfNotPresent
 
 schedule: "*/10 * * * *"  # every 10 minutes

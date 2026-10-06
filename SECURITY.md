@@ -1,19 +1,26 @@
-## Security Policy
+# Security policy
 
-We take security seriously. If you discover any security related issues, please email thomasvincent@[your-domain] instead of using the issue tracker.
+Security fixes target the latest maintained 2.x release. Older project lines
+are outside the current support contract; upgrade using the release and migration
+documentation. A platform must still receive vendor security updates and belong
+to the verified release matrix. Expired support records block CI and publication.
 
-### Supported Versions
+Report sensitive findings through a private GitHub security advisory:
+https://github.com/somethingwithproof/nagios-plugins-collection/security/advisories/new
 
-| Version | Supported          |
-| ------- | ------------------ |
-| X.X.X   | :white_check_mark: |
-| X.X.X   | :x:                |
+If private reporting is unavailable to your account, contact the maintainer at
+the public author address, thomasvincent@gmail.com. Include affected versions,
+impact and a minimal redacted reproducer. Do not put passwords, API keys or
+private endpoint data in public issues. Response and fix timing depend on the
+finding; this policy does not promise an unverified response SLA.
 
-### Reporting a Vulnerability
+Use verified TLS and explicit private CA trust, least-privilege credentials and
+root-owned package files. Store deployment secrets in Ansible Vault or an
+appropriate runtime secret store. Third-party dependency installs used for
+release builds are hash-locked and wheel-only. Signed/attested artifacts and
+SHA256SUMS provide release verification evidence; review the workflow and its
+source commit when assessing an artifact.
 
-Please report (suspected) security vulnerabilities to thomasvincent@[your-domain]. You will receive a response from us within [your-response-timeframe]. If the issue is confirmed, we will release a patch as soon as possible depending on complexity but historically within [your-patch-timeframe].
-
-### Additional Security Considerations
-[Add language or framework-specific OWASP Top 10 guidance here]
-
-[If applicable, add information about your bug bounty program here]
+The supported OS/runtime matrix and its lifecycle sources are documented in
+README.md and the project's machine-readable platform policy. Source examples
+for undeployed features are not additional platform support guarantees.

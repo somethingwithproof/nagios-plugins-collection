@@ -30,6 +30,12 @@ permissions:
   contents: read
 
 jobs:
+  platform-support:
+    name: Reject retired platforms
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python scripts/check_platform_support.py
   semantic-pr:
     name: Semantic PR title
     if: ${{ github.event_name == 'pull_request' }}
@@ -81,7 +87,7 @@ jobs:
           helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1 --verify=false
       - name: Helm lint
         run: |
-          helm lint charts/nagios-plugins-collection
+          helm lint charts/nagios-plugins-collection --kube-version 1.37.1
       - name: Run helm-unittest
         run: |
           helm unittest charts/nagios-plugins-collection --strict
@@ -89,22 +95,24 @@ jobs:
         run: |
           set -euo pipefail
           KUBECONFORM_VERSION="0.6.7"
-          curl -sSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar -xzf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/
           kubeconform -v
       - name: Kubeconform validate rendered manifests
         run: |
-          helm template charts/nagios-plugins-collection \
-            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          for version in 1.35.9 1.36.5 1.37.1; do
+            helm template charts/nagios-plugins-collection --kube-version "$version" \
+              | kubeconform -strict -summary -kubernetes-version "$version"
+          done
       - name: Kube-linter policy checks
         run: |
           set -euo pipefail
           VERSION=v0.6.8
-          curl -sSL -o kube-linter.tar.gz https://github.com/stackrox/kube-linter/releases/download/${VERSION}/kube-linter-linux.tar.gz
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o kube-linter.tar.gz https://github.com/stackrox/kube-linter/releases/download/${VERSION}/kube-linter-linux.tar.gz
           tar -xzf kube-linter.tar.gz
           sudo mv kube-linter /usr/local/bin/
-          helm template charts/nagios-plugins-collection > rendered.yaml
+          helm template charts/nagios-plugins-collection --kube-version 1.37.1 > rendered.yaml
           kube-linter lint rendered.yaml
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -126,8 +134,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install tox tox-gh-actions
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Test with tox
       env:
@@ -157,13 +164,12 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install tox pre-commit
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Run linting via tox
       run: tox -e lint
 
-    - name: Run pre-commit hooks (ruff, black, isort, misc)
+    - name: Run repository integrity and type hooks
       run: pre-commit run --all-files --show-diff-on-failure
 
   type-check:
@@ -181,8 +187,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Run type checking
         run: tox -e type
@@ -202,8 +207,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Build documentation
         run: tox -e docs
@@ -230,8 +234,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Run coverage
         run: tox -e coverage
@@ -257,7 +260,7 @@ jobs:
     name: Build, scan, sign, and push container image
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: package
+    needs: [package, native-artifacts, platform-support]
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release-version != ''
     permissions:
       contents: read
@@ -325,6 +328,11 @@ jobs:
         run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
       - name: Install release version validator
         if: inputs.release-version != ''
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install locked validator dependencies
+        if: inputs.release-version != ''
         run: |
           python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
       - name: Promote verified SemVer container tags
@@ -359,8 +367,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install '.[aws,dns,k8s,pg,redis,security]'
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
 
       - name: Run bandit
         run: bandit -r src/ -c pyproject.toml --severity-level medium
@@ -498,16 +506,16 @@ jobs:
           cache: 'pip'
       - name: Install project and pip-licenses
         run: |
-          python -m pip install --upgrade pip
-          pip install pip-licenses
-          pip install .
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
       - name: Generate licenses and enforce allowlist
         run: |
           pip-licenses --format=json --with-urls --with-license-file > licenses.json
           python - <<'PY'
           import json, sys
           allowed = {
-            'MIT License','MIT','Apache 2.0','Apache-2.0','BSD 3-Clause','BSD-3-Clause','BSD License','ISC','Python Software Foundation License'
+            'MIT License', 'BSD-2-Clause', 'BSD-3-Clause', 'PSF-2.0',
+            'Mozilla Public License 2.0 (MPL 2.0)','MIT','Apache 2.0','Apache-2.0','BSD 3-Clause','BSD-3-Clause','BSD License','ISC','Python Software Foundation License'
           }
           bad = []
           with open('licenses.json') as f:
@@ -542,11 +550,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Build package
-      run: python -m build
+      run: python -m build --no-isolation
 
     - name: Check package
       run: twine check dist/*

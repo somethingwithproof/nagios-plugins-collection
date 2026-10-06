@@ -1,5 +1,6 @@
 """Tests for the check_website_status plugin."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -7,6 +8,30 @@ import pytest
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_website_status import WebsiteStatusChecker
+
+
+@pytest.mark.asyncio
+async def test_invalid_pattern_does_not_retry_transport() -> None:
+    """An invalid regex returns UNKNOWN after one response without retry sleeps."""
+    requests = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        response = httpx.Response(200, text="healthy", request=request)
+        response.elapsed = timedelta(milliseconds=5)
+        return response
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    with (
+        patch("httpx.AsyncClient", return_value=client),
+        patch("asyncio.sleep", new=AsyncMock()) as sleep,
+    ):
+        result = await WebsiteStatusChecker(
+            "https://example.com", pattern="[", retries=3
+        ).check_website()
+    assert result.status == Status.UNKNOWN
+    assert len(requests) == 1
+    sleep.assert_not_called()
 
 
 class TestWebsiteStatusChecker:

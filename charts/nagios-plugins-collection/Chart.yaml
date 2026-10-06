@@ -2,6 +2,7 @@ apiVersion: v2
 name: nagios-plugins-collection
 version: 2.0.0
 appVersion: "2.0.0"
+kubeVersion: ">=1.35.0 <1.38.0"
 description: Run Nagios plugins as Kubernetes CronJobs/Jobs
 keywords:
   - nagios

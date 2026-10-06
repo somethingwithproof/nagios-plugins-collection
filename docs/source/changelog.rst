@@ -3,6 +3,15 @@ Changelog
 
 This document records all notable changes to the Nagios Plugins Collection.
 
+2.0.0 (2026-10-06)
+------------------
+
+Verified TLS defaults, caller-owned async deadlines, installed CLI contracts,
+maintained Python/Kubernetes matrices, native packages and SemVer release gates.
+See :doc:`releasing` for migration details. Documentation includes project logos
+and operational diagrams. Older entries below describe historical releases;
+their former platform support does not apply to the current release.
+
 1.0.0 (2025-04-06)
 ------------------
 

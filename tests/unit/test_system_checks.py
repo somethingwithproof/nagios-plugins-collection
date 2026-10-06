@@ -144,8 +144,9 @@ async def test_async_command_output_and_exit_status() -> None:
 
 @pytest.mark.asyncio
 async def test_async_command_timeout_reaps_child() -> None:
+    context = asyncio.timeout(0.1)
     with pytest.raises(TimeoutError):
-        async with asyncio.timeout(0.1):
+        async with context:
             await execute_command_async([sys.executable, "-c", "import time; time.sleep(2)"])
 
 

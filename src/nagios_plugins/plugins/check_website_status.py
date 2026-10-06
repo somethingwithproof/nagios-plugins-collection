@@ -122,6 +122,8 @@ class WebsiteStatusChecker:
                         "Attempt %s/%s: %s %s", attempt + 1, self.retries + 1, self.method, self.url
                     )
                 return self._response_result(await self._request())
+            except re.error as error:
+                return self._error_result(error)
             except Exception as error:
                 if self.verbose:
                     logger.exception("Website attempt %s failed", attempt + 1)

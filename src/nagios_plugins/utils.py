@@ -13,7 +13,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import httpx
 
@@ -158,7 +158,7 @@ async def check_http_endpoint_async(
     """
     start_time = time.time()
     try:
-        async with httpx.AsyncClient(timeout=None, verify=verify_ssl) as client:
+        async with httpx.AsyncClient(timeout=30, verify=verify_ssl) as client:
             response = await client.request(
                 method,
                 url,
@@ -408,7 +408,7 @@ def is_process_running(process_name: str) -> bool:
         return False
 
 
-def get_file_age_seconds(file_path: Union[str, Path]) -> int:
+def get_file_age_seconds(file_path: str | Path) -> int:
     """Get the age of a file in seconds.
 
     Args:
@@ -429,7 +429,7 @@ def get_file_age_seconds(file_path: Union[str, Path]) -> int:
     return int(current_time - file_mtime)
 
 
-def get_directory_size(directory: Union[str, Path]) -> int:
+def get_directory_size(directory: str | Path) -> int:
     """Get the total size of a directory in bytes.
 
     Args:

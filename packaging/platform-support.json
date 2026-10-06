@@ -1,0 +1,24 @@
+{
+  "reviewed_on": "2026-10-06",
+  "python": {
+    "3.11": "2027-10-01",
+    "3.12": "2028-10-01",
+    "3.13": "2029-10-01",
+    "3.14": "2030-10-01"
+  },
+  "native_packages": {
+    "ubuntu-24.04": "2029-05-31",
+    "rocky-9": "2027-05-31"
+  },
+  "kubernetes": {
+    "1.35": "2027-02-28",
+    "1.36": "2027-06-28",
+    "1.37": "2027-10-28"
+  },
+  "sources": [
+    "https://devguide.python.org/versions/",
+    "https://ubuntu.com/about/release-cycle",
+    "https://docs.rockylinux.org/latest/releases/",
+    "https://kubernetes.io/releases/"
+  ]
+}

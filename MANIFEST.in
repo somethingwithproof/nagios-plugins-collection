@@ -1,0 +1,6 @@
+include LICENSE README.md MIGRATION.md CHANGELOG.md tox.ini uv.lock
+recursive-include packaging *.in *.txt *.yaml *.json
+recursive-include scripts *.py
+recursive-include charts *.yaml *.tpl
+recursive-include docs/source *.rst *.py *.svg
+recursive-include tests *.py *.yaml

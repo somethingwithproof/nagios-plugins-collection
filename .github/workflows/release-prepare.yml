@@ -25,10 +25,9 @@ jobs:
           cache: 'pip'
       - name: Install build deps
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
       - name: Build sdist and wheel
-        run: python -m build
+        run: python -m build --no-isolation
       - name: Twine check
         run: python -m twine check dist/*
       - name: Upload artifacts
@@ -52,6 +51,5 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
         run: |
-          python -m pip install --upgrade pip
-          pip install twine
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
           python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*

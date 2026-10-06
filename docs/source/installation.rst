@@ -1,133 +1,69 @@
 Installation
 ============
 
-This guide will help you install the Nagios Plugins Collection.
+Use maintained Python 3.11–3.14. Supported native targets are Ubuntu 24.04 and
+Rocky Linux 9. See :doc:`introduction` for the lifecycle contract.
 
-Requirements
-------------
-
-- Python 3.8 or higher
-- pip (Python package installer)
-- Nagios 4.4.6 or higher (or compatible monitoring system)
-
-Installation Methods
---------------------
-
-From PyPI (Recommended)
-~~~~~~~~~~~~~~~~~~~~~~~
-
-The recommended way to install the Nagios Plugins Collection is from PyPI using pip:
-
-.. code-block:: bash
-
-    # Basic installation
-    pip install nagios-plugins-collection
-
-    # With development dependencies
-    pip install "nagios-plugins-collection[dev]"
-
-    # With security tools
-    pip install "nagios-plugins-collection[security]"
-
-    # With all extras
-    pip install "nagios-plugins-collection[all]"
-
-This will install the latest stable version of the package and all its dependencies.
-
-For a specific version:
-
-.. code-block:: bash
-
-    pip install nagios-plugins-collection==1.1.0
-
-From Source
-~~~~~~~~~~~
-
-You can also install the package directly from the source code:
-
-1. Clone the repository:
-
-   .. code-block:: bash
-
-       git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
-       cd nagios-plugins-collection
-
-2. Install the package:
-
-   .. code-block:: bash
-
-       pip install .
-
-   Or, for development:
-
-   .. code-block:: bash
-
-       pip install -e ".[dev,security]"
-
-Installation for Nagios
+GitHub release packages
 -----------------------
 
-After installing the Python package, you need to configure Nagios to use the plugins:
-
-1. Locate the installed plugins:
-
-   .. code-block:: bash
-
-       which check_hadoop
-
-2. Create symbolic links in the Nagios plugins directory:
-
-   .. code-block:: bash
-
-       ln -s $(which check_hadoop) /usr/local/nagios/libexec/
-       # Repeat for other plugins
-
-3. Update Nagios configuration to use the plugins (example for check_hadoop):
-
-   .. code-block:: text
-
-       # In commands.cfg
-       define command {
-           command_name    check_hadoop
-           command_line    $USER1$/check_hadoop $ARG1$
-       }
-
-4. Restart Nagios:
-
-   .. code-block:: bash
-
-       systemctl restart nagios
-
-Verifying Installation
-----------------------
-
-To verify that the plugins are installed correctly, you can run:
+Download the wheel, source archive or native package and ``SHA256SUMS`` from
+the same GitHub release. Verify the files before installing:
 
 .. code-block:: bash
 
-    check_hadoop --help
+   sha256sum --check SHA256SUMS
+   sudo apt install ./nagios-plugins-collection_2.0.0_all.deb
+   # On Rocky Linux 9:
+   sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm
+   /usr/lib/nagios/plugins/check_website_status --help
 
-This should display the help message for the plugin.
+Native packages bundle portable monitoring clients and require system libpq.
+The RPM selects Python 3.12; the Debian package uses supported system Python.
+Native installed commands reside under ``/usr/lib/nagios/plugins``. When Nagios
+uses another plugin directory, reference those absolute paths in command
+definitions or create explicit administrator-managed links.
+
+Wheel or source installation
+----------------------------
+
+Install into an isolated environment rather than modifying system Python:
+
+.. code-block:: bash
+
+   mise exec python@3.12 -- python -m venv .venv
+   .venv/bin/python -m pip install ./nagios_plugins_collection-2.0.0-py3-none-any.whl
+   .venv/bin/check_website_status --help
+
+For source development, clone the public repository, install the hash-locked
+CI dependencies and install the first-party source without resolving new deps:
+
+.. code-block:: bash
+
+   git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
+   cd nagios-plugins-collection
+   mise exec python@3.12 -- python -m venv .venv
+   .venv/bin/python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+   .venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+
+PyPI publishing is an explicit manual workflow and requires a configured PyPI
+credential. A GitHub release does not automatically publish to PyPI. Choose
+extras such as ``[aws]``, ``[dns]``, ``[k8s]``, ``[pg]`` and ``[redis]`` when
+installing a published Python distribution for those monitoring targets.
+
+Containers and Kubernetes
+-------------------------
+
+The GHCR image runs as UID/GID 10001 and defaults to website-status CLI help.
+Override the entrypoint for another plugin. Deploy the release's Helm chart on
+maintained Kubernetes 1.35–1.37. Enable token automount and ``rbac.create`` only
+for Kubernetes node monitoring; the opt-in ClusterRole grants list access to
+nodes. Use the README's complete Helm and Nomad examples.
 
 Troubleshooting
 ---------------
 
-Common installation issues:
-
-1. **Permission denied**: Ensure you have the necessary permissions to install Python packages. You may need to use `sudo` or set up a virtual environment.
-
-2. **Missing dependencies**: If you encounter dependency errors, try installing with:
-
-   .. code-block:: bash
-
-       pip install nagios-plugins-collection[all]
-
-3. **Plugin not found**: Ensure the plugin is in your PATH or use the full path to the plugin in your Nagios configuration.
-
-4. **Python version**: Verify you're using Python 3.8 or higher:
-
-   .. code-block:: bash
-
-       python --version
-
-For more help, please open an issue on the GitHub repository.
+Use the installed command's ``--help`` to verify its options and path. For
+certificate failures, verify hostname/SAN, validity and CA trust; supply a CA
+file rather than disabling verification. Report OS, Python and package versions
+with a redacted reproducer through the repository's issue tracker.
