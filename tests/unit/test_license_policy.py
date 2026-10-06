@@ -25,3 +25,9 @@ def test_mixed_license_requires_every_component_to_be_reviewed() -> None:
 
 def test_missing_license_is_rejected() -> None:
     assert not licenses.approved_license("client", "", policy)
+
+
+def test_license_whitespace_and_missing_components() -> None:
+    assert licenses.approved_license("client", "MIT\tOR\nApache-2.0; BSD-3-Clause", policy)
+    assert not licenses.approved_license("client", "MIT AND", policy)
+    assert not licenses.approved_license("client", "OR MIT", policy)

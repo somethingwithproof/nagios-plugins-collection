@@ -36,7 +36,16 @@ def approved_license(name: str, label: str, policy: dict[str, Any]) -> bool:
     """Require every license component to be approved, with named client exceptions."""
     approved = set(policy["allowed"])
     approved.update(policy["exceptions"].get(normalize_name(name), {}).get("licenses", []))
-    labels = {part.strip() for part in re.split(r"\s+(?:OR|AND)\s+|;", label)}
+    labels = set()
+    for expression in label.split(";"):
+        component: list[str] = []
+        for word in expression.split():
+            if word in {"OR", "AND"}:
+                labels.add(" ".join(component))
+                component = []
+            else:
+                component.append(word)
+        labels.add(" ".join(component))
     return bool(label.strip()) and labels <= approved
 
 
