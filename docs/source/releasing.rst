@@ -20,6 +20,14 @@ scanned, signed by immutable digest and promoted to the SemVer tag after checks;
 prereleases do not replace the latest image tag. Build metadata maps ``+`` to
 ``_`` in container tags because OCI tags do not accept plus signs.
 
+The separate ``Publish verified Python release`` workflow on main downloads
+the matching GitHub release's wheel and source archive, verifies checksums and
+the Release workflow's tag-bound attestations, then runs Twine checks. Dry-run
+is the default and may validate a review branch. Uploads require main and
+select the PyPI or TestPyPI environment;
+it publishes those verified assets without rebuilding them. The repository's
+configured environment credentials supply upload authentication.
+
 Version 2.0 changes
 -------------------
 

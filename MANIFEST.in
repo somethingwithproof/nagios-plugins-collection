@@ -6,4 +6,4 @@ recursive-include packaging *.in *.txt *.yaml *.json
 recursive-include scripts *.py
 recursive-include charts *.yaml *.tpl
 recursive-include docs/source *.rst *.py *.svg
-recursive-include tests *.py *.yaml
+recursive-include tests *.py

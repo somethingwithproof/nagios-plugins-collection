@@ -148,15 +148,6 @@ check_jobs = "nagios_plugins.plugins.check_jobs:main"
 "Bug Tracker" = "https://github.com/somethingwithproof/nagios-plugins-collection/issues"
 "Documentation" = "https://nagios-plugins-collection.readthedocs.io/"
 
-[tool.black]
-line-length = 100
-skip-string-normalization = true
-target-version = ["py311", "py312", "py313", "py314"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
 [tool.mypy]
 python_version = "3.11"
 files = ["src", "tests"]
@@ -186,13 +177,3 @@ markers = [
 [tool.bandit]
 exclude_dirs = ["tests", "docs"]
 skips = ["B101"]
-
-[tool.pylint]
-max-line-length = 100
-disable = [
-    "C0111",  # missing-docstring
-    "C0103",  # invalid-name
-    "C0330",  # bad-continuation
-    "C0326",  # bad-whitespace
-    "W0511",  # fixme
-]
