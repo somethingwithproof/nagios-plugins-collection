@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Check AWS CloudWatch metrics.
 
 This plugin monitors AWS CloudWatch metrics for various AWS services including

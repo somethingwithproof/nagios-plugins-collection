@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Tests for Postgres replication and Redis saturation plugins."""
 
 from unittest.mock import patch

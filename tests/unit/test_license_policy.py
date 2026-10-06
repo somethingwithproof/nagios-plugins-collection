@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Require named LGPL exceptions and reject unknown licenses in mixed expressions."""
 
 import importlib.util

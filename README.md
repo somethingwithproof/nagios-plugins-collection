@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Nagios Plugins Collection
 
 ![Nagios Plugins Collection](docs/source/_static/banner.svg)
@@ -5,7 +10,7 @@
 [![GitHub Actions](https://github.com/somethingwithproof/nagios-plugins-collection/actions/workflows/ci.yml/badge.svg)](https://github.com/somethingwithproof/nagios-plugins-collection/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/nagios-plugins-collection.svg)](https://badge.fury.io/py/nagios-plugins-collection)
 [![Python Versions](https://img.shields.io/pypi/pyversions/nagios-plugins-collection.svg)](https://pypi.org/project/nagios-plugins-collection/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Documentation Status](https://readthedocs.org/projects/nagios-plugins-collection/badge/?version=latest)](https://nagios-plugins-collection.readthedocs.io/en/latest/?badge=latest)
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-Ruff-000000.svg)](https://docs.astral.sh/ruff/)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
@@ -289,7 +294,7 @@ Contributions are welcome! See the [Contributing Guide](https://nagios-plugins-c
 
 ## Releases and Linux packages
 
-`pyproject.toml` is the source of the project version. Push a matching `v2.0.0`
+`pyproject.toml` is the source of the project version. Push a matching `v2.0.1`
 tag on a tested main commit, or run the Release workflow on main with that
 complete SemVer version. Publication reuses the entire CI workflow and installs
 both native package formats before publishing a wheel, source archive, Helm chart, `.deb`,
@@ -298,9 +303,9 @@ receive GitHub build provenance attestations.
 
 Verify downloaded artifacts with `sha256sum --check --ignore-missing SHA256SUMS`
 and require the artifact you selected to report `OK`. Install the
-Debian package with `sudo apt install ./nagios-plugins-collection_2.0.0_all.deb`
+Debian package with `sudo apt install ./nagios-plugins-collection_2.0.1_all.deb`
 on Ubuntu 24.04, or the RPM with
-`sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm` on Rocky Linux 9.
+`sudo dnf install ./nagios-plugins-collection_2.0.1_noarch.rpm` on Rocky Linux 9.
 Checks are installed under `/usr/lib/nagios/plugins`; their bundled Python
 clients reside under `/usr/lib/nagios-plugins-collection`. PostgreSQL checks use
 the system libpq. Native packages support Python 3.11+ on Debian and install
@@ -317,7 +322,8 @@ milliseconds; website-status thresholds are seconds.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project uses Apache-2.0, matching [LICENSE](LICENSE). Source files use SPDX
+headers; [REUSE.toml](REUSE.toml) maps files that cannot contain comments.
 
 ![Release validation flow](docs/source/_static/release-flow.svg)
 

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 # syntax=docker/dockerfile:1.7
 
 # Builder: collect wheels for the package and its runtime plugin extras.

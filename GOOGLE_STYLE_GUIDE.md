@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Google Style Guide Implementation
 
 This document outlines how the Google Python Style Guide has been implemented in the modernized Nagios plugins. The Google Style Guide provides a consistent, readable, and maintainable approach to Python code.

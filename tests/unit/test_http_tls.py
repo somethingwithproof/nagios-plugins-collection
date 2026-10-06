@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Verify actual TLS trust and hostname checks with locally generated keys."""
 
 import datetime as dt

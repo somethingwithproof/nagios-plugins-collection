@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Monitor recent Elasticsearch or OpenSearch error counts."""
 
 from __future__ import annotations

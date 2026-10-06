@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Setup script for nagios-plugins-collection.
 
 This setup.py is maintained for backward compatibility.

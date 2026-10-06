@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Migrating to Nagios Plugins Collection 2.0
 
 Use a maintained Python 3.11–3.14 interpreter. The wheel metadata excludes EOL

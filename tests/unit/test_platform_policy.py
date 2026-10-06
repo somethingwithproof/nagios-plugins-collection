@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Keep release matrices and retirement gates consistent with maintained platforms."""
 
 import importlib.util

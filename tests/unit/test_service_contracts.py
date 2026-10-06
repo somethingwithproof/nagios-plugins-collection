@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Exercise vendor response parsing without live accounts or credentials."""
 
 import datetime as dt

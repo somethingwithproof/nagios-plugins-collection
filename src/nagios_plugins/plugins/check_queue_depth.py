@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Monitor the backlog and in-flight messages of an SQS queue."""
 
 from __future__ import annotations

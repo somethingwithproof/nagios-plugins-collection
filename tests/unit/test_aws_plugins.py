@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 """Tests for AWS-related plugins using service function mocks."""
 
 from unittest.mock import patch

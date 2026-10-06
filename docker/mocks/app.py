@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
 from typing import Any
 
 from fastapi import Body, FastAPI, Form, Query

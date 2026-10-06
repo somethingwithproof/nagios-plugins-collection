@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2025 Thomas Vincent
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Nagios Plugin Standards
 
 This document outlines the standard structure, dependencies, and patterns for all Nagios plugins in this collection. Following these standards ensures consistency, maintainability, and security across all plugins.
