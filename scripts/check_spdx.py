@@ -22,7 +22,8 @@ def main() -> None:
             assert annotations[name]["SPDX-License-Identifier"] == license_id, name
             continue
         header = (root / name).read_text()[:1500]
-        if f"SPDX-License-Identifier: {license_id}" not in header:
+        marker = "SPDX-License-Identifier" + ": " + license_id
+        if marker not in header:
             missing.append(name)
     if missing:
         raise ValueError(f"Missing SPDX headers or REUSE annotations: {missing}")
