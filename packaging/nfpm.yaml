@@ -1,0 +1,26 @@
+name: nagios-plugins-collection
+arch: all
+platform: linux
+version: ${RELEASE_VERSION}
+release: 1
+section: admin
+priority: optional
+maintainer: Thomas Vincent <thomasvincent@gmail.com>
+description: Typed monitoring plugins with verified HTTP and TLS checks
+homepage: https://github.com/somethingwithproof/nagios-plugins-collection
+license: MIT
+overrides:
+  deb:
+    depends:
+      - python3 (>= 3.11)
+      - libpq5
+      - ca-certificates
+    recommends:
+      - openssh-client
+  rpm:
+    depends:
+      - python3.12
+      - libpq
+      - ca-certificates
+    recommends:
+      - openssh-clients

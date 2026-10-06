@@ -140,11 +140,11 @@ class MongoHealthChecker:
                 data = response.json()
                 is_alive = data.get("alive", False)
                 return is_alive, data
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
+        except httpx.HTTPError:
+            logger.exception("HTTP request failed")
             return False, {}
-        except Exception as e:
-            logger.error(f"Error checking engine status: {e}")
+        except Exception:
+            logger.exception("Engine status check failed")
             return False, {}
 
     async def check_components(self, required_components: list[tuple[str, bool]]) -> CheckResult:

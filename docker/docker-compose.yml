@@ -44,5 +44,9 @@ services:
   tests:
     extends:
       service: app
-    command: |
-      "pytest -q --cov=src --cov-report=term-missing"
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: tests
+    image: nagios-plugins-collection-tests:dev
+    command: ["pytest", "-q", "--cov=src", "--cov-report=term-missing", "--cov-fail-under=80"]

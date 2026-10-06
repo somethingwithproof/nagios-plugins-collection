@@ -131,13 +131,15 @@ Build and run tests inside Docker:
 
 ```bash
 docker build -f docker/Dockerfile -t nagios-plugins-collection:dev .
-docker run --rm -it nagios-plugins-collection:dev pytest -q
+docker run --rm nagios-plugins-collection:dev --help
+docker build --target tests -f docker/Dockerfile -t nagios-plugins-collection-tests:dev .
+docker run --rm nagios-plugins-collection-tests:dev
 ```
 
 Or with compose:
 
 ```bash
-docker compose -f docker/docker-compose.yml up --build --abort-on-container-exit
+docker compose -f docker/docker-compose.yml run --build --rm tests
 ```
 
 Run a plugin inside the container:
@@ -153,7 +155,7 @@ General install:
 helm upgrade --install npc charts/nagios-plugins-collection \
   --set image.repository=ghcr.io/somethingwithproof/nagios-plugins-collection \
   --set image.tag=latest \
-  --set-json 'command=["check_http_sli","--url=https://example.com","--samples","5","--warning","0.2","--critical","0.5"]'
+  --set-json 'command=["check_http_sli","--url=https://example.com","--samples","5","--warning","200","--critical","500"]'
 ```
 
 Examples per plugin (values overrides):
@@ -173,6 +175,7 @@ helm upgrade --install prom charts/nagios-plugins-collection \
 Kubernetes nodes
 ```bash
 helm upgrade --install k8s charts/nagios-plugins-collection \
+  --set serviceAccount.automountServiceAccountToken=true --set rbac.create=true \
   --set-json 'command=["check_k8s_node_status","--label","node-role.kubernetes.io/worker=true"]'
 ```
 
@@ -189,7 +192,7 @@ General job file ships at `deploy/nomad/nagios-plugins-collection.nomad.hcl`. Ov
 
 HTTP SLI
 ```hcl
-args = ["check_http_sli","--url=https://example.com","--samples","5","--warning","0.2","--critical","0.5"]
+args = ["check_http_sli","--url=https://example.com","--samples","5","--warning","200","--critical","500"]
 ```
 
 TLS Expiry
@@ -279,6 +282,33 @@ See the [Development Guide](https://nagios-plugins-collection.readthedocs.io/en/
 ## Contributing
 
 Contributions are welcome! See the [Contributing Guide](https://nagios-plugins-collection.readthedocs.io/en/latest/contributing.html) for more information.
+
+## Releases and Linux packages
+
+`pyproject.toml` is the source of the project version. Push a matching `v2.0.0`
+tag on a tested main commit, or run the Release workflow on main with that
+complete SemVer version. Publication reuses the entire CI workflow and installs
+both native package formats before publishing a wheel, source archive, Helm chart, `.deb`,
+`.rpm`, `release.json` and `SHA256SUMS` on the GitHub release. Public artifacts
+receive GitHub build provenance attestations.
+
+Verify downloaded artifacts with `sha256sum --check SHA256SUMS`. Install the
+Debian package with `sudo apt install ./nagios-plugins-collection_2.0.0_all.deb`
+on Ubuntu 24.04, or the RPM with
+`sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm` on Rocky Linux 9.
+Checks are installed under `/usr/lib/nagios/plugins`; their bundled Python
+clients reside under `/usr/lib/nagios-plugins-collection`. PostgreSQL checks use
+the system libpq. Native packages support Python 3.11+ on Debian and install
+Python 3.12 on Rocky. Optional compiled accelerators are excluded from the
+portable native payload; the container retains its platform-specific wheels.
+
+Version 2 migration: HTTP checks now verify peer certificates by default.
+Use `--ca-file` for a private CA; `--verify-ssl` remains accepted but no longer
+disables verification when omitted. Python callers of `execute_command_async`
+and `check_http_endpoint_async` must wrap calls in `asyncio.timeout(seconds)`
+instead of passing a `timeout` argument. Cancellation kills and reaps subprocess
+children. CLI `--timeout` behavior is preserved. HTTP SLI latency thresholds are
+milliseconds; website-status thresholds are seconds.
 
 ## License
 

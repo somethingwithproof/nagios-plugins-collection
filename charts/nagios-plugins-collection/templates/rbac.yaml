@@ -1,0 +1,26 @@
+{{- if .Values.rbac.create }}
+{{- if not .Values.serviceAccount.automountServiceAccountToken }}
+{{- fail "Node monitoring RBAC requires serviceAccount.automountServiceAccountToken=true" }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "nagios-plugins-collection.fullname" . }}-nodes
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "nagios-plugins-collection.fullname" . }}-nodes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "nagios-plugins-collection.fullname" . }}-nodes
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "nagios-plugins-collection.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

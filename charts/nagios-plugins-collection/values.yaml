@@ -33,3 +33,5 @@ serviceAccount:
   create: true
   name: ""
   automountServiceAccountToken: false
+rbac:
+  create: false  # Opt in to list-only node monitoring permissions

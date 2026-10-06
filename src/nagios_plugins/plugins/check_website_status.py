@@ -67,125 +67,68 @@ class WebsiteStatusChecker:
             if verbose:
                 logger.setLevel(logging.DEBUG)
 
-    async def check_website(self) -> CheckResult:
-        """Check the configured website and return a :class:`CheckResult`."""
-        attempt = 0
-        last_error: Exception | None = None
+    async def _request(self) -> httpx.Response:
+        """Send one request with the configured body and verified TLS defaults."""
+        kwargs: dict[str, Any] = {"headers": self.headers}
+        if self.body is not None:
+            kwargs["json" if isinstance(self.body, dict) else "content"] = self.body
+        async with httpx.AsyncClient(
+            timeout=self.timeout, follow_redirects=True, auth=self.auth
+        ) as client:
+            return await client.request(self.method, self.url, **kwargs)
 
-        while attempt <= self.retries:
+    def _response_result(self, response: httpx.Response) -> CheckResult:
+        """Classify HTTP status, optional content and latency independently."""
+        duration = response.elapsed.total_seconds()
+        metrics = {"status_code": response.status_code, "duration": duration}
+        if self.verbose:
+            logger.debug("Response: %s in %.3fs", response.status_code, duration)
+        if self.pattern is not None:
+            metrics["pattern_found"] = int(bool(re.search(self.pattern, response.text)))
+        if response.status_code != 200:
+            return CheckResult(Status.CRITICAL, f"HTTP {response.status_code} error", metrics)
+        if metrics.get("pattern_found") == 0:
+            return CheckResult(Status.CRITICAL, "Pattern not found", metrics)
+        if duration > self.critical_threshold:
+            return CheckResult(
+                Status.CRITICAL,
+                f"Response time {duration:.1f}s exceeds critical threshold",
+                metrics,
+            )
+        if duration > self.warning_threshold:
+            return CheckResult(
+                Status.WARNING, f"Response time {duration:.1f}s exceeds warning threshold", metrics
+            )
+        return CheckResult(Status.OK, f"Website OK - {duration:.1f}s", metrics)
+
+    def _error_result(self, error: Exception) -> CheckResult:
+        """Translate a terminal request failure into a Nagios result."""
+        if isinstance(error, httpx.TimeoutException):
+            return CheckResult(
+                Status.CRITICAL, "Website check timed out", {"duration": self.timeout}
+            )
+        if isinstance(error, httpx.HTTPError):
+            return CheckResult(Status.CRITICAL, f"HTTP error: {error}", {"duration": 0})
+        return CheckResult(Status.UNKNOWN, f"Unexpected error: {error}", {"duration": 0})
+
+    async def check_website(self) -> CheckResult:
+        """Retry transport errors, preserving response status and latency semantics."""
+        if self.retries < 0:
+            return CheckResult(Status.UNKNOWN, "Retries must not be negative", {"duration": 0})
+        for attempt in range(self.retries + 1):
             try:
                 if self.verbose:
                     logger.debug(
-                        f"Attempt {attempt + 1}/{self.retries + 1}: {self.method} {self.url}"
+                        "Attempt %s/%s: %s %s", attempt + 1, self.retries + 1, self.method, self.url
                     )
-
-                async with httpx.AsyncClient(
-                    timeout=self.timeout,
-                    follow_redirects=True,
-                    auth=self.auth,
-                ) as client:
-                    request_kwargs: dict[str, Any] = {"headers": self.headers}
-
-                    if self.body is not None:
-                        if isinstance(self.body, dict):
-                            request_kwargs["json"] = self.body
-                        else:
-                            request_kwargs["content"] = self.body
-
-                    response = await client.request(self.method, self.url, **request_kwargs)
-
-                duration = response.elapsed.total_seconds()
-                metrics = {"status_code": response.status_code, "duration": duration}
-
+                return self._response_result(await self._request())
+            except Exception as error:
                 if self.verbose:
-                    logger.debug(f"Response: {response.status_code} in {duration:.3f}s")
-
-                if response.status_code != 200:
-                    if self.pattern is not None:
-                        metrics["pattern_found"] = (
-                            1 if re.search(self.pattern, response.text) else 0
-                        )
-                    return CheckResult(
-                        Status.CRITICAL,
-                        f"HTTP {response.status_code} error",
-                        metrics,
-                    )
-
-                if self.pattern is not None:
-                    found = 1 if re.search(self.pattern, response.text) else 0
-                    metrics["pattern_found"] = found
-                    if found == 0:
-                        return CheckResult(Status.CRITICAL, "Pattern not found", metrics)
-
-                if duration > self.critical_threshold:
-                    return CheckResult(
-                        Status.CRITICAL,
-                        f"Response time {duration:.1f}s exceeds critical threshold",
-                        metrics,
-                    )
-                if duration > self.warning_threshold:
-                    return CheckResult(
-                        Status.WARNING,
-                        f"Response time {duration:.1f}s exceeds warning threshold",
-                        metrics,
-                    )
-
-                return CheckResult(
-                    Status.OK,
-                    f"Website OK - {duration:.1f}s",
-                    metrics,
-                )
-
-            except httpx.TimeoutException as exc:
-                last_error = exc
-                if self.verbose:
-                    logger.warning(f"Attempt {attempt + 1} timed out")
-                if attempt < self.retries:
-                    await asyncio.sleep(self.retry_delay)
-                    attempt += 1
-                    continue
-
-                metrics = {"duration": self.timeout}
-                return CheckResult(
-                    Status.CRITICAL,
-                    "Website check timed out",
-                    metrics,
-                )
-
-            except httpx.HTTPError as exc:
-                last_error = exc
-                if self.verbose:
-                    logger.warning(f"Attempt {attempt + 1} failed: {exc}")
-                if attempt < self.retries:
-                    await asyncio.sleep(self.retry_delay)
-                    attempt += 1
-                    continue
-
-                metrics = {"duration": 0}
-                return CheckResult(Status.CRITICAL, f"HTTP error: {exc}", metrics)
-
-            except Exception as exc:  # pragma: no cover - defensive
-                if isinstance(exc, (KeyboardInterrupt, SystemExit)):
-                    raise
-                last_error = exc
-                if self.verbose:
-                    logger.exception(f"Attempt {attempt + 1} unexpected error")
-                if attempt < self.retries:
-                    await asyncio.sleep(self.retry_delay)
-                    attempt += 1
-                    continue
-
-                metrics = {"duration": 0}
-                logger.exception("Unexpected error")
-                return CheckResult(Status.UNKNOWN, f"Unexpected error: {exc}", metrics)
-
-        # Should not reach here, but just in case
-        metrics = {"duration": 0}
-        return CheckResult(
-            Status.UNKNOWN,
-            f"All retry attempts exhausted. Last error: {last_error}",
-            metrics,
-        )
+                    logger.exception("Website attempt %s failed", attempt + 1)
+                if attempt == self.retries:
+                    return self._error_result(error)
+                await asyncio.sleep(self.retry_delay)
+        raise RuntimeError("Website retry loop terminated unexpectedly")
 
 
 class CheckWebsiteStatus(NagiosPlugin):

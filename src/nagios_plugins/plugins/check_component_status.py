@@ -18,6 +18,7 @@ Returns:
 """
 
 import argparse
+import asyncio
 import datetime
 import json
 import logging
@@ -88,11 +89,14 @@ class ComponentStatusChecker:
         api_url = f"{base_url.rstrip('/')}/api/component/{component}"
 
         # Use the utility function for HTTP checking
-        status, message, response_data = await check_http_endpoint_async(
-            url=api_url,
-            timeout=self.timeout,
-            expected_status=200,
-        )
+        try:
+            async with asyncio.timeout(self.timeout):
+                status, message, response_data = await check_http_endpoint_async(
+                    url=api_url, expected_status=200
+                )
+        except TimeoutError:
+            logger.warning("Component request timed out")
+            return "error", None, {"status": "error"}
 
         # Process response
         if status == Status.OK and response_data:

@@ -1,0 +1,11 @@
+.git
+.venv
+.tox
+__pycache__
+**/__pycache__
+*.pyc
+.coverage*
+coverage.xml
+htmlcov
+test-reports
+docs/build

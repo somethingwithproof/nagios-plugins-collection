@@ -1,6 +1,11 @@
 name: Nagios Plugins Collection CI
 
 on:
+  workflow_call:
+    inputs:
+      release-version:
+        type: string
+        default: ''
   push:
     branches: [ main ]
     paths-ignore:
@@ -253,7 +258,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: package
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release-version != ''
     permissions:
       contents: read
       packages: write
@@ -278,7 +283,6 @@ jobs:
           provenance: mode=max
           sbom: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:latest
             ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
       - name: Generate SBOM (syft)
         uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a
@@ -290,26 +294,55 @@ jobs:
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
+          severity: HIGH,CRITICAL
           ignore-unfixed: true
       - name: Install cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
       - name: Sign container images with Cosign (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
-          for TAG in latest ${{ github.sha }}; do
-            cosign sign --yes ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${TAG}
-          done
+          cosign sign --yes "$IMAGE@$DIGEST"
       - name: Attest SBOM with Cosign
         env:
           COSIGN_EXPERIMENTAL: "true"
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           cosign attest --yes \
             --predicate sbom.spdx.json \
             --type spdx \
-            ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
+            "$IMAGE@$DIGEST"
+      - name: Promote verified container tags
+        if: inputs.release-version == ''
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+      - name: Install release version validator
+        if: inputs.release-version != ''
+        run: |
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+      - name: Promote verified SemVer container tags
+        if: inputs.release-version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            python scripts/release_artifacts.py validate --version "$RELEASE_VERSION"
+            container_version="${RELEASE_VERSION//+/_}"
+            docker buildx imagetools create --tag "$IMAGE:$container_version" "$IMAGE@$DIGEST"
+          fi
+          if [[ "$RELEASE_VERSION" != *-* ]]; then
+            docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+          fi
 
   security:
     name: Security scan
@@ -524,3 +557,34 @@ jobs:
         name: packages
         path: dist/
         retention-days: 30
+
+
+  native-artifacts:
+    name: Build and install release packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.1
+          install: false
+          cache: false
+      - name: Install pinned release tools
+        run: |
+          mise install nfpm@2.47.0 helm@4.3.0
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+      - name: Build project and native artifacts
+        id: version
+        run: mise exec nfpm@2.47.0 helm@4.3.0 -- python scripts/release_artifacts.py build
+      - name: Install, exercise and remove Debian and RPM packages
+        run: python scripts/smoke_native_packages.py "dist/release/${{ steps.version.outputs.version }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifacts
+          path: dist/release/${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+          retention-days: 14

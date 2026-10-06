@@ -272,27 +272,20 @@ class ThresholdRange:
                 return cls(None, value, inclusive)
             except ValueError as exc:
                 raise ValueError(f"Invalid threshold value: {threshold}") from exc
-        else:
-            # Range
-            parts = threshold.split(":")
-            if len(parts) != 2:
-                raise ValueError(f"Invalid threshold format: {threshold}")
+        parts = threshold.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid threshold format: {threshold}")
+        return cls(cls._bound(parts[0], "minimum"), cls._bound(parts[1], "maximum"), inclusive)
 
-            min_val = None
-            if parts[0]:
-                try:
-                    min_val = float(parts[0])
-                except ValueError as exc:
-                    raise ValueError(f"Invalid minimum threshold: {parts[0]}") from exc
-
-            max_val = None
-            if parts[1]:
-                try:
-                    max_val = float(parts[1])
-                except ValueError as exc:
-                    raise ValueError(f"Invalid maximum threshold: {parts[1]}") from exc
-
-            return cls(min_val, max_val, inclusive)
+    @staticmethod
+    def _bound(value: str, label: str) -> float | None:
+        """Parse one optional bound and identify malformed input precisely."""
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ValueError(f"Invalid {label} threshold: {value}") from exc
 
     def check(self, value: float) -> bool:
         """Check if a value is within the threshold range.
@@ -309,9 +302,9 @@ class ThresholdRange:
             if self.min_value is not None and self.max_value is not None:
                 return not (self.min_value < value < self.max_value)
             elif self.min_value is not None:
-                return not (value > self.min_value)
+                return value <= self.min_value
             elif self.max_value is not None:
-                return not (value < self.max_value)
+                return value >= self.max_value
             return True
         else:
             # Outside the range is bad

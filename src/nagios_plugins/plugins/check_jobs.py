@@ -122,21 +122,21 @@ class JobStatusChecker:
             )
 
         except httpx.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
+            logger.exception("HTTP request failed")
             return CheckResult(
                 Status.UNKNOWN,
                 f"Failed to connect to jobs API: {str(e)}",
                 metrics={"root_status": 0},
             )
         except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e}")
+            logger.exception("JSON response decoding failed")
             return CheckResult(
                 Status.UNKNOWN,
                 f"Invalid JSON response from jobs API: {str(e)}",
                 metrics={"root_status": 0},
             )
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.exception("Unexpected monitoring failure")
             return CheckResult(
                 Status.UNKNOWN,
                 f"Unexpected error: {str(e)}",

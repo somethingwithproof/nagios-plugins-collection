@@ -17,9 +17,9 @@ Returns:
 """
 
 import argparse
+import asyncio
 import json
 import logging
-import re
 import sys
 import tempfile
 
@@ -116,14 +116,10 @@ class MountStatusChecker:
         """
         mounts = []
 
-        # Regular expression to parse mount output
-        # Format: device on mount_point type fs_type (options)
-        mount_pattern = re.compile(r"(\S+) on (\S+) type (\S+) \(([^)]+)\)")
-
         for line in output.splitlines():
-            match = mount_pattern.search(line)
-            if match:
-                device, mount_point, fs_type, options = match.groups()
+            parsed = self._parse_mount_line(line)
+            if parsed:
+                device, mount_point, fs_type, options = parsed
                 if "ro" not in options.split(","):
                     continue
 
@@ -142,6 +138,20 @@ class MountStatusChecker:
 
         return mounts
 
+    @staticmethod
+    def _parse_mount_line(line: str) -> tuple[str, str, str, str] | None:
+        """Parse Linux mount output with bounded, linear delimiter searches."""
+        device, separator, remainder = line.partition(" on ")
+        if not separator:
+            return None
+        point, separator, remainder = remainder.partition(" type ")
+        if not separator:
+            return None
+        filesystem, separator, options = remainder.partition(" (")
+        if not separator or not options.endswith(")"):
+            return None
+        return device, point, filesystem, options[:-1]
+
     async def check_mounts(self) -> CheckResult:
         """Check for read-only mounts.
 
@@ -151,7 +161,9 @@ class MountStatusChecker:
         try:
             # Execute the command
             cmd = self._build_command()
-            exit_code, stdout, stderr = execute_command(cmd, timeout=self.timeout)
+            exit_code, stdout, stderr = await asyncio.to_thread(
+                execute_command, cmd, timeout=self.timeout
+            )
             if exit_code != 0:
                 return CheckResult(Status.UNKNOWN, f"Cannot inspect mounts: {stderr}")
 

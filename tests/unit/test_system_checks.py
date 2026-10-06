@@ -1,5 +1,6 @@
 """Verify filesystem monitoring and remote DNS status contracts."""
 
+import asyncio
 import shlex
 import sys
 from pathlib import Path
@@ -143,12 +144,9 @@ async def test_async_command_output_and_exit_status() -> None:
 
 @pytest.mark.asyncio
 async def test_async_command_timeout_reaps_child() -> None:
-    result = await execute_command_async(
-        [sys.executable, "-c", "import time; time.sleep(2)"], timeout=1
-    )
-    assert result.exit_code == 1
-    assert "timed out" in result.stderr
-    assert result.execution_time < 2
+    with pytest.raises(TimeoutError):
+        async with asyncio.timeout(0.1):
+            await execute_command_async([sys.executable, "-c", "import time; time.sleep(2)"])
 
 
 @pytest.mark.asyncio

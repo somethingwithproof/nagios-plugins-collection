@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nagios-plugins-collection"
-version = "1.2.1"
+version = "2.0.0"
 description = "A collection of enterprise-grade Nagios plugins for monitoring various systems"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE*"]
 authors = [
     {name = "Thomas Vincent", email = "thomasvincent@gmail.com"}
 ]
@@ -197,6 +198,3 @@ disable = [
     "C0326",  # bad-whitespace
     "W0511",  # fixme
 ]
-
-[tool.setuptools]
-license-files = ["LICENSE*"]

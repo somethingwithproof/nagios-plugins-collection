@@ -37,10 +37,7 @@ class CheckHttpSli(NagiosPlugin):
         async with httpx.AsyncClient(
             verify=tls_verification(args.ca_file), timeout=args.timeout
         ) as client:
-            tasks = []
-            for url in args.url:
-                for _ in range(args.samples):
-                    tasks.append(self._probe(client, url))
+            tasks = [self._probe(client, url) for url in args.url for _ in range(args.samples)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
             total += 1
@@ -51,16 +48,13 @@ class CheckHttpSli(NagiosPlugin):
         if not total:
             return CheckResult(Status.UNKNOWN, "No probes executed")
         error_rate = errors / total
-        if len(latencies) == 1:
-            p50 = p95 = p99 = latencies[0]
-        elif latencies:
-            p50 = statistics.quantiles(latencies, n=100)[49]
-            p95 = statistics.quantiles(latencies, n=100)[94]
-            p99 = statistics.quantiles(latencies, n=100)[98]
-        else:
-            p50 = p95 = p99 = float("inf")
+        p50, p95, p99 = self._percentiles(latencies)
         status = Status.CRITICAL if errors == total else Status.OK
-        if args.critical and (error_rate >= float(args.critical) or p95 >= float(args.critical)):
+        if (
+            errors == total
+            or args.critical
+            and (error_rate >= float(args.critical) or p95 >= float(args.critical))
+        ):
             status = Status.CRITICAL
         elif args.warning and (error_rate >= float(args.warning) or p95 >= float(args.warning)):
             status = Status.WARNING
@@ -72,6 +66,16 @@ class CheckHttpSli(NagiosPlugin):
             "error_rate": round(error_rate, 4),
         }
         return CheckResult(status, msg, metrics=metrics)
+
+    @staticmethod
+    def _percentiles(latencies: list[float]) -> tuple[float, float, float]:
+        """Handle empty and singleton samples before computing percentiles."""
+        if not latencies:
+            return (float("inf"),) * 3
+        if len(latencies) == 1:
+            return (latencies[0],) * 3
+        percentiles = statistics.quantiles(latencies, n=100)
+        return percentiles[49], percentiles[94], percentiles[98]
 
     async def _probe(self, client: httpx.AsyncClient, url: str) -> float | None:
         """Return elapsed milliseconds for one successful HTTP request."""

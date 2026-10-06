@@ -138,7 +138,6 @@ async def check_http_endpoint_async(
     method: str = "GET",
     headers: dict[str, str] | None = None,
     data: dict[str, Any] | None = None,
-    timeout: int = 30,
     expected_status: int | None = 200,
     expected_content: str | None = None,
     verify_ssl: bool = True,
@@ -150,7 +149,6 @@ async def check_http_endpoint_async(
         method: The HTTP method to use.
         headers: The HTTP headers to send.
         data: The data to send in the request body.
-        timeout: The timeout in seconds.
         expected_status: The expected HTTP status code.
         expected_content: A regex pattern to match in the response content.
         verify_ssl: Whether to verify SSL certificates.
@@ -160,7 +158,7 @@ async def check_http_endpoint_async(
     """
     start_time = time.time()
     try:
-        async with httpx.AsyncClient(timeout=timeout, verify=verify_ssl) as client:
+        async with httpx.AsyncClient(timeout=None, verify=verify_ssl) as client:
             response = await client.request(
                 method,
                 url,
@@ -489,7 +487,7 @@ def get_system_info() -> dict[str, Any]:
             match = re.search(r"MemFree:\s+(\d+)", meminfo)
             if match:
                 info["free_memory_kb"] = int(match.group(1))
-        except (OSError, FileNotFoundError):
+        except OSError:
             # Warning: Could not read system memory info
             pass
 

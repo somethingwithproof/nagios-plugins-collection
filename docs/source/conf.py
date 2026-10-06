@@ -64,5 +64,5 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
 }
 
-# Todo extension settings
+# Sphinx note rendering
 todo_include_todos = True

@@ -23,8 +23,9 @@ def test_http_sli_ok(samples: int) -> None:
     assert code == Status.OK.value
 
 
-def test_all_failed_probes_are_critical() -> None:
+@pytest.mark.parametrize("thresholds", [[], ["--warning", "200"], ["--critical", "500"]])
+def test_all_failed_probes_are_critical(thresholds: list[str]) -> None:
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(503)))
     with patch("httpx.AsyncClient", return_value=client):
-        code = CheckHttpSli().run(["--url", "https://example.com"])
+        code = CheckHttpSli().run(["--url", "https://example.com", *thresholds])
     assert code == Status.CRITICAL.value

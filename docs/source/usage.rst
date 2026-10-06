@@ -54,19 +54,12 @@ Check MongoDB Health
 
     check_monghealth --host=mongodb.example.com --port=27017 --warning=80 --critical=90
 
-Check Processes
-~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-    check_procs --host=server.example.com --process=nginx --min=1 --max=10
-
 Check Read-Only Mounts
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-    check_mounts --exclude=/proc,/sys,/dev
+    check_ro_mounts --exclude=/proc,/sys,/dev
 
 Check Website Status
 ~~~~~~~~~~~~~~~~~~~~
