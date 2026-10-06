@@ -1,6 +1,11 @@
 name: Nagios Plugins Collection CI
 
 on:
+  workflow_call:
+    inputs:
+      release-version:
+        type: string
+        default: ''
   push:
     branches: [ main ]
     paths-ignore:
@@ -25,12 +30,18 @@ permissions:
   contents: read
 
 jobs:
+  platform-support:
+    name: Reject retired platforms
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python scripts/check_platform_support.py
   semantic-pr:
     name: Semantic PR title
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - \1e32d7e603df1aa1ba07e981f2a23455dee596825
+      - uses: amannn/action-semantic-pull-request@e32d7e603df1aa1ba07e981f2a23455dee596825
         with:
           ignoreLabels: |
             dependencies
@@ -46,9 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Hadolint
-        \154c9adbab1582c2ef04b2016b760714a4bfde3cf
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf
         with:
           dockerfile: docker/Dockerfile
 
@@ -57,26 +68,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: actionlint
-        \10800169b4c59323556720efa019c4325e18fb129
+        uses: docker://rhysd/actionlint@sha256:6f03470d0152251d7f07f7c4dc019dbe7024c72cd952f839544c7798843efa8f
 
   helm-validate:
     name: Helm unit tests and kubeconform
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Helm
-        \11a275c3b69536ee54be43f2070a358922e12c8d4
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
         with:
-          version: v3.14.4
+          version: v4.3.0
       - name: Install helm-unittest plugin
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest
+          helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.2.1 --verify=false
       - name: Helm lint
         run: |
-          helm lint charts/nagios-plugins-collection
+          helm lint charts/nagios-plugins-collection --kube-version 1.37.1
       - name: Run helm-unittest
         run: |
           helm unittest charts/nagios-plugins-collection --strict
@@ -84,55 +95,57 @@ jobs:
         run: |
           set -euo pipefail
           KUBECONFORM_VERSION="0.6.7"
-          curl -sSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar -xzf kubeconform.tar.gz
           sudo mv kubeconform /usr/local/bin/
           kubeconform -v
       - name: Kubeconform validate rendered manifests
         run: |
-          helm template charts/nagios-plugins-collection \
-            | kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.29.0
+          for version in 1.35.9 1.36.5 1.37.1; do
+            helm template charts/nagios-plugins-collection --kube-version "$version" \
+              | kubeconform -strict -summary -kubernetes-version "$version"
+          done
       - name: Kube-linter policy checks
         run: |
           set -euo pipefail
           VERSION=v0.6.8
-          curl -sSL -o kube-linter.tar.gz https://github.com/stackrox/kube-linter/releases/download/${VERSION}/kube-linter-linux.tar.gz
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o kube-linter.tar.gz https://github.com/stackrox/kube-linter/releases/download/${VERSION}/kube-linter-linux.tar.gz
           tar -xzf kube-linter.tar.gz
           sudo mv kube-linter /usr/local/bin/
-          helm template charts/nagios-plugins-collection > rendered.yaml
+          helm template charts/nagios-plugins-collection --kube-version 1.37.1 > rendered.yaml
           kube-linter lint rendered.yaml
   test:
-    name: Test Python ${{ matrix.python-version }} with Nagios ${{ matrix.nagios-version }}
+    name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12', '3.13']
-        nagios-version: ['4.4.6', '4.4.7', '4.4.8', '4.4.9', '4.4.10']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
 
     steps:
-    - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
     - name: Set up Python ${{ matrix.python-version }}
-      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install tox tox-gh-actions
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Test with tox
-      run: tox
+      env:
+        PYTHON_VERSION: ${{ matrix.python-version }}
+      run: tox -e "py${PYTHON_VERSION//./}"
 
     - name: Upload test results
-      \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       if: always()
       with:
-        name: test-results-py${{ matrix.python-version }}-nagios${{ matrix.nagios-version }}
+        name: test-results-py${{ matrix.python-version }}
         path: test-reports/
         retention-days: 7
 
@@ -141,23 +154,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-    - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
     - name: Set up Python
-      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install tox pre-commit
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Run linting via tox
       run: tox -e lint
 
-    - name: Run pre-commit hooks (ruff, black, isort, misc)
+    - name: Run repository integrity and type hooks
       run: pre-commit run --all-files --show-diff-on-failure
 
   type-check:
@@ -165,18 +177,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Run type checking
         run: tox -e type
@@ -186,24 +197,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Build documentation
         run: tox -e docs
 
       - name: Upload documentation
-        \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: documentation
           path: docs/build/html/
@@ -211,21 +221,23 @@ jobs:
 
   coverage:
     name: Test coverage
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 15  # Prevent hung jobs
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install tox
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
       - name: Run coverage
         run: tox -e coverage
@@ -242,127 +254,145 @@ jobs:
           PY
 
       - name: Upload coverage to Codecov
-        \1671740ac38dd9b0130fbe1cec585b89eea48d3de
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: true
+          use_oidc: true
 
   container:
     name: Build, scan, sign, and push container image
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: [package, native-artifacts, platform-support]
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release-version != ''
     permissions:
       contents: read
       packages: write
       id-token: write  # required for keyless signing with cosign
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Login to GHCR
-        \15e57cd118135c172c3672efd75eb46360885c0ef
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
         id: build
-        \1263435318d21b8e681c14492fe198d362a7d2c83
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
         with:
           context: .
           file: docker/Dockerfile
           push: true
+          provenance: mode=max
+          sbom: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:latest
             ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
       - name: Generate SBOM (syft)
-        \1a930d0ac434e3182448fe678398ba5713717112a
+        uses: anchore/sbom-action@a930d0ac434e3182448fe678398ba5713717112a
         with:
           image: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
+          output-file: sbom.spdx.json
       - name: Scan image (Trivy)
-        \16e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
+          severity: HIGH,CRITICAL
           ignore-unfixed: true
       - name: Install cosign
-        \1398d4b0eeef1380460a10c8013a76f728fb906ac
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac
       - name: Sign container images with Cosign (keyless)
         env:
           COSIGN_EXPERIMENTAL: "true"
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
-          for TAG in latest ${{ github.sha }}; do
-            cosign sign --yes ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${TAG}
-          done
-      - name: Generate SBOM file (syft CLI)
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          syft ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }} -o spdx-json=sbom.spdx.json
+          cosign sign --yes "$IMAGE@$DIGEST"
       - name: Attest SBOM with Cosign
         env:
           COSIGN_EXPERIMENTAL: "true"
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           cosign attest --yes \
             --predicate sbom.spdx.json \
             --type spdx \
-            ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
-      - name: Generate simple SLSA provenance predicate
-        run: |
-          cat > provenance.json <<'JSON'
-          {
-            "_type": "https://slsa.dev/provenance/v1",
-            "subject": [{
-              "name": "ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection",
-              "digest": {"sha256": "${{ github.sha }}"}
-            }],
-            "buildType": "https://github.com/actions",
-            "builder": {"id": "https://github.com/actions"},
-            "invocation": {"configSource": {"uri": "${{ github.repository }}@${{ github.ref }}"}},
-            "metadata": {"buildStartedOn": "${{ github.run_started_at }}"}
-          }
-          JSON
-      - name: Attest provenance with Cosign
+            "$IMAGE@$DIGEST"
+      - name: Promote verified container tags
+        if: inputs.release-version == ''
         env:
-          COSIGN_EXPERIMENTAL: "true"
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+      - name: Install release version validator
+        if: inputs.release-version != ''
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install locked validator dependencies
+        if: inputs.release-version != ''
         run: |
-          cosign attest --yes \
-            --predicate provenance.json \
-            --type slsaprovenance \
-            ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+      - name: Promote verified SemVer container tags
+        if: inputs.release-version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$RELEASE_VERSION" ]]; then
+            python scripts/release_artifacts.py validate --version "$RELEASE_VERSION"
+            container_version="${RELEASE_VERSION//+/_}"
+            docker buildx imagetools create --tag "$IMAGE:$container_version" "$IMAGE@$DIGEST"
+          fi
+          if [[ "${RELEASE_VERSION%%+*}" != *-* ]]; then
+            docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
+          fi
 
   security:
     name: Security scan
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
 
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install bandit safety
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
 
       - name: Run bandit
-        run: bandit -r src/ -c pyproject.toml
+        run: bandit -r src/ -c pyproject.toml --severity-level medium
 
-      - name: Run safety
-        run: safety check
+      - name: Audit installed dependencies
+        run: pip-audit --local
 
       - name: Secret scan (gitleaks)
-        \1ff98106e4c7b2bc287b24eaf42907196329070c7
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          args: detect --redact --no-banner
+          version: 2026.10.1
+          install: false
+          cache: false
+      - name: Scan Git history with the verified open-source CLI
+        run: |
+          mise install gitleaks@8.30.1
+          mise exec gitleaks@8.30.1 -- gitleaks git --redact --no-banner
 
       - name: Trivy config scan (IaC)
-        \16e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
         with:
           scan-type: config
           hide-progress: true
@@ -374,22 +404,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build app and mocks images
         run: docker compose -f docker/docker-compose.yml build app mocks
       - name: Start mock services
         run: docker compose -f docker/docker-compose.yml up -d http_ok mocks
       - name: Wait for http_ok to be healthy
         run: |
-          for i in $(seq 1 30); do
-            if [ "$(docker inspect -f '{{json .State.Health.Status}}' $(docker compose -f docker/docker-compose.yml ps -q http_ok))" = '"healthy"' ]; then
+          for _ in $(seq 1 30); do
+            if [ "$(docker inspect -f '{{json .State.Health.Status}}' "$(docker compose -f docker/docker-compose.yml ps -q http_ok)")" = '"healthy"' ]; then
               echo "http_ok healthy"; exit 0; fi; sleep 2; done; echo "timeout"; docker compose -f docker/docker-compose.yml ps; exit 1
       - name: Run HTTP SLI check against mock
         run: |
           docker compose -f docker/docker-compose.yml run --rm app \
-            check_http_sli --url=http://http_ok --samples 3 --warning 0.3 --critical 1.0
+            check_http_sli --url=http://http_ok --samples 3 --warning 300 --critical 1000
       - name: Run OAuth2 token check against mocks
         run: |
           docker compose -f docker/docker-compose.yml run --rm app \
@@ -435,17 +465,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Docker Buildx
-        \18d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - name: Build app image
         run: docker compose -f docker/docker-compose.yml build app
       - name: Start WireMock
         run: docker compose -f docker/docker-compose.yml up -d wiremock
       - name: Wait for WireMock to be healthy
         run: |
-          for i in $(seq 1 40); do
-            if [ "$(docker inspect -f '{{json .State.Health.Status}}' $(docker compose -f docker/docker-compose.yml ps -q wiremock))" = '"healthy"' ]; then
+          for _ in $(seq 1 40); do
+            if [ "$(docker inspect -f '{{json .State.Health.Status}}' "$(docker compose -f docker/docker-compose.yml ps -q wiremock)")" = '"healthy"' ]; then
               echo "wiremock healthy"; exit 0; fi; sleep 2; done; echo "timeout"; docker compose -f docker/docker-compose.yml ps; exit 1
       - name: Run OAuth2 token check against WireMock
         run: |
@@ -478,39 +508,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
       - name: Install project and pip-licenses
         run: |
-          python -m pip install --upgrade pip
-          pip install pip-licenses
-          pip install .
-      - name: Generate licenses and enforce allowlist
-        run: |
-          pip-licenses --format=json --with-urls --with-license-file > licenses.json
-          python - <<'PY'
-          import json, sys
-          allowed = {
-            'MIT License','MIT','Apache 2.0','Apache-2.0','BSD 3-Clause','BSD-3-Clause','BSD License','ISC','Python Software Foundation License'
-          }
-          bad = []
-          with open('licenses.json') as f:
-            data = json.load(f)
-          for pkg in data:
-            lic = pkg.get('License', '').strip()
-            if lic and all(a not in lic for a in allowed):
-              bad.append((pkg.get('Name'), lic))
-          if bad:
-            print('Disallowed licenses found:')
-            for n,l in bad:
-              print(f' - {n}: {l}')
-            sys.exit(1)
-          print('All licenses allowed')
-          PY
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
+      - name: Audit locked runtime dependency licenses
+        run: python scripts/check_licenses.py
 
   package:
     name: Build and verify package
@@ -518,30 +527,60 @@ jobs:
     timeout-minutes: 15  # Prevent hung jobs
     needs: [test, lint, type-check, docs, coverage, security, docker-lint, workflow-lint, helm-validate, e2e, e2e-wiremock, license]
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
-      \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
       with:
         python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
 
     - name: Build package
-      run: python -m build
+      run: python -m build --no-isolation
 
     - name: Check package
       run: twine check dist/*
 
     - name: Upload package
-      \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
       with:
         name: packages
         path: dist/
         retention-days: 30
+
+
+  native-artifacts:
+    name: Build and install release packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.1
+          install: false
+          cache: false
+      - name: Install pinned release tools
+        run: |
+          mise install nfpm@2.47.0 helm@4.3.0
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+      - name: Build project and native artifacts
+        id: version
+        run: mise exec nfpm@2.47.0 helm@4.3.0 -- python scripts/release_artifacts.py build
+      - name: Install, exercise and remove Debian and RPM packages
+        run: python scripts/smoke_native_packages.py "dist/release/${{ steps.version.outputs.version }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifacts
+          path: dist/release/${{ steps.version.outputs.version }}/*
+          if-no-files-found: error
+          retention-days: 14

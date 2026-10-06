@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Monitor Redis memory use, evictions and cache hits."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,11 +10,15 @@ from nagios_plugins.services.redis_svc import get_stats
 
 
 class CheckRedisSaturation(NagiosPlugin):
+    """Monitor Redis memory use, evictions and cache hits."""
+
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--url", required=True, help="Redis URL e.g. redis://host:6379/0")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         try:
             stats = get_stats(args.url)
         except RuntimeError as e:
@@ -38,6 +44,7 @@ class CheckRedisSaturation(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckRedisSaturation().run()
 
 

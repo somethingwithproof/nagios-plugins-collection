@@ -1,5 +1,9 @@
 # Nagios Plugins Collection Modernization Plan
 
+> Historical planning notes. Current implemented behavior, supported platforms,
+> tooling and release gates are documented in README.md, MIGRATION.md and the
+> Sphinx development/release guides. EOL targets listed in past plans are unsupported.
+
 ## Overview
 
 This document outlines the plan for modernizing the Nagios Plugins Collection. Based on the project structure and requirements, each plugin is designed to be independent and not rely on other plugins or shared code.
@@ -17,7 +21,7 @@ For each plugin directory, the following steps should be taken:
 
 ### 1. Code Structure and Dependencies
 
-- [ ] Update to use modern Python features (Python 3.8+)
+- [ ] Update to use modern Python features (maintained Python 3.11–3.14)
 - [ ] Add proper type hints throughout the code
 - [ ] Use modern libraries (e.g., httpx instead of urllib/requests)
 - [ ] Implement proper error handling and logging

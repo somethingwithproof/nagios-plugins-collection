@@ -24,7 +24,7 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import httpx
 from rich.console import Console
@@ -60,8 +60,8 @@ class CheckResult:
 
     status: Status
     message: str
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    details: Optional[str] = None
+    metrics: dict[str, Any] = field(default_factory=dict)
+    details: str | None = None
 
     def __str__(self) -> str:
         """Return the string representation of the check result."""
@@ -93,8 +93,8 @@ class MongoHealthChecker:
         host: str,
         port: int = 27017,
         timeout: int = 5,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         ssl: bool = False,
     ):
         """Initialize the MongoDB health checker.
@@ -124,7 +124,7 @@ class MongoHealthChecker:
         if username and password:
             self.auth = (username, password)
 
-    async def check_engine_status(self) -> Tuple[bool, Dict[str, Any]]:
+    async def check_engine_status(self) -> tuple[bool, dict[str, Any]]:
         """Check the MongoDB engine status.
 
         Returns:
@@ -140,14 +140,14 @@ class MongoHealthChecker:
                 data = response.json()
                 is_alive = data.get("alive", False)
                 return is_alive, data
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
+        except httpx.HTTPError:
+            logger.exception("HTTP request failed")
             return False, {}
-        except Exception as e:
-            logger.error(f"Error checking engine status: {e}")
+        except Exception:
+            logger.exception("Engine status check failed")
             return False, {}
 
-    async def check_components(self, required_components: List[Tuple[str, bool]]) -> CheckResult:
+    async def check_components(self, required_components: list[tuple[str, bool]]) -> CheckResult:
         """Check the status of MongoDB components.
 
         Args:

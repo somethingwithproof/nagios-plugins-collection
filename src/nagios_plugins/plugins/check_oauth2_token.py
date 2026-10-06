@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Verify an OAuth token endpoint and required scopes."""
+
 from __future__ import annotations
 
 import argparse
@@ -6,22 +8,27 @@ import argparse
 import httpx
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
 
 
 class CheckOAuth2Token(NagiosPlugin):
     """Obtain an OAuth2 token and report time-to-expiry; validate scopes if provided."""
 
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--token-url", required=True)
         self.parser.add_argument("--client-id", required=True)
         self.parser.add_argument("--client-secret", required=True)
         self.parser.add_argument("--scope", action="append", default=[])
-        self.parser.add_argument("--verify-ssl", action="store_true", default=False)
+        add_tls_arguments(self.parser)
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         try:
-            with httpx.Client(timeout=args.timeout, verify=args.verify_ssl) as client:
+            with httpx.Client(
+                timeout=args.timeout, verify=tls_verification(args.ca_file)
+            ) as client:
                 r = client.post(
                     args.token_url,
                     data={
@@ -51,6 +58,7 @@ class CheckOAuth2Token(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckOAuth2Token().run()
 
 

@@ -13,11 +13,13 @@ class CheckTlsExpiry(NagiosPlugin):
     """Check TLS certificate expiry and basic chain details."""
 
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--host", required=True, help="Hostname to check")
         self.parser.add_argument("--port", type=int, default=443, help="Port to connect to")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         info = fetch_server_cert(args.host, args.port, timeout=args.timeout)
         remaining = days_remaining(info)
         status = Status.OK
@@ -33,6 +35,7 @@ class CheckTlsExpiry(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckTlsExpiry().run()
 
 

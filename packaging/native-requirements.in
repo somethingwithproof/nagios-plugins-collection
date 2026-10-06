@@ -1,0 +1,2 @@
+# Native packages bundle portable Python clients and use the OS libpq library.
+psycopg>=3.1.18

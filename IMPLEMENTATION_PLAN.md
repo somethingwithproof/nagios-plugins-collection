@@ -1,5 +1,9 @@
 # Nagios Plugins Collection Implementation Plan
 
+> Historical planning notes. Current implemented behavior, supported platforms,
+> tooling and release gates are documented in README.md, MIGRATION.md and the
+> Sphinx development/release guides. EOL targets listed in past plans are unsupported.
+
 This document outlines the detailed implementation plan for modernizing the Nagios Plugins Collection, following the approach demonstrated with the `check_monghealth` plugin.
 
 ## Implementation Strategy

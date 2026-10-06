@@ -1,9 +1,6 @@
-version: "3.9"
 services:
   http_ok:
     image: nginx:alpine
-    ports:
-      - "8080:80"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost"]
       interval: 5s
@@ -14,12 +11,8 @@ services:
       context: ./mocks
       dockerfile: Dockerfile
     image: npc-mocks:dev
-    ports:
-      - "8000:8000"
   wiremock:
     image: wiremock/wiremock:latest
-    ports:
-      - "9000:8080"
     volumes:
       - ./mocks/wiremock/mappings:/home/wiremock/mappings:ro
     healthcheck:
@@ -34,17 +27,20 @@ services:
     image: nagios-plugins-collection:dev
     environment:
       - PYTHONUNBUFFERED=1
-    entrypoint: ["bash", "-lc"]
+    entrypoint: []
     working_dir: /app
     depends_on:
       http_ok:
         condition: service_healthy
       mocks:
-        condition: service_started
-    command: |
-      "pytest -q && echo 'OK'"
+        condition: service_healthy
+    command: ["check_website_status", "--help"]
   tests:
     extends:
       service: app
-    command: |
-      "pytest -q --cov=src --cov-report=term-missing"
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: tests
+    image: nagios-plugins-collection-tests:dev
+    command: ["pytest", "-q", "--cov=nagios_plugins", "--cov-report=term-missing", "--cov-fail-under=80"]

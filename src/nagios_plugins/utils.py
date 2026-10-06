@@ -13,7 +13,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import httpx
 
@@ -57,8 +57,8 @@ class CommandResult:
 
 
 def execute_command(
-    command: List[str], timeout: int = 30, shell: bool = False
-) -> Tuple[int, str, str]:
+    command: list[str], timeout: int = 30, shell: bool = False
+) -> tuple[int, str, str]:
     """Execute a command and return ``(exit_code, stdout, stderr)``.
 
     Security: ``shell=True`` is disallowed per project standards and will raise
@@ -80,6 +80,7 @@ def execute_command(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            shell=False,
             universal_newlines=True,
         )
         try:
@@ -97,7 +98,7 @@ def execute_command(
         return 1, "", f"Error executing command: {exc}"
 
 
-def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Optional[str]]:
+def check_tcp_port(host: str, port: int, timeout: int = 5) -> tuple[bool, str | None]:
     """Check if a TCP port is open.
 
     A straightforward implementation that relies on ``socket.socket`` so the
@@ -121,7 +122,7 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Option
         return False, f"Port {port} is closed on {host}"
     except socket.gaierror:
         return False, f"Could not resolve hostname: {host}"
-    except socket.timeout:
+    except TimeoutError:
         return False, f"Connection to {host}:{port} timed out"
     except Exception as exc:  # pragma: no cover - defensive
         return False, f"Error checking port {port} on {host}: {exc}"
@@ -135,13 +136,12 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> Tuple[bool, Option
 async def check_http_endpoint_async(
     url: str,
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    data: Optional[Dict[str, Any]] = None,
-    timeout: int = 30,
-    expected_status: Optional[int] = 200,
-    expected_content: Optional[str] = None,
+    headers: dict[str, str] | None = None,
+    data: dict[str, Any] | None = None,
+    expected_status: int | None = 200,
+    expected_content: str | None = None,
     verify_ssl: bool = True,
-) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
+) -> tuple[Status, str, dict[str, Any] | None]:
     """Check an HTTP endpoint asynchronously.
 
     Args:
@@ -149,7 +149,6 @@ async def check_http_endpoint_async(
         method: The HTTP method to use.
         headers: The HTTP headers to send.
         data: The data to send in the request body.
-        timeout: The timeout in seconds.
         expected_status: The expected HTTP status code.
         expected_content: A regex pattern to match in the response content.
         verify_ssl: Whether to verify SSL certificates.
@@ -159,7 +158,7 @@ async def check_http_endpoint_async(
     """
     start_time = time.time()
     try:
-        async with httpx.AsyncClient(timeout=timeout, verify=verify_ssl) as client:
+        async with httpx.AsyncClient(timeout=30, verify=verify_ssl) as client:
             response = await client.request(
                 method,
                 url,
@@ -233,13 +232,13 @@ async def check_http_endpoint_async(
 def check_http_endpoint(
     url: str,
     method: str = "GET",
-    headers: Optional[Dict[str, str]] = None,
-    data: Optional[Dict[str, Any]] = None,
+    headers: dict[str, str] | None = None,
+    data: dict[str, Any] | None = None,
     timeout: int = 30,
-    expected_status: Optional[int] = 200,
-    expected_content: Optional[str] = None,
+    expected_status: int | None = 200,
+    expected_content: str | None = None,
     verify_ssl: bool = True,
-) -> Tuple[Status, str, Optional[Dict[str, Any]]]:
+) -> tuple[Status, str, dict[str, Any] | None]:
     """Check an HTTP endpoint synchronously.
 
     This helper performs an HTTP request using :class:`httpx.Client` and
@@ -409,7 +408,7 @@ def is_process_running(process_name: str) -> bool:
         return False
 
 
-def get_file_age_seconds(file_path: Union[str, Path]) -> int:
+def get_file_age_seconds(file_path: str | Path) -> int:
     """Get the age of a file in seconds.
 
     Args:
@@ -430,7 +429,7 @@ def get_file_age_seconds(file_path: Union[str, Path]) -> int:
     return int(current_time - file_mtime)
 
 
-def get_directory_size(directory: Union[str, Path]) -> int:
+def get_directory_size(directory: str | Path) -> int:
     """Get the total size of a directory in bytes.
 
     Args:
@@ -457,13 +456,13 @@ def get_directory_size(directory: Union[str, Path]) -> int:
     return total_size
 
 
-def get_system_info() -> Dict[str, Any]:
+def get_system_info() -> dict[str, Any]:
     """Get system information.
 
     Returns:
         A dictionary containing system information.
     """
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "platform": platform.platform(),
         "system": platform.system(),
         "release": platform.release(),
@@ -488,7 +487,7 @@ def get_system_info() -> Dict[str, Any]:
             match = re.search(r"MemFree:\s+(\d+)", meminfo)
             if match:
                 info["free_memory_kb"] = int(match.group(1))
-        except (OSError, FileNotFoundError):
+        except OSError:
             # Warning: Could not read system memory info
             pass
 

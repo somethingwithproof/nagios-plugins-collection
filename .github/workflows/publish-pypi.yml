@@ -11,19 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
           fetch-depth: 0
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
       - name: Build package
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
-          python -m build
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+          python -m build --no-isolation
           python -m twine check dist/*
       - name: Publish to PyPI
         env:

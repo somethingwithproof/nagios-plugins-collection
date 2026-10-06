@@ -4,12 +4,12 @@ Contributing
 Thank you for your interest in contributing to the Nagios Plugins Collection! This document provides guidelines for contributing to the project.
 
 Code of Conduct
--------------
+---------------
 
 Please be respectful and considerate of others when contributing to this project. We aim to foster an inclusive and welcoming community.
 
 Ways to Contribute
-----------------
+------------------
 
 There are many ways to contribute to the project:
 
@@ -20,7 +20,7 @@ There are many ways to contribute to the project:
 5. **Reviewing Pull Requests**: Help review pull requests from other contributors.
 
 Reporting Bugs
-------------
+--------------
 
 When reporting a bug, please include:
 
@@ -32,7 +32,7 @@ When reporting a bug, please include:
 - Environment information (OS, Python version, Nagios version, etc.)
 
 Suggesting Enhancements
----------------------
+-----------------------
 
 When suggesting an enhancement, please include:
 
@@ -42,7 +42,7 @@ When suggesting an enhancement, please include:
 - If applicable, information about similar features in other projects
 
 Pull Request Process
------------------
+--------------------
 
 1. Fork the repository
 2. Create a feature branch
@@ -58,7 +58,7 @@ Your pull request should:
 - Pass all CI checks
 
 Development Workflow
------------------
+--------------------
 
 See the :doc:`development` guide for detailed information on setting up a development environment, running tests, and building documentation.
 
@@ -81,7 +81,7 @@ You can then run the hooks against all files or specific paths:
    pre-commit run --files path/to/file.py docs/source/file.rst
 
 Commit Message Guidelines
-----------------------
+-------------------------
 
 We follow the Conventional Commits specification for commit messages:
 
@@ -117,7 +117,7 @@ Examples:
     test(check_monghealth): add tests for replica set checks
 
 Release Process
-------------
+---------------
 
 1. Update version number in:
    - ``pyproject.toml``
@@ -132,11 +132,11 @@ Release Process
 4. The CI pipeline will automatically build and publish the package to PyPI
 
 License
-------
+-------
 
 By contributing to this project, you agree that your contributions will be licensed under the project's MIT License.
 
 Contact
-------
+-------
 
 If you have any questions or need help, please open an issue on GitHub or contact the maintainers directly.

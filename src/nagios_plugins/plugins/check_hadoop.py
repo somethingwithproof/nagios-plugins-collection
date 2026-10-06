@@ -20,7 +20,7 @@ import json
 import logging
 import sys
 from datetime import datetime
-from typing import Optional
+from typing import Any
 
 import httpx
 from rich.console import Console
@@ -44,7 +44,7 @@ class HadoopClusterChecker:
     def __init__(
         self,
         url: str,
-        max_update_minutes: Optional[int] = None,
+        max_update_minutes: int | None = None,
         timeout: int = 30,
     ):
         """Initialize the Hadoop cluster health checker.
@@ -58,6 +58,55 @@ class HadoopClusterChecker:
         self.max_update_minutes = max_update_minutes
         self.timeout = timeout
         self.console = Console()
+
+    def _component_age(self, component: dict[str, Any], now: datetime) -> int | None:
+        """Return update age when a freshness limit and timestamp are available."""
+        if not self.max_update_minutes or "updated" not in component:
+            return None
+        updated = datetime.strptime(component["updated"], "%Y-%m-%d %H:%M:%S")
+        return int((now - updated).total_seconds() // 60)
+
+    def _component_metrics(
+        self, data: dict[str, Any]
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """Collect component health, update freshness and memory metrics."""
+        # Create basic metrics
+        metrics: dict[str, Any] = {"status": 1}
+        components_status = []
+        stale_components = []
+
+        # Check each subcomponent
+        now = datetime.now()
+        for component in data.get("subcomponents", []):
+            component_name = component.get("name", "unknown")
+            component_status = component.get("status", "unknown").lower()
+            metrics[f"component_{component_name}_status"] = 1 if component_status == "ok" else 0
+
+            # Check component status
+            if component_status != "ok":
+                components_status.append(
+                    f"Component '{component_name}' has status '{component_status}': "
+                    f"{component.get('message', 'No message')}"
+                )
+
+            age = self._component_age(component, now)
+            if age is not None:
+                metrics[f"component_{component_name}_minutes_since_update"] = age
+                if self.max_update_minutes is not None and age > self.max_update_minutes:
+                    stale_components.append(
+                        f"Component '{component_name}' updated {age}m ago (max:{self.max_update_minutes}m)"
+                    )
+
+        # Get memory information if available
+        mem_component = next(
+            (c for c in data.get("subcomponents", []) if c.get("name", "").lower() == "mem"),
+            None,
+        )
+        if mem_component:
+            mem_message = mem_component.get("message", "").replace("k", "")
+            metrics["mem"] = mem_message
+
+        return metrics, components_status, stale_components
 
     async def check_cluster(self) -> CheckResult:
         """Check the Hadoop cluster status.
@@ -83,47 +132,7 @@ class HadoopClusterChecker:
                     details=json.dumps(data, indent=2),
                 )
 
-            # Create basic metrics
-            metrics = {"status": 1}
-            components_status = []
-            stale_components = []
-
-            # Check each subcomponent
-            now = datetime.now()
-            for component in data.get("subcomponents", []):
-                component_name = component.get("name", "unknown")
-                component_status = component.get("status", "unknown").lower()
-                metrics[f"component_{component_name}_status"] = 1 if component_status == "ok" else 0
-
-                # Check component status
-                if component_status != "ok":
-                    components_status.append(
-                        f"Component '{component_name}' has status '{component_status}': "
-                        f"{component.get('message', 'No message')}"
-                    )
-
-                # Check component update time if specified
-                if self.max_update_minutes and "updated" in component:
-                    time_from_json = datetime.strptime(component["updated"], "%Y-%m-%d %H:%M:%S")
-                    time_delta = now - time_from_json
-                    time_delta_minutes = time_delta.days * 24 * 60 + time_delta.seconds // 60
-                    metrics[f"component_{component_name}_minutes_since_update"] = time_delta_minutes
-
-                    if time_delta_minutes > self.max_update_minutes:
-                        stale_components.append(
-                            f"Component '{component_name}' updated {time_delta_minutes}m ago "
-                            f"(max:{self.max_update_minutes}m)"
-                        )
-
-            # Get memory information if available
-            mem_component = next(
-                (c for c in data.get("subcomponents", []) if c.get("name", "").lower() == "mem"),
-                None,
-            )
-            if mem_component:
-                mem_message = mem_component.get("message", "").replace("k", "")
-                metrics["mem"] = mem_message
-
+            metrics, components_status, stale_components = self._component_metrics(data)
             # Evaluate results
             if components_status:
                 return CheckResult(
@@ -145,26 +154,26 @@ class HadoopClusterChecker:
             return CheckResult(
                 Status.OK,
                 "Hadoop cluster is healthy"
-                + (f", memory: {mem_message}" if "mem_message" in locals() else ""),
+                + (f", memory: {metrics['mem']}" if "mem" in metrics else ""),
                 metrics=metrics,
             )
 
         except httpx.HTTPError as e:
-            logger.error(f"HTTP error: {e}")
+            logger.exception("HTTP request failed")
             return CheckResult(
                 Status.CRITICAL,
                 f"Failed to connect to Hadoop API: {str(e)}",
                 metrics={"status": 0},
             )
         except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e}")
+            logger.exception("JSON response decoding failed")
             return CheckResult(
                 Status.CRITICAL,
                 f"Invalid JSON response from Hadoop API: {str(e)}",
                 metrics={"status": 0},
             )
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.exception("Unexpected monitoring failure")
             return CheckResult(
                 Status.UNKNOWN,
                 f"Unexpected error: {str(e)}",

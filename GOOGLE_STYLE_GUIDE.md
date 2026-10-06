@@ -79,9 +79,7 @@ def __init__(
 Example from `check_monghealth/check_monghealth_modernized.py`:
 
 ```python
-async def check_components(
-    self, required_components: List[Tuple[str, bool]]
-) -> CheckResult:
+async def check_components(self, required_components: List[Tuple[str, bool]]) -> CheckResult:
     """Check the status of MongoDB components.
 
     Args:
@@ -145,6 +143,7 @@ Example from `check_etl/etl_modernized.py`:
 @dataclass
 class CheckResult:
     """Data class to store check results."""
+
     status: Status
     message: str
     metrics: Dict[str, Any] = field(default_factory=dict)
@@ -181,9 +180,7 @@ Example from `check_etl/etl_modernized.py`:
 
 ```python
 try:
-    async with httpx.AsyncClient(
-        timeout=self.timeout, auth=self.auth
-    ) as client:
+    async with httpx.AsyncClient(timeout=self.timeout, auth=self.auth) as client:
         response = await client.get(url)
         response.raise_for_status()
 
@@ -197,9 +194,7 @@ try:
             try:
                 updated = datetime.fromisoformat(data["updated"])
             except (ValueError, TypeError):
-                logger.warning(
-                    "Invalid timestamp format: %s", data["updated"]
-                )
+                logger.warning("Invalid timestamp format: %s", data["updated"])
 
         return status, updated
 
@@ -221,9 +216,7 @@ def __str__(self) -> str:
     """Return the string representation of the check result."""
     output = f"{self.status} - {self.message}"
     if self.metrics:
-        metrics_str = " ".join(
-            f"{key}={value}" for key, value in self.metrics.items()
-        )
+        metrics_str = " ".join(f"{key}={value}" for key, value in self.metrics.items())
         output += f" | {metrics_str}"
     if self.details:
         output += f"\n{self.details}"
@@ -258,44 +251,21 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-## Tools for Google Style Guide Compliance
+## Tools and supported runtimes
 
-The following tools are configured in each plugin's `pyproject.toml` to ensure compliance with the Google Style Guide:
+Google-style docstrings accompany type annotations. Ruff formats code and
+sorts imports, with a 100-character line length and a Python 3.11 syntax target.
+Mypy checks typed production code using the flags in the root `pyproject.toml`.
+The supported, maintained runtime matrix is Python 3.11–3.14. Bandit and
+pip-audit provide security checks; Black, isort, pylint and Safety are not the
+active repository toolchain.
 
-1. **Black**: Code formatter with a line length of 100 characters
-2. **isort**: Import sorter configured to be compatible with Black
-3. **pylint**: Linter with Google Style Guide rules
-4. **mypy**: Static type checker
-
-Example configuration from `check_etl/pyproject.toml`:
-
-```toml
-[tool.black]
-line-length = 100
-target-version = ["py38", "py39", "py310", "py311", "py312"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-
-[tool.pylint]
-max-line-length = 100
-disable = [
-    "C0111",  # missing-docstring
-    "C0103",  # invalid-name
-    "C0330",  # bad-continuation
-    "C0326",  # bad-whitespace
-    "W0511",  # fixme
-]
+```bash
+ruff check src tests scripts
+ruff format src tests scripts
+mypy src tests scripts --ignore-missing-imports
+pre-commit run --all-files
 ```
 
-## Conclusion
-
-By following the Google Style Guide, the modernized Nagios plugins are more readable, maintainable, and consistent. This approach will be applied to all plugins in the collection, ensuring a high-quality, enterprise-grade codebase.
+Use the [development guide](docs/source/development.rst) for the locked setup,
+test and documentation commands. Retired runtimes are outside the support policy.

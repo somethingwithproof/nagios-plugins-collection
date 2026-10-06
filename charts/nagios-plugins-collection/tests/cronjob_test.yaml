@@ -2,7 +2,7 @@ suite: CronJob renders
 templates:
   - templates/cronjob.yaml
 values:
-  - values.yaml
+  - ../values.yaml
 
 tests:
   - it: uses provided schedule

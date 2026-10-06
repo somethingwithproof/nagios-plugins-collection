@@ -3,13 +3,22 @@ Changelog
 
 This document records all notable changes to the Nagios Plugins Collection.
 
+2.0.0 (2026-10-06)
+------------------
+
+Verified TLS defaults, caller-owned async deadlines, installed CLI contracts,
+maintained Python/Kubernetes matrices, native packages and SemVer release gates.
+See :doc:`releasing` for migration details. Documentation includes project logos
+and operational diagrams. Older entries below describe historical releases;
+their former platform support does not apply to the current release.
+
 1.0.0 (2025-04-06)
-----------------
+------------------
 
 Initial release of the refactored and enterprise-grade Nagios Plugins Collection.
 
 Features
-~~~~~~~
+~~~~~~~~
 
 - Restructured project as a proper Python module
 - Added comprehensive documentation
@@ -23,7 +32,7 @@ Features
 - Set up GitHub CI/CD workflows
 
 Plugins
-~~~~~~
+~~~~~~~
 
 - check_hadoop: Monitor Hadoop clusters and HDFS
 - check_monghealth: Monitor MongoDB health and performance
@@ -43,6 +52,6 @@ Plugins
 - xml_url_checker: Check XML content from URLs
 
 0.1.0 (Historical)
-----------------
+------------------
 
 Original collection of individual Nagios plugins.

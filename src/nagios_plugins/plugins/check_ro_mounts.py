@@ -17,12 +17,11 @@ Returns:
 """
 
 import argparse
+import asyncio
 import json
 import logging
-import re
 import sys
 import tempfile
-from typing import Dict, List, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -45,10 +44,10 @@ class MountStatusChecker:
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        ssh_user: Optional[str] = None,
+        host: str | None = None,
+        ssh_user: str | None = None,
         ssh_port: int = 22,
-        exclude_mounts: Optional[List[str]] = None,
+        exclude_mounts: list[str] | None = None,
         timeout: int = 30,
     ):
         """Initialize the mount status checker.
@@ -74,16 +73,18 @@ class MountStatusChecker:
         default_excludes = {"/proc", "/sys", "/dev", "/run", temp_dir, "/var/lib/docker"}
         self.exclude_mounts.update(default_excludes)
 
-    def _build_command(self) -> List[str]:
+    def _build_command(self) -> list[str]:
         """Build the command to execute.
 
         Returns:
             Command as a list of arguments
         """
         # The core command to check mount options
-        mount_cmd = "mount -l | grep ' ro,\\| ro '"
+        mount_cmd = "mount -l"
 
         if self.host:
+            if self.host.startswith("-"):
+                raise ValueError("SSH host must not begin with an option prefix")
             # Execute via SSH
             cmd = ["ssh"]
 
@@ -100,11 +101,11 @@ class MountStatusChecker:
             cmd.append(mount_cmd)
         else:
             # Execute locally with shell
-            cmd = ["sh", "-c", mount_cmd]
+            cmd = ["mount", "-l"]
 
         return cmd
 
-    def _parse_mount_output(self, output: str) -> List[Dict[str, str]]:
+    def _parse_mount_output(self, output: str) -> list[dict[str, str]]:
         """Parse mount command output.
 
         Args:
@@ -115,14 +116,12 @@ class MountStatusChecker:
         """
         mounts = []
 
-        # Regular expression to parse mount output
-        # Format: device on mount_point type fs_type (options)
-        mount_pattern = re.compile(r"(\S+) on (\S+) type (\S+) \(([^)]+)\)")
-
         for line in output.splitlines():
-            match = mount_pattern.search(line)
-            if match:
-                device, mount_point, fs_type, options = match.groups()
+            parsed = self._parse_mount_line(line)
+            if parsed:
+                device, mount_point, fs_type, options = parsed
+                if "ro" not in options.split(","):
+                    continue
 
                 # Skip excluded mount points
                 if any(mount_point.startswith(excl) for excl in self.exclude_mounts):
@@ -139,6 +138,20 @@ class MountStatusChecker:
 
         return mounts
 
+    @staticmethod
+    def _parse_mount_line(line: str) -> tuple[str, str, str, str] | None:
+        """Parse Linux mount output with bounded, linear delimiter searches."""
+        device, separator, remainder = line.partition(" on ")
+        if not separator:
+            return None
+        point, separator, remainder = remainder.partition(" type ")
+        if not separator:
+            return None
+        filesystem, separator, options = remainder.partition(" (")
+        if not separator or not options.endswith(")"):
+            return None
+        return device, point, filesystem, options[:-1]
+
     async def check_mounts(self) -> CheckResult:
         """Check for read-only mounts.
 
@@ -148,10 +161,14 @@ class MountStatusChecker:
         try:
             # Execute the command
             cmd = self._build_command()
-            exit_code, stdout, _stderr = execute_command(cmd, timeout=self.timeout)
+            exit_code, stdout, stderr = await asyncio.to_thread(
+                execute_command, cmd, timeout=self.timeout
+            )
+            if exit_code != 0:
+                return CheckResult(Status.UNKNOWN, f"Cannot inspect mounts: {stderr}")
 
             # Get the mount information
-            ro_mounts: List[Dict[str, str]] = []
+            ro_mounts: list[dict[str, str]] = []
 
             if exit_code == 0 and stdout.strip():
                 ro_mounts = self._parse_mount_output(stdout)

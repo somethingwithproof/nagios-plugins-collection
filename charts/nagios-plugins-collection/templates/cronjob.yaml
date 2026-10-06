@@ -12,9 +12,11 @@ spec:
       template:
         spec:
           serviceAccountName: {{ include "nagios-plugins-collection.serviceAccountName" . }}
+          automountServiceAccountToken: {{ .Values.serviceAccount.automountServiceAccountToken }}
           restartPolicy: Never
           containers:
             - name: plugin
+              securityContext: {{- toYaml .Values.securityContext | nindent 16 }}
               image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               command: {{ toJson .Values.command }}

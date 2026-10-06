@@ -3,7 +3,7 @@
     "method": "GET",
     "urlPath": "/api/v1/query",
     "queryParameters": {
-      "query": { "absent": true }
+      "query": { "equalTo": "up" }
     }
   },
   "response": {

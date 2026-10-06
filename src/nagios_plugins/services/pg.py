@@ -1,7 +1,10 @@
+"""Read PostgreSQL replication lag using a database connection."""
+
 from __future__ import annotations
 
 
 def replication_lag_seconds(dsn: str, timeout: int = 10) -> float:
+    """Return seconds since the last replayed PostgreSQL transaction."""
     try:
         import psycopg  # type: ignore
     except Exception as e:  # pragma: no cover

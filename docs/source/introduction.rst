@@ -1,49 +1,39 @@
 Introduction
 ============
 
-The Nagios Plugins Collection is a comprehensive set of monitoring plugins for Nagios and compatible monitoring systems. These plugins are designed to be enterprise-grade, with a focus on reliability, maintainability, and extensibility.
+The collection checks HTTP content and latency, certificates, DNS, filesystems,
+Kubernetes nodes, PostgreSQL, Redis and AWS services. Use the plugin index for
+the complete installed command set. Each command's ``--help`` is authoritative
+for its arguments; legacy health checks retain their specific interfaces.
 
-Features
---------
+Supported platforms
+-------------------
 
-- **Consistent Interface**: All plugins follow the same command-line interface pattern, making them easy to use and integrate.
-- **Comprehensive Documentation**: Each plugin is thoroughly documented, with examples and usage information.
-- **Extensive Test Coverage**: All plugins have unit and integration tests to ensure they work correctly.
-- **Multi-Version Support**: The plugins support multiple Python versions (3.7+) and Nagios versions.
-- **Performance Data**: All plugins provide performance data that can be used for trending and analysis.
-- **Threshold Handling**: Consistent threshold handling across all plugins, following Nagios plugin development guidelines.
-- **Error Handling**: Robust error handling to ensure plugins fail gracefully and provide useful error messages.
+Python 3.11–3.14 are exercised in CI. Native Debian packages are tested on Ubuntu
+24.04; RPMs are tested on Rocky Linux 9. The container uses maintained Python
+3.14 on Debian slim. The Helm chart validates maintained Kubernetes 1.35–1.37.
+Unmaintained platforms and Python releases are outside the support contract.
+CI and release publication fail when a declared platform reaches its retirement
+date; maintainers must update the matrix and policy before publishing again.
 
-Available Plugins
-----------------
+Python retirement dates conservatively use the first day of the upstream EOL
+month. OS eligibility ends at standard/full support, before extended phases.
+The policy was reviewed on 2026-10-06 against the upstream lifecycle pages:
 
-The collection includes plugins for monitoring:
+* `Python lifecycle <https://devguide.python.org/versions/>`_
+* `Ubuntu lifecycle <https://ubuntu.com/about/release-cycle>`_
+* `Rocky Linux lifecycle <https://docs.rockylinux.org/latest/releases/>`_
+* `Kubernetes releases <https://kubernetes.io/releases/>`_
 
-- **check_hadoop**: Monitor Hadoop clusters and HDFS
-- **check_monghealth**: Monitor MongoDB health and performance
-- **check_procs**: Check processes on remote systems via SSH
-- **check_mounts**: Check for read-only mounts on a system
-- **check_counters_db**: Monitor Vertica database counters
-- **check_dig**: Check DNS resolution
-- **check_etl**: Monitor ETL processes
-- **check_http500**: Check for HTTP 500 errors
-- **check_jobs**: Monitor job execution
-- **check_scribe**: Monitor Scribe log aggregation
-- **check_statusthroughweb**: Check status through a web interface
-- **check_website_status**: Check website status
-- **check_advanced_website_status**: Advanced website status checking
-- **membase_stats**: Monitor Membase/Couchbase statistics
-- **url_monitor**: Monitor URLs for availability and content
-- **xml_url_checker**: Check XML content from URLs
+Monitoring semantics
+--------------------
 
-Requirements
------------
+Exit codes are OK=0, WARNING=1, CRITICAL=2 and UNKNOWN=3. HTTP/TLS checks verify
+the peer; a private CA can be supplied explicitly. HTTP SLI latency thresholds
+are milliseconds; website thresholds are seconds. JSON and performance data
+accompany results where the command supports those outputs.
 
-- Python 3.7 or higher
-- Nagios 4.4.6 or higher (or compatible monitoring system)
-- Required Python packages (installed automatically when using pip)
-
-License
--------
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+CI verifies Python APIs, all installed entrypoints, trust and freshness behavior,
+service-client contracts, coverage, formatting, typing, documentation, security,
+Helm manifests and disposable-container end-to-end checks. These checks test
+the plugin protocol; they do not claim a live Nagios-server version matrix.

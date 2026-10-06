@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0 — 2026-10-06
+
+Verified TLS defaults, async cancellation ownership, maintained-platform policy and wheel/Helm/DEB/RPM releases.
+
+Documentation includes migration, installation, release checks, SVG project branding and operational diagrams.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -25,13 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `ThresholdRange` class for better threshold handling
 - Added `get_directory_size` utility function
 - Added `get_system_info` utility function
-- Added security scanning with bandit and safety
+- Added security scanning with Bandit and pip-audit
 - Added CommandResult dataclass for better command execution results
 - Added timestamp to CheckResult for better tracking
 - Added to_json method to CheckResult for JSON serialization
 
 ### Changed
-- Modernized codebase to use Python 3.8+ features
+- Modernized codebase to use maintained Python 3.11–3.14 features
 - Updated all dependencies to latest versions
 - Improved error handling with better error messages
 - Refactored base plugin class for better extensibility
@@ -43,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced test coverage and test organization
 
 ### Removed
-- Support for Python 3.7 (now requires Python 3.8+)
+- Support for Python 3.7 (now requires maintained Python 3.11–3.14)
 - Deprecated utility functions replaced with modern alternatives
 
 ## [1.0.0] - 2024-01-01

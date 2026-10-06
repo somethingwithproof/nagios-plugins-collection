@@ -1,31 +1,31 @@
-"""Tests for HTTP SLI plugin."""
+"""Exercise the synchronous CLI with actual async HTTP client behavior."""
 
-from unittest.mock import MagicMock, patch
+from datetime import timedelta
+from unittest.mock import patch
 
+import httpx
 import pytest
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_http_sli import CheckHttpSli
 
 
-@pytest.mark.asyncio
-async def test_http_sli_ok() -> None:
-    plugin = CheckHttpSli()
+@pytest.mark.parametrize("samples", [1, 2])
+def test_http_sli_ok(samples: int) -> None:
+    def respond(request: httpx.Request) -> httpx.Response:
+        response = httpx.Response(200, request=request)
+        response.elapsed = timedelta(milliseconds=50)
+        return response
 
-    # Mock AsyncClient.get to return elapsed times
-    class Resp:
-        def __init__(self, t: float):
-            self.elapsed = MagicMock(total_seconds=lambda: t)
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    with patch("httpx.AsyncClient", return_value=client):
+        code = CheckHttpSli().run(["--url", "https://example.com", "--samples", str(samples)])
+    assert code == Status.OK.value
 
-        def raise_for_status(self) -> None:  # noqa: D401 - simple stub
-            return None
 
-    async def fake_get(url: str, follow_redirects: bool = True) -> Resp:  # noqa: ARG001
-        return Resp(0.05)
-
-    with patch("httpx.AsyncClient.__aenter__", new=MagicMock()), patch(
-        "httpx.AsyncClient.get", side_effect=fake_get
-    ):
-        # Build args
-        code = plugin.run(["--url", "https://example.com", "--samples", "2"])
-        assert code == Status.OK.value
+@pytest.mark.parametrize("thresholds", [[], ["--warning", "200"], ["--critical", "500"]])
+def test_all_failed_probes_are_critical(thresholds: list[str]) -> None:
+    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(503)))
+    with patch("httpx.AsyncClient", return_value=client):
+        code = CheckHttpSli().run(["--url", "https://example.com", *thresholds])
+    assert code == Status.CRITICAL.value

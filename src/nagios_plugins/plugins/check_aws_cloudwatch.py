@@ -13,6 +13,7 @@ Example:
         --warning 70 \\
         --critical 90
 """
+
 from __future__ import annotations
 
 import argparse
@@ -107,7 +108,7 @@ class CheckAwsCloudwatch(NagiosPlugin):
                 timeout=args.timeout,
             )
 
-            value = result["value"]
+            value = float(result["value"])
             unit = result["unit"]
 
             # Check against thresholds
@@ -164,36 +165,22 @@ class CheckAwsCloudwatch(NagiosPlugin):
                 dimensions.append({"Name": name.strip(), "Value": value.strip()})
             return dimensions
 
-        # Build dimensions based on namespace
-        namespace = args.namespace.upper()
-
-        if "EC2" in namespace:
-            if not args.instance_id:
-                raise ValueError("--instance-id required for AWS/EC2 namespace")
-            dimensions.append({"Name": "InstanceId", "Value": args.instance_id})
-
-        elif "RDS" in namespace:
-            if not args.db_instance_id:
-                raise ValueError("--db-instance-id required for AWS/RDS namespace")
-            dimensions.append({"Name": "DBInstanceIdentifier", "Value": args.db_instance_id})
-
-        elif "LAMBDA" in namespace:
-            if not args.function_name:
-                raise ValueError("--function-name required for AWS/Lambda namespace")
-            dimensions.append({"Name": "FunctionName", "Value": args.function_name})
-
-        elif "ELB" in namespace:
-            if not args.load_balancer_name:
-                raise ValueError("--load-balancer-name required for AWS/ELB namespace")
-            dimensions.append({"Name": "LoadBalancerName", "Value": args.load_balancer_name})
-
-        else:
-            raise ValueError(
-                f"Unsupported namespace: {args.namespace}. "
-                "Use --dimensions to specify custom dimensions."
-            )
-
-        return dimensions
+        for service, attribute, label in (
+            ("EC2", "instance_id", "InstanceId"),
+            ("RDS", "db_instance_id", "DBInstanceIdentifier"),
+            ("LAMBDA", "function_name", "FunctionName"),
+            ("ELB", "load_balancer_name", "LoadBalancerName"),
+        ):
+            if service in args.namespace.upper():
+                value = getattr(args, attribute)
+                if not value:
+                    raise ValueError(
+                        f"--{attribute.replace('_', '-')} required for AWS/{service} namespace"
+                    )
+                return [{"Name": label, "Value": value}]
+        raise ValueError(
+            f"Unsupported namespace: {args.namespace}. Use --dimensions to specify custom dimensions."
+        )
 
 
 def main() -> int:

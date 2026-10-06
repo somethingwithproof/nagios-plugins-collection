@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Monitor Kubernetes node readiness."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,11 +10,15 @@ from nagios_plugins.services.k8s import summarize_nodes
 
 
 class CheckK8sNodeStatus(NagiosPlugin):
+    """Monitor Kubernetes node readiness."""
+
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--label", dest="label", help="Label selector for nodes")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         try:
             s = summarize_nodes(label_selector=args.label, timeout=args.timeout)
         except RuntimeError as e:
@@ -32,6 +38,7 @@ class CheckK8sNodeStatus(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckK8sNodeStatus().run()
 
 

@@ -16,6 +16,7 @@ Returns:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -39,10 +40,11 @@ logger = logging.getLogger("check_mongodb_health")
 class MongoHealthChecker:
     """MongoDB health checker."""
 
+    SEARCH_SERVICE = "Search service"
     MODE_CHECKS = {
-        1: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
-        2: [("search_reachable", "Search service"), ("site_api_reachable", "Site API")],
-        3: [("mongrations_current", "Current migrations"), ("search_reachable", "Search service")],
+        1: [("mongrations_current", "Current migrations"), ("search_reachable", SEARCH_SERVICE)],
+        2: [("search_reachable", SEARCH_SERVICE), ("site_api_reachable", "Site API")],
+        3: [("mongrations_current", "Current migrations"), ("search_reachable", SEARCH_SERVICE)],
     }
 
     def __init__(
@@ -78,15 +80,13 @@ class MongoHealthChecker:
         try:
             # Normalize URL format
             if not self.url.startswith(("http://", "https://")):
-                normalized_url = f"http://{self.url}"
+                normalized_url = f"https://{self.url}"
             else:
                 normalized_url = self.url
 
             # Get health status using HTTP endpoint check utility
-            status, message, response_data = await check_http_endpoint_async(
-                url=normalized_url,
-                timeout=self.timeout,
-            )
+            async with asyncio.timeout(self.timeout):
+                status, message, response_data = await check_http_endpoint_async(url=normalized_url)
 
             # Create metrics dictionary
             metrics = {
@@ -120,11 +120,8 @@ class MongoHealthChecker:
 
             failing_checks = []
             for check_key, check_name in required_checks:
-                metrics[f"check_{check_key}"] = (
-                    1 if check_key in response_data and response_data.get(check_key) else 0
-                )
-
-                if check_key not in response_data or not response_data.get(check_key):
+                metrics[f"check_{check_key}"] = int(bool(response_data.get(check_key)))
+                if not response_data.get(check_key):
                     failing_checks.append(check_name)
                 else:
                     metrics["passing_checks"] += 1
@@ -146,6 +143,10 @@ class MongoHealthChecker:
                 details=json.dumps(response_data, indent=2),
             )
 
+        except TimeoutError:
+            return CheckResult(
+                Status.CRITICAL, "MongoDB health request timed out", metrics={"error": 1}
+            )
         except Exception as e:
             logger.exception("Error checking MongoDB health")
             return CheckResult(

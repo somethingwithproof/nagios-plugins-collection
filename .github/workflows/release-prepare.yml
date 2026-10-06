@@ -17,22 +17,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - \18e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
       - name: Set up Python
-        \183679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: '3.12'
           cache: 'pip'
       - name: Install build deps
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
       - name: Build sdist and wheel
-        run: python -m build
+        run: python -m build --no-isolation
       - name: Twine check
         run: python -m twine check dist/*
       - name: Upload artifacts
-        \1b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: dist-artifacts
           path: dist/
@@ -43,7 +42,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: testpypi
     steps:
-      - \1d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: dist-artifacts
           path: dist
@@ -52,6 +55,5 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.TESTPYPI_API_TOKEN }}
         run: |
-          python -m pip install --upgrade pip
-          pip install twine
+          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
           python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*

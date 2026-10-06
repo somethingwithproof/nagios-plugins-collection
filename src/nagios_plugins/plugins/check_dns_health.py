@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Monitor DNS answers and resolution latency."""
+
 from __future__ import annotations
 
 import argparse
@@ -17,6 +19,7 @@ class CheckDnsHealth(NagiosPlugin):
     """Check DNS recursion/authoritative responsiveness and TCP fallback (optional dnspython)."""
 
     def __init__(self) -> None:
+        """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--name", required=True, help="Name to resolve")
         self.parser.add_argument("--type", default="A", help="Record type")
@@ -24,6 +27,7 @@ class CheckDnsHealth(NagiosPlugin):
         self.parser.add_argument("--tcp", action="store_true", help="Force TCP")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
+        """Evaluate the configured check and return status and performance data."""
         if not _DNS_OK:
             return CheckResult(Status.UNKNOWN, "dnspython not installed; install [dns] extra")
         try:
@@ -54,6 +58,7 @@ class CheckDnsHealth(NagiosPlugin):
 
 
 def main() -> int:
+    """Run the installed command and return its Nagios status code."""
     return CheckDnsHealth().run()
 
 

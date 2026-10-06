@@ -1,0 +1,1 @@
+"""Nagios plugin regression tests."""

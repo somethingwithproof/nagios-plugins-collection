@@ -13,14 +13,14 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.traceback import install as install_rich_traceback
 
 # Install rich traceback handler for better exception formatting
-install_rich_traceback(show_locals=True)
+install_rich_traceback(show_locals=False)
 
 
 class Status(Enum):
@@ -60,8 +60,8 @@ class CheckResult:
 
     status: Status
     message: str
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    details: Optional[str] = None
+    metrics: dict[str, Any] = field(default_factory=dict)
+    details: str | None = None
     timestamp: float = field(default_factory=time.time)
 
     def __str__(self) -> str:
@@ -160,7 +160,7 @@ class NagiosPlugin(ABC):
         )
         return parser
 
-    def parse_args(self, args: Optional[List[str]] = None) -> argparse.Namespace:
+    def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         """Parse command-line arguments.
 
         Args:
@@ -190,7 +190,7 @@ class NagiosPlugin(ABC):
             The check result.
         """
 
-    def run(self, args: Optional[List[str]] = None) -> int:
+    def run(self, args: list[str] | None = None) -> int:
         """Run the plugin.
 
         Args:
@@ -230,8 +230,8 @@ class ThresholdRange:
 
     def __init__(
         self,
-        min_value: Optional[float] = None,
-        max_value: Optional[float] = None,
+        min_value: float | None = None,
+        max_value: float | None = None,
         inclusive: bool = False,
     ) -> None:
         """Initialize a threshold range.
@@ -272,27 +272,20 @@ class ThresholdRange:
                 return cls(None, value, inclusive)
             except ValueError as exc:
                 raise ValueError(f"Invalid threshold value: {threshold}") from exc
-        else:
-            # Range
-            parts = threshold.split(":")
-            if len(parts) != 2:
-                raise ValueError(f"Invalid threshold format: {threshold}")
+        parts = threshold.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid threshold format: {threshold}")
+        return cls(cls._bound(parts[0], "minimum"), cls._bound(parts[1], "maximum"), inclusive)
 
-            min_val = None
-            if parts[0]:
-                try:
-                    min_val = float(parts[0])
-                except ValueError as exc:
-                    raise ValueError(f"Invalid minimum threshold: {parts[0]}") from exc
-
-            max_val = None
-            if parts[1]:
-                try:
-                    max_val = float(parts[1])
-                except ValueError as exc:
-                    raise ValueError(f"Invalid maximum threshold: {parts[1]}") from exc
-
-            return cls(min_val, max_val, inclusive)
+    @staticmethod
+    def _bound(value: str, label: str) -> float | None:
+        """Parse one optional bound and identify malformed input precisely."""
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError as exc:
+            raise ValueError(f"Invalid {label} threshold: {value}") from exc
 
     def check(self, value: float) -> bool:
         """Check if a value is within the threshold range.
@@ -309,9 +302,9 @@ class ThresholdRange:
             if self.min_value is not None and self.max_value is not None:
                 return not (self.min_value < value < self.max_value)
             elif self.min_value is not None:
-                return not (value > self.min_value)
+                return value <= self.min_value
             elif self.max_value is not None:
-                return not (value < self.max_value)
+                return value >= self.max_value
             return True
         else:
             # Outside the range is bad
@@ -338,8 +331,8 @@ class ThresholdRange:
 
 def threshold_check(
     value: float,
-    warning: Optional[str] = None,
-    critical: Optional[str] = None,
+    warning: str | None = None,
+    critical: str | None = None,
 ) -> Status:
     """Check a value against warning and critical thresholds.
 
@@ -384,7 +377,7 @@ def threshold_check(
 
 
 # For backward compatibility
-def _parse_threshold(threshold: str) -> Tuple[Optional[float], Optional[float], bool]:
+def _parse_threshold(threshold: str) -> tuple[float | None, float | None, bool]:
     """Parse a threshold string into a range.
 
     Args:
@@ -398,7 +391,7 @@ def _parse_threshold(threshold: str) -> Tuple[Optional[float], Optional[float], 
 
 
 # For backward compatibility
-def _is_in_range(value: float, range_tuple: Tuple[Optional[float], Optional[float], bool]) -> bool:
+def _is_in_range(value: float, range_tuple: tuple[float | None, float | None, bool]) -> bool:
     """Check if a value is in a range.
 
     Args:

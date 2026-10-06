@@ -1,0 +1,5 @@
+-r build-requirements.in
+-r container-requirements.in
+pip>=26.2
+pip-licenses
+docstr-coverage>=2.2.0

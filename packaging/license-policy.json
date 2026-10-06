@@ -1,0 +1,8 @@
+{
+  "allowed": ["MIT", "MIT License", "MIT-0", "Apache-2.0", "Apache 2.0", "Apache Software License", "Apache License 2.0", "BSD-2-Clause", "BSD-3-Clause", "BSD License", "BSD 3-Clause", "ISC", "ISC License (ISCL)", "PSF-2.0", "Python Software Foundation License", "MPL-2.0", "Mozilla Public License 2.0 (MPL 2.0)", "0BSD", "CC0-1.0"],
+  "exceptions": {
+    "paramiko": {"licenses": ["LGPL-2.1"], "reason": "Existing optional SSH client; retain its original license notices."},
+    "psycopg": {"licenses": ["LGPL-3.0-only"], "reason": "Existing PostgreSQL client; retain its original license notices."},
+    "psycopg-binary": {"licenses": ["LGPL-3.0-only"], "reason": "Unmodified platform-specific PostgreSQL client in the container; retain its original license notices."}
+  }
+}

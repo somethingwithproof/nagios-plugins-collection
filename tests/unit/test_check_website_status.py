@@ -1,12 +1,37 @@
 """Tests for the check_website_status plugin."""
 
-from unittest.mock import MagicMock, patch
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_website_status import WebsiteStatusChecker
+
+
+@pytest.mark.asyncio
+async def test_invalid_pattern_does_not_retry_transport() -> None:
+    """An invalid regex returns UNKNOWN after one response without retry sleeps."""
+    requests = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        response = httpx.Response(200, text="healthy", request=request)
+        response.elapsed = timedelta(milliseconds=5)
+        return response
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    with (
+        patch("httpx.AsyncClient", return_value=client),
+        patch("asyncio.sleep", new=AsyncMock()) as sleep,
+    ):
+        result = await WebsiteStatusChecker(
+            "https://example.com", pattern="[", retries=3
+        ).check_website()
+    assert result.status == Status.UNKNOWN
+    assert len(requests) == 1
+    sleep.assert_not_called()
 
 
 class TestWebsiteStatusChecker:
@@ -34,7 +59,7 @@ class TestWebsiteStatusChecker:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
+            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -58,7 +83,7 @@ class TestWebsiteStatusChecker:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
+            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -82,7 +107,7 @@ class TestWebsiteStatusChecker:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
+            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -104,7 +129,7 @@ class TestWebsiteStatusChecker:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
+            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -126,7 +151,7 @@ class TestWebsiteStatusChecker:
 
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
+            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -143,8 +168,8 @@ class TestWebsiteStatusChecker:
         """Test a website check that times out."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = httpx.TimeoutException(
-                "Timeout"
+            mock_instance.__aenter__.return_value.request = AsyncMock(
+                side_effect=httpx.TimeoutException("Timeout")
             )
             mock_client.return_value = mock_instance
 
@@ -160,7 +185,9 @@ class TestWebsiteStatusChecker:
         """Test a website check with an HTTP error."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = httpx.HTTPError("HTTP Error")
+            mock_instance.__aenter__.return_value.request = AsyncMock(
+                side_effect=httpx.HTTPError("HTTP Error")
+            )
             mock_client.return_value = mock_instance
 
             result = await checker.check_website()
@@ -175,7 +202,9 @@ class TestWebsiteStatusChecker:
         """Test a website check with an unexpected error."""
         with patch("httpx.AsyncClient") as mock_client:
             mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = Exception("Unexpected error")
+            mock_instance.__aenter__.return_value.request = AsyncMock(
+                side_effect=Exception("Unexpected error")
+            )
             mock_client.return_value = mock_instance
 
             # Mock logger to prevent output during tests

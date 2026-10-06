@@ -22,9 +22,9 @@ Returns:
 import argparse
 import asyncio
 import logging
+import shlex
 import sys
 import time
-from typing import List, Optional
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -49,16 +49,16 @@ class SSHDNSChecker:
         self,
         ssh_host: str,
         query_address: str,
-        ssh_user: Optional[str] = None,
+        ssh_user: str | None = None,
         ssh_port: int = 22,
         dns_port: int = 53,
         record_type: str = "A",
-        dig_arguments: Optional[str] = None,
-        expected_address: Optional[str] = None,
+        dig_arguments: str | None = None,
+        expected_address: str | None = None,
         timeout: int = 30,
         retries: int = 1,
-        warning_threshold: Optional[float] = None,
-        critical_threshold: Optional[float] = None,
+        warning_threshold: float | None = None,
+        critical_threshold: float | None = None,
     ):
         """Initialize the SSH DNS checker.
 
@@ -90,7 +90,7 @@ class SSHDNSChecker:
         self.critical_threshold = critical_threshold
         self.console = Console()
 
-    def _build_ssh_command(self, dig_command: str) -> List[str]:
+    def _build_ssh_command(self, dig_command: str) -> list[str]:
         """Build the SSH command to execute.
 
         Args:
@@ -99,6 +99,8 @@ class SSHDNSChecker:
         Returns:
             List of command arguments for SSH
         """
+        if self.ssh_host.startswith("-"):
+            raise ValueError("SSH host must not begin with an option prefix")
         cmd = ["ssh", "-p", str(self.ssh_port)]
 
         # Add SSH user if specified
@@ -117,12 +119,55 @@ class SSHDNSChecker:
         Returns:
             Dig command string
         """
-        cmd = f"dig -p {self.dns_port} -t {self.record_type} +short {self.query_address}"
-
+        arguments = [
+            "dig",
+            "-p",
+            str(self.dns_port),
+            "-t",
+            self.record_type,
+            "+short",
+            self.query_address,
+        ]
         if self.dig_arguments:
-            cmd += f" {self.dig_arguments}"
+            arguments.extend(shlex.split(self.dig_arguments))
+        return shlex.join(arguments)
 
-        return cmd
+    def _response_result(self, response: str, duration: float) -> CheckResult:
+        """Classify DNS output and latency after a successful SSH command."""
+        # Check expected address
+        if self.expected_address and self.expected_address not in response:
+            return CheckResult(
+                Status.CRITICAL,
+                f"Expected address '{self.expected_address}' not found",
+                metrics={"duration": duration, "response_matches": 0},
+                details=f"Response: {response}",
+            )
+
+        # Check thresholds
+        status = Status.OK
+        message = f"DNS response received in {duration:.2f}s"
+
+        if self.critical_threshold and duration > self.critical_threshold:
+            status = Status.CRITICAL
+            message = f"Query took {duration:.2f}s (critical: {self.critical_threshold}s)"
+        elif self.warning_threshold and duration > self.warning_threshold:
+            status = Status.WARNING
+            message = f"Query took {duration:.2f}s (warning threshold: {self.warning_threshold}s)"
+
+        # Create metrics
+        metrics = {
+            "duration": duration,
+            "response_matches": (
+                1 if not self.expected_address or self.expected_address in response else 0
+            ),
+        }
+
+        return CheckResult(
+            status,
+            message,
+            metrics=metrics,
+            details=f"Response: {response}",
+        )
 
     async def check_dns(self) -> CheckResult:
         """Check DNS via SSH.
@@ -141,55 +186,21 @@ class SSHDNSChecker:
 
                 # Measure execution time
                 start_time = time.time()
-                result = await execute_command_async(ssh_cmd, timeout=self.timeout)
+                async with asyncio.timeout(self.timeout):
+                    result = await execute_command_async(ssh_cmd)
                 duration = time.time() - start_time
 
                 # Process result
                 if result.exit_code != 0:
-                    raise Exception(f"SSH command failed: {result.stderr}")
+                    raise RuntimeError(f"SSH command failed: {result.stderr}")
 
                 # Response is in stdout
                 response = result.stdout.strip()
 
-                # Check expected address
-                if self.expected_address and self.expected_address not in response:
-                    return CheckResult(
-                        Status.CRITICAL,
-                        f"Expected address '{self.expected_address}' not found",
-                        metrics={"duration": duration, "response_matches": 0},
-                        details=f"Response: {response}",
-                    )
-
-                # Check thresholds
-                status = Status.OK
-                message = f"DNS response received in {duration:.2f}s"
-
-                if self.critical_threshold and duration > self.critical_threshold:
-                    status = Status.CRITICAL
-                    message = f"Query took {duration:.2f}s (critical: {self.critical_threshold}s)"
-                elif self.warning_threshold and duration > self.warning_threshold:
-                    status = Status.WARNING
-                    message = (
-                        f"Query took {duration:.2f}s (warning threshold: {self.warning_threshold}s)"
-                    )
-
-                # Create metrics
-                metrics = {
-                    "duration": duration,
-                    "response_matches": (
-                        1 if not self.expected_address or self.expected_address in response else 0
-                    ),
-                }
-
-                return CheckResult(
-                    status,
-                    message,
-                    metrics=metrics,
-                    details=f"Response: {response}",
-                )
+                return self._response_result(response, duration)
 
             except Exception as e:
-                logger.error(f"Attempt {attempt + 1} failed: {e}")
+                logger.exception("DNS attempt %s failed", attempt + 1)
                 last_error = str(e)
                 attempt += 1
 
@@ -206,14 +217,11 @@ class SSHDNSChecker:
         )
 
 
-async def execute_command_async(
-    command: List[str], timeout: int = 30, shell: bool = False
-) -> CommandResult:
+async def execute_command_async(command: list[str], shell: bool = False) -> CommandResult:
     """Execute a command asynchronously and return the result.
 
     Args:
         command: The command to execute as a list of strings.
-        timeout: The timeout in seconds.
         shell: Whether to execute the command in a shell.
 
     Returns:
@@ -222,37 +230,20 @@ async def execute_command_async(
     start_time = time.time()
 
     if shell:
-        # If shell is True, join the command list into a string
-        cmd = " ".join(command) if isinstance(command, list) else command
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-    else:
-        process = await asyncio.create_subprocess_exec(
-            *command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        raise ValueError("shell=True is disallowed by project security standards")
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
 
     try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        stdout, stderr = await process.communicate()
         execution_time = time.time() - start_time
         return CommandResult(
             exit_code=process.returncode or 0,
             stdout=stdout.decode("utf-8", errors="replace"),
             stderr=stderr.decode("utf-8", errors="replace"),
-            execution_time=execution_time,
-        )
-    except asyncio.TimeoutError:
-        process.kill()
-        stdout, stderr = await process.communicate()
-        execution_time = time.time() - start_time
-        return CommandResult(
-            exit_code=1,
-            stdout=stdout.decode("utf-8", errors="replace") if stdout else "",
-            stderr=f"Command timed out after {timeout} seconds: {' '.join(command)}",
             execution_time=execution_time,
         )
     except Exception as exc:
@@ -263,6 +254,10 @@ async def execute_command_async(
             stderr=f"Error executing command: {str(exc)}",
             execution_time=execution_time,
         )
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
 
 
 def parse_args() -> argparse.Namespace:

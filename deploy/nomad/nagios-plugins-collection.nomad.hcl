@@ -1,12 +1,19 @@
 job "nagios-plugins-collection" {
   datacenters = ["dc1"]
+  type = "batch"
+
+  periodic {
+    cron             = "*/10 * * * *"
+    prohibit_overlap = true
+    time_zone        = "UTC"
+  }
 
   group "checks" {
     task "plugin" {
       driver = "docker"
       config {
-        image = "ghcr.io/thomasvincent/nagios-plugins-collection:latest"
-        args  = ["check_website_status", "--url=https://example.com", "--pattern=Example"]
+        image = "ghcr.io/somethingwithproof/nagios-plugins-collection:latest"
+        args  = ["--url=https://example.com", "--pattern=Example"]
       }
 
       env = {
@@ -19,11 +26,5 @@ job "nagios-plugins-collection" {
       }
     }
 
-    # periodic schedule (every 10 minutes)
-    periodic {
-      cron             = "*/10 * * * *"
-      prohibit_overlap = true
-      time_zone        = "UTC"
-    }
   }
 }

@@ -18,11 +18,12 @@ Returns:
 """
 
 import argparse
+import asyncio
 import datetime
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -46,9 +47,9 @@ class ComponentStatusChecker:
     def __init__(
         self,
         url: str,
-        components: List[str],
+        components: list[str],
         warning_threshold: int = 10,
-        critical_threshold: Optional[int] = None,
+        critical_threshold: int | None = None,
         timeout: int = 10,
     ):
         """Initialize the component status checker.
@@ -69,7 +70,7 @@ class ComponentStatusChecker:
 
     async def get_component_status(
         self, component: str
-    ) -> Tuple[str, Optional[datetime.datetime], Dict[str, Any]]:
+    ) -> tuple[str, datetime.datetime | None, dict[str, Any]]:
         """Check the status of a component by querying the JSON API.
 
         Args:
@@ -82,14 +83,20 @@ class ComponentStatusChecker:
             - metrics is a dictionary of component metrics
         """
         # Ensure URL has proper format
-        api_url = f"http://{self.url}/api/component/{component}"
+        base_url = (
+            self.url if self.url.startswith(("http://", "https://")) else f"https://{self.url}"
+        )
+        api_url = f"{base_url.rstrip('/')}/api/component/{component}"
 
         # Use the utility function for HTTP checking
-        status, message, response_data = await check_http_endpoint_async(
-            url=api_url,
-            timeout=self.timeout,
-            expected_status=200,
-        )
+        try:
+            async with asyncio.timeout(self.timeout):
+                status, message, response_data = await check_http_endpoint_async(
+                    url=api_url, expected_status=200
+                )
+        except TimeoutError:
+            logger.warning("Component request timed out")
+            return "error", None, {"status": "error"}
 
         # Process response
         if status == Status.OK and response_data:
@@ -101,6 +108,8 @@ class ComponentStatusChecker:
             if updated_str:
                 try:
                     updated_time = datetime.datetime.fromisoformat(updated_str)
+                    if updated_time.tzinfo is None:
+                        updated_time = updated_time.replace(tzinfo=datetime.UTC)
                 except (ValueError, TypeError):
                     logger.warning(f"Invalid timestamp format: {updated_str}")
 
@@ -129,7 +138,7 @@ class ComponentStatusChecker:
             warning_components = []
 
             # Get current time for freshness checks
-            current_time = datetime.datetime.now()
+            current_time = datetime.datetime.now(datetime.UTC)
 
             for component in self.components:
                 status, updated_time, metrics = await self.get_component_status(component)
