@@ -2,64 +2,47 @@
 # SPDX-License-Identifier: Apache-2.0
 version: 2
 updates:
-  # pip weekdays (Mon-Fri)
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule: { interval: "weekly", day: "monday", time: "04:00", timezone: "UTC" }
-    open-pull-requests-limit: 10
-    versioning-strategy: increase
-    rebase-strategy: auto
-    labels: ["dependencies", "python", "bot"]
-    commit-message: { prefix: "chore", include: "scope" }
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule: { interval: "weekly", day: "tuesday", time: "04:00", timezone: "UTC" }
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule: { interval: "weekly", day: "wednesday", time: "04:00", timezone: "UTC" }
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule: { interval: "weekly", day: "thursday", time: "04:00", timezone: "UTC" }
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule: { interval: "weekly", day: "friday", time: "04:00", timezone: "UTC" }
-
-  # github-actions weekdays
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly", day: "monday", time: "04:10", timezone: "UTC" }
-    open-pull-requests-limit: 10
-    labels: ["dependencies", "ci", "bot"]
-    commit-message: { prefix: "chore", include: "scope" }
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly", day: "tuesday", time: "04:10", timezone: "UTC" }
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly", day: "wednesday", time: "04:10", timezone: "UTC" }
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly", day: "thursday", time: "04:10", timezone: "UTC" }
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule: { interval: "weekly", day: "friday", time: "04:10", timezone: "UTC" }
-
-  # docker weekdays
-  - package-ecosystem: "docker"
-    directory: "/docker"
-    schedule: { interval: "weekly", day: "monday", time: "04:20", timezone: "UTC" }
-    open-pull-requests-limit: 10
-    labels: ["dependencies", "docker", "bot"]
-    commit-message: { prefix: "chore", include: "scope" }
-  - package-ecosystem: "docker"
-    directory: "/docker"
-    schedule: { interval: "weekly", day: "tuesday", time: "04:20", timezone: "UTC" }
-  - package-ecosystem: "docker"
-    directory: "/docker"
-    schedule: { interval: "weekly", day: "wednesday", time: "04:20", timezone: "UTC" }
-  - package-ecosystem: "docker"
-    directory: "/docker"
-    schedule: { interval: "weekly", day: "thursday", time: "04:20", timezone: "UTC" }
-  - package-ecosystem: "docker"
-    directory: "/docker"
-    schedule: { interval: "weekly", day: "friday", time: "04:20", timezone: "UTC" }
+- package-ecosystem: pip
+  directory: /
+  schedule:
+    interval: daily
+    time: 04:00
+    timezone: UTC
+  open-pull-requests-limit: 10
+  versioning-strategy: increase
+  rebase-strategy: auto
+  labels:
+  - dependencies
+  - python
+  - bot
+  commit-message:
+    prefix: chore
+    include: scope
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: daily
+    time: 04:10
+    timezone: UTC
+  open-pull-requests-limit: 10
+  labels:
+  - dependencies
+  - ci
+  - bot
+  commit-message:
+    prefix: chore
+    include: scope
+- package-ecosystem: docker
+  directory: /docker
+  schedule:
+    interval: daily
+    time: 04:20
+    timezone: UTC
+  open-pull-requests-limit: 10
+  labels:
+  - dependencies
+  - docker
+  - bot
+  commit-message:
+    prefix: chore
+    include: scope
