@@ -12,11 +12,14 @@ the same GitHub release. Verify the files before installing:
 
 .. code-block:: bash
 
-   sha256sum --check SHA256SUMS
+   sha256sum --check --ignore-missing SHA256SUMS
+
    sudo apt install ./nagios-plugins-collection_2.0.0_all.deb
    # On Rocky Linux 9:
    sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm
    /usr/lib/nagios/plugins/check_website_status --help
+
+Require the artifact you selected to report ``OK`` in the checksum output.
 
 Native packages bundle portable monitoring clients and require system libpq.
 The RPM selects Python 3.12; the Debian package uses supported system Python.

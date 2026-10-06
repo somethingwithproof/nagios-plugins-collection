@@ -296,7 +296,8 @@ both native package formats before publishing a wheel, source archive, Helm char
 `.rpm`, `release.json` and `SHA256SUMS` on the GitHub release. Public artifacts
 receive GitHub build provenance attestations.
 
-Verify downloaded artifacts with `sha256sum --check SHA256SUMS`. Install the
+Verify downloaded artifacts with `sha256sum --check --ignore-missing SHA256SUMS`
+and require the artifact you selected to report `OK`. Install the
 Debian package with `sudo apt install ./nagios-plugins-collection_2.0.0_all.deb`
 on Ubuntu 24.04, or the RPM with
 `sudo dnf install ./nagios-plugins-collection_2.0.0_noarch.rpm` on Rocky Linux 9.
