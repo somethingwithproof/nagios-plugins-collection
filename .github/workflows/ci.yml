@@ -302,7 +302,7 @@ jobs:
           image: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
           output-file: sbom.spdx.json
       - name: Scan image (Trivy)
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: ghcr.io/${{ github.repository_owner }}/nagios-plugins-collection:${{ github.sha }}
           format: 'table'
@@ -397,7 +397,7 @@ jobs:
           mise exec gitleaks@8.30.1 -- gitleaks git --redact --no-banner
 
       - name: Trivy config scan (IaC)
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           scan-type: config
           hide-progress: true
