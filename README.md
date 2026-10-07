@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Nagios Plugins Collection
 
 [![CI](https://github.com/somethingwithproof/nagios-plugins-collection/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/somethingwithproof/nagios-plugins-collection/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache-2.0-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![Python requirement](https://img.shields.io/badge/Python_requirement-%3E%3D3.11%2C%3C3.15-blue)](./pyproject.toml)
 
 A Python collection of monitoring checks with command entry points for web services, databases, DNS, certificates, infrastructure, and cloud resources. Each plugin's implementation defines its options, result semantics, and optional dependencies.
@@ -48,10 +48,10 @@ The manifest requires Python >=3.11,<3.15. [packaging/platform-support.json](pac
 ```bash
 uv venv
 uv pip install -e ".[all]"
-check_tls_expiry --help
+.venv/bin/check_tls_expiry --help
 ```
 
-Run the command in the created virtual environment or use its `.venv/bin/` path. The available extras are defined in the manifest; install only the integrations you need. Source installation is shown without asserting package-index publication.
+The commands are installed in `.venv/bin/`. The available extras are defined in the manifest; install only the integrations you need. Source installation is shown without asserting package-index publication.
 
 ## Compatibility and operations
 
