@@ -11,3 +11,6 @@ coverage.xml
 htmlcov
 test-reports
 docs/build
+
+# Local assistant state
+.omc

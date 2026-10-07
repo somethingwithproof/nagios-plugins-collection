@@ -65,3 +65,6 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Local assistant state; not project source
+/.omc/
