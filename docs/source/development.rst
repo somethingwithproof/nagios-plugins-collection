@@ -45,3 +45,11 @@ Update the project and Helm versions together. Refresh the relevant hashed
 locks and ``uv.lock`` after changing dependencies. Run the Linux package smoke
 tests and full CI before publication; see :doc:`releasing`. Validate supported
 platform dates against upstream sources before expanding the matrix.
+
+Dependency updates must preserve the complete dependency graph. For example,
+Pydantic requires an exact ``pydantic-core`` version, while aiohttp and Sphinx
+bound the compatible multidict and docutils versions. Resolve locks from the
+project inputs rather than updating an indirect pin in isolation. CI resolves
+``packaging/test-requirements.txt`` with hashes and wheel-only packages on every
+supported Python version; native package builds separately resolve the runtime
+lock for the target Linux platform. Both checks must pass before merging updates.
