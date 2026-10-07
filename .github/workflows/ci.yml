@@ -148,7 +148,7 @@ jobs:
       run: tox -e "py${PYTHON_VERSION//./}"
 
     - name: Upload test results
-      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       if: always()
       with:
         name: test-results-py${{ matrix.python-version }}
@@ -222,7 +222,7 @@ jobs:
         run: tox -e docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: documentation
           path: docs/build/html/
@@ -557,7 +557,7 @@ jobs:
       run: twine check dist/*
 
     - name: Upload package
-      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: packages
         path: dist/
