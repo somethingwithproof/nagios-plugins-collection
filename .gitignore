@@ -66,5 +66,6 @@ nosetests.xml
 .project
 .pydevproject
 
-# Local assistant state; not project source
-/.omc/
+# Local assistant sessions and isolated worktrees
+.omc/
+.worktrees/
