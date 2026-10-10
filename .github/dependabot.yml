@@ -10,6 +10,10 @@ updates:
     timezone: UTC
   open-pull-requests-limit: 10
   versioning-strategy: increase
+  # myst-parser 5.1 requires docutils <0.23; update them together when supported.
+  ignore:
+  - dependency-name: docutils
+    versions: [">=0.23"]
   rebase-strategy: auto
   labels:
   - dependencies
