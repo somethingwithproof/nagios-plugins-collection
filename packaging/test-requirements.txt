@@ -1074,9 +1074,9 @@ keyring==25.7.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x' 
     --hash=sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f \
     --hash=sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b
     # via twine
-kubernetes==36.0.3 \
-    --hash=sha256:36993ed25ce59b789c9341473a228fcf268504a2fec7c2b2b1531d73072e5ce7 \
-    --hash=sha256:8fde9241c4b298e6374a069dcf728359b4e72c2fb29489a975ba4e1c047cf10f
+kubernetes==37.0.0 \
+    --hash=sha256:60c6a7cb90627fcfff5610c61a79af55472f418f8c91ea5abdb5c851b466ae22 \
+    --hash=sha256:eb957f804fe462275b1757426427105c99e2110c65b902f0d44763bf3e802109
     # via nagios-plugins-collection (pyproject.toml)
 librt==0.16.0 ; platform_python_implementation != 'PyPy' \
     --hash=sha256:001bfd59a7d45b17e3e75f2a8c6405280b35e7b84471792778e718c4f368950e \

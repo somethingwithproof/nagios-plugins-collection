@@ -58,7 +58,7 @@ dns = [
     "dnspython>=2.6.1",
 ]
 k8s = [
-    "kubernetes>=29.0.0",
+    "kubernetes>=37.0.0",
 ]
 pg = [
     "psycopg[binary]>=3.1.18",
