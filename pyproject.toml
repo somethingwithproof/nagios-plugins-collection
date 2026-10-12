@@ -40,7 +40,7 @@ dependencies = [
 # Optional dependencies grouped by functionality
 [project.optional-dependencies]
 mongodb = [
-    "pymongo>=4.16.0",
+    "pymongo>=4.18.3",
 ]
 ssh = [
     "paramiko>=3.0.0",
