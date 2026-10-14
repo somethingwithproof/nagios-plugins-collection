@@ -17,15 +17,15 @@ the same GitHub release. Verify the files before installing:
 
    sha256sum --check --ignore-missing SHA256SUMS
 
-   sudo apt install ./nagios-plugins-collection_2.0.1_all.deb
+   sudo apt install ./nagios-plugins-collection_2.0.1_amd64.deb
    # On Rocky Linux 9:
-   sudo dnf install ./nagios-plugins-collection_2.0.1_noarch.rpm
+   sudo dnf install ./nagios-plugins-collection_2.0.1_x86_64.rpm
    /usr/lib/nagios/plugins/check_website_status --help
 
 Require the artifact you selected to report ``OK`` in the checksum output.
 
-Native packages bundle portable monitoring clients and require system libpq.
-The RPM selects Python 3.12; the Debian package uses supported system Python.
+Native packages target Linux x86-64 and Python 3.12, bundle the required client
+extensions, and require system libpq. Both package formats require Python 3.12.
 Native installed commands reside under ``/usr/lib/nagios/plugins``. When Nagios
 uses another plugin directory, reference those absolute paths in command
 definitions or create explicit administrator-managed links.

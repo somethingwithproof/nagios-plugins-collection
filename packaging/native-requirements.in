@@ -1,4 +1,4 @@
 # SPDX-FileCopyrightText: 2025 Thomas Vincent
 # SPDX-License-Identifier: Apache-2.0
-# Native packages bundle portable Python clients and use the OS libpq library.
+# Native packages target Linux x86-64/Python 3.12 and use the OS libpq library.
 psycopg>=3.1.18

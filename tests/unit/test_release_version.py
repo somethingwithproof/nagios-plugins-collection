@@ -57,3 +57,34 @@ def test_release_cleanup_refuses_symlinked_output(
     with pytest.raises(ValueError, match="symlinks"):
         release.prepare_output("2.0.0")
     assert protected.read_text() == "keep"
+
+
+def test_native_payload_preserves_required_python_extensions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(release, "ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project.scripts]\ncheck_example = "nagios_plugins.plugins.example:main"\n'
+    )
+    for name in ("README.md", "LICENSE"):
+        (tmp_path / name).write_text("package documentation\n")
+    (tmp_path / "docs/source/_static").mkdir(parents=True)
+    payload = tmp_path / "payload"
+    extension = (
+        payload
+        / "usr/lib/nagios-plugins-collection/pydantic_core"
+        / "_pydantic_core.cpython-312-x86_64-linux-gnu.so"
+    )
+    installs = []
+
+    def install(command, **kwargs):
+        installs.append(command)
+        extension.parent.mkdir(parents=True, exist_ok=True)
+        extension.write_bytes(b"required native extension")
+
+    monkeypatch.setattr(release.subprocess, "run", install)
+    release.python_payload(payload, tmp_path / "project.whl", "deb")
+
+    assert extension.read_bytes() == b"required native extension"
+    assert installs[0][installs[0].index("--abi") + 1] == "cp312"
+    assert installs[0][installs[0].index("--python-version") + 1] == "3.12"
