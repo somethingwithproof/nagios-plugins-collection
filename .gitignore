@@ -65,3 +65,7 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# Local assistant sessions and isolated worktrees
+.omc/
+.worktrees/
