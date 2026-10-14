@@ -131,7 +131,7 @@ def role_archive(payload: Path, output: Path, epoch: int) -> None:
 
 
 def python_payload(payload: Path, wheel: Path, packager: str) -> None:
-    """Bundle hash-locked portable clients and generate distro-specific commands."""
+    """Bundle hash-locked Linux x86-64 clients for the supported Python 3.12 targets."""
     library = payload / "usr/lib/nagios-plugins-collection"
     library.mkdir(parents=True)
     subprocess.run(
@@ -151,9 +151,9 @@ def python_payload(payload: Path, wheel: Path, packager: str) -> None:
             "--implementation",
             "cp",
             "--abi",
-            "cp311",
+            "cp312",
             "--python-version",
-            "3.11",
+            "3.12",
             "--require-hashes",
             "-r",
             str(ROOT / "packaging/runtime-requirements.txt"),
@@ -176,11 +176,7 @@ def python_payload(payload: Path, wheel: Path, packager: str) -> None:
         check=True,
     )
     shutil.rmtree(library / "bin", ignore_errors=True)
-    # The selected clients have portable Python implementations; native packages
-    # use those implementations rather than shipping host-specific accelerators.
-    for extension in library.rglob("*"):
-        if extension.is_file() and extension.suffix in {".so", ".pyd", ".dylib"}:
-            extension.unlink()
+    # Keep the selected Linux wheels' extensions: Pydantic requires its native core.
     scripts = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["scripts"]
     commands = payload / "usr/lib/nagios/plugins"
     commands.mkdir(parents=True)
@@ -315,7 +311,12 @@ def build_artifacts(version: str) -> Path:
             native = {**config, "contents": package_contents(payload)}
             generated = workspace / f"{packager}.json"
             generated.write_text(json.dumps(native))
-            suffix = "all.deb" if packager == "deb" else "noarch.rpm"
+            suffixes = (
+                {"deb": "all.deb", "rpm": "noarch.rpm"}
+                if role
+                else {"deb": "amd64.deb", "rpm": "x86_64.rpm"}
+            )
+            suffix = suffixes[packager]
             destination = output / f"{config['name']}_{version}_{suffix}"
             subprocess.run(
                 [
