@@ -148,7 +148,7 @@ jobs:
       run: tox -e "py${PYTHON_VERSION//./}"
 
     - name: Upload test results
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       if: always()
       with:
         name: test-results-py${{ matrix.python-version }}
@@ -222,7 +222,7 @@ jobs:
         run: tox -e docs
 
       - name: Upload documentation
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: documentation
           path: docs/build/html/
@@ -557,7 +557,7 @@ jobs:
       run: twine check dist/*
 
     - name: Upload package
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       with:
         name: packages
         path: dist/
@@ -587,7 +587,7 @@ jobs:
         run: mise exec nfpm@2.47.0 helm@4.3.0 -- python scripts/release_artifacts.py build
       - name: Install, exercise and remove Debian and RPM packages
         run: python scripts/smoke_native_packages.py "dist/release/${{ steps.version.outputs.version }}"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-artifacts
           path: dist/release/${{ steps.version.outputs.version }}/*
