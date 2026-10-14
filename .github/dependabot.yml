@@ -14,6 +14,12 @@ updates:
   ignore:
   - dependency-name: multidict
     versions: [">=7.0.0"]
+  # Pydantic pins its core exactly; keep the pair in one dependency update.
+  groups:
+    pydantic:
+      patterns:
+      - pydantic
+      - pydantic-core
   rebase-strategy: auto
   labels:
   - dependencies

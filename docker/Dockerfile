@@ -36,6 +36,6 @@ RUN python -m pip install --no-index --find-links=/tmp/wheels --only-binary=:all
     rm -rf /tmp/wheels && \
     groupadd --system --gid 10001 nagios && \
     useradd --system --uid 10001 --gid nagios --home-dir /app --shell /usr/sbin/nologin nagios
-USER nagios
+USER 10001:10001
 # Default command displays help; callers can select any installed plugin.
 CMD ["check_website_status", "--help"]
