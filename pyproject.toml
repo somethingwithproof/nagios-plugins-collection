@@ -49,7 +49,7 @@ cli = [
     "typer>=0.27.3",
 ]
 schema = [
-    "pydantic>=2.13.0",
+    "pydantic>=2.14.1",
 ]
 prom = [
     "httpx>=0.26.0",
@@ -84,7 +84,7 @@ dev = [
     "sphinx-rtd-theme>=3.1.0",
     "build>=1.0.0",
     "twine>=6.2.0",
-    "pydantic>=2.13.0",
+    "pydantic>=2.14.1",
     "myst-parser>=2.0.0",
     "cryptography>=46.0.0",
 ]
