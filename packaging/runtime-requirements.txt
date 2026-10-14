@@ -545,9 +545,9 @@ jmespath==1.1.0 \
     # via
     #   boto3
     #   botocore
-kubernetes==36.0.3 \
-    --hash=sha256:36993ed25ce59b789c9341473a228fcf268504a2fec7c2b2b1531d73072e5ce7 \
-    --hash=sha256:8fde9241c4b298e6374a069dcf728359b4e72c2fb29489a975ba4e1c047cf10f
+kubernetes==37.0.1 \
+    --hash=sha256:a313a482361506340b5972cabaf20a7ee16ec8713e73325bf699b783a40464a9 \
+    --hash=sha256:e41db0a95615c2388680a2d556df33fd0f27a5717c9b5df5857e475c196c2f10
     # via nagios-plugins-collection (pyproject.toml)
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
