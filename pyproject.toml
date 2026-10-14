@@ -55,7 +55,7 @@ prom = [
     "httpx>=0.26.0",
 ]
 dns = [
-    "dnspython>=2.6.1",
+    "dnspython>=2.9.0",
 ]
 k8s = [
     "kubernetes>=29.0.0",
