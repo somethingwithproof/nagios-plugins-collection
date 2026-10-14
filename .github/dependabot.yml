@@ -10,6 +10,12 @@ updates:
     timezone: UTC
   open-pull-requests-limit: 10
   versioning-strategy: increase
+  # Pydantic pins its core exactly; keep the pair in one dependency update.
+  groups:
+    pydantic:
+      patterns:
+      - pydantic
+      - pydantic-core
   rebase-strategy: auto
   labels:
   - dependencies
