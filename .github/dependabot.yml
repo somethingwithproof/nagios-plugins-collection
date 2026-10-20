@@ -3,7 +3,9 @@
 version: 2
 updates:
 - package-ecosystem: pip
-  directory: /
+  directories:
+  - /
+  - /docker/mocks
   schedule:
     interval: daily
     time: '04:00'
@@ -46,7 +48,9 @@ updates:
     prefix: chore
     include: scope
 - package-ecosystem: docker
-  directory: /docker
+  directories:
+  - /docker
+  - /docker/mocks
   schedule:
     interval: daily
     time: '04:20'
@@ -59,3 +63,35 @@ updates:
   commit-message:
     prefix: chore
     include: scope
+- package-ecosystem: docker-compose
+  directory: /docker
+  schedule:
+    interval: daily
+    time: '04:30'
+    timezone: UTC
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    docker-compose-minor-patch:
+      patterns:
+      - '*'
+      update-types:
+      - minor
+      - patch
+- package-ecosystem: pre-commit
+  directory: /
+  schedule:
+    interval: daily
+    time: '04:40'
+    timezone: UTC
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    pre-commit-minor-patch:
+      patterns:
+      - '*'
+      update-types:
+      - minor
+      - patch
