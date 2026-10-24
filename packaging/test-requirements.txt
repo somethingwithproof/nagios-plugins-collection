@@ -2476,9 +2476,9 @@ tomli-w==1.2.0 \
     --hash=sha256:188306098d013b691fcadc011abd66727d3c414c571bb01b1a174ba8c983cf90 \
     --hash=sha256:2dd14fac5a47c27be9cd4c976af5a12d87fb1f0b4512f81d69cce3b35ae25021
     # via tox
-tox==4.65.2 \
-    --hash=sha256:6705e05b65701192784c4f5ab47f0c1bed02a41390c31b7d161c02ee0166d9fe \
-    --hash=sha256:6bbac6aca06f21aec1e5c840b8428c49d7d03511bf9bb52c02612c064deb764d
+tox==4.67.1 \
+    --hash=sha256:23d614cb703e1f7bd39e00c046d4c261b63fb9986e185134c6be2f93531d9726 \
+    --hash=sha256:a68602f64421b199016127364ee47347b958391d19c2b2e53fe95673a8fe98e9
     # via nagios-plugins-collection (pyproject.toml)
 twine==7.0.0 \
     --hash=sha256:85cdb29c518efef867360ae4acd4b0dfd61c8654a22fca08e6f8539f05022177 \
