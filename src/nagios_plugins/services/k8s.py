@@ -35,7 +35,8 @@ def summarize_nodes(label_selector: str | None = None, timeout: int = 10) -> Nod
         ret = api.list_node(label_selector=label_selector, _request_timeout=timeout)
         ready = not_ready = disk = mem = pid = 0
         for n in ret.items:
-            conditions = {c.type: c.status for c in (n.status.conditions or [])}
+            status = n.status
+            conditions = {c.type: c.status for c in (status.conditions or [])} if status else {}
             if conditions.get("Ready") == "True":
                 ready += 1
             else:
