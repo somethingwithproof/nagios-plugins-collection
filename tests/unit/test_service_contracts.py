@@ -107,6 +107,7 @@ def test_kubernetes_pressure_and_kubeconfig_fallback() -> None:
     api.list_node.return_value.items = [
         SimpleNamespace(status=SimpleNamespace(conditions=conditions)),
         SimpleNamespace(status=SimpleNamespace(conditions=None)),
+        SimpleNamespace(status=None),
     ]
     with (
         patch(
@@ -119,7 +120,7 @@ def test_kubernetes_pressure_and_kubeconfig_fallback() -> None:
     load_config.assert_called_once()
     api.list_node.assert_called_once_with(label_selector="role=worker", _request_timeout=7)
     assert result.ready == 1
-    assert result.not_ready == 1
+    assert result.not_ready == 2
     assert result.disk_pressure == 1
     assert result.memory_pressure == 1
     assert result.pid_pressure == 1
