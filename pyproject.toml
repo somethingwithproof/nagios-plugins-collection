@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Thomas Vincent
 # SPDX-License-Identifier: Apache-2.0
 [build-system]
-requires = ["setuptools>=82.0.1", "wheel>=0.37.0"]
+requires = ["setuptools>=84.2.1", "wheel>=0.37.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
