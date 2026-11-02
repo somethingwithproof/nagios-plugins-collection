@@ -43,7 +43,7 @@ mongodb = [
     "pymongo>=4.19.0",
 ]
 ssh = [
-    "paramiko>=3.0.0",
+    "paramiko>=5.1.0",
 ]
 cli = [
     "typer>=0.27.3",
