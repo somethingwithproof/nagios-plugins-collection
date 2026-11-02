@@ -3,7 +3,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Builder: collect wheels for the package and its runtime plugin extras.
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE /app/
@@ -24,7 +24,7 @@ RUN python -m pip install --only-binary=:all: --require-hashes -r packaging/test
 CMD ["pytest", "-q"]
 
 # Runtime: minimal image with package installed
-FROM python:3.14-slim AS runtime
+FROM python:3.15-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 # Install runtime deps only from the built wheel
