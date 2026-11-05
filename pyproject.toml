@@ -90,7 +90,7 @@ dev = [
 ]
 security = [
     "bandit>=1.9.4",
-    "pip-audit>=2.10.0",
+    "pip-audit>=2.10.1",
 ]
 all = [
     "nagios-plugins-collection[mongodb,ssh,cli,schema,prom,dns,k8s,pg,redis,aws,es]",
