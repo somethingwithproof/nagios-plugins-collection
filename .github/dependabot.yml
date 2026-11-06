@@ -6,6 +6,8 @@ updates:
   directories:
   - /
   - /docker/mocks
+  cooldown:
+    default-days: 7
   schedule:
     interval: daily
     time: '04:00'
@@ -35,6 +37,8 @@ updates:
     include: scope
 - package-ecosystem: github-actions
   directory: /
+  cooldown:
+    default-days: 7
   schedule:
     interval: daily
     time: '04:10'
@@ -58,6 +62,8 @@ updates:
   directories:
   - /docker
   - /docker/mocks
+  cooldown:
+    default-days: 7
   schedule:
     interval: daily
     time: '04:20'
@@ -72,6 +78,8 @@ updates:
     include: scope
 - package-ecosystem: pre-commit
   directory: /
+  cooldown:
+    default-days: 7
   schedule:
     interval: daily
     time: '04:40'
