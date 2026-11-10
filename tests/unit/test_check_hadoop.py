@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from nagios_plugins.base import Status
+from nagios_plugins.base import PerfData, Status
 from nagios_plugins.plugins.check_hadoop import HadoopClusterChecker
 
 
@@ -83,7 +83,8 @@ class TestHadoopClusterChecker:
             assert result.metrics["status"] == 1
             assert result.metrics["component_component1_status"] == 1
             assert result.metrics["component_component2_status"] == 1
-            assert result.metrics["mem"] == "1024"
+            assert result.metrics["mem"] == PerfData(1024.0, uom="KB")
+            assert "mem=1024KB" in str(result)
 
     @pytest.mark.asyncio
     async def test_check_cluster_overall_status_warning(self, checker):

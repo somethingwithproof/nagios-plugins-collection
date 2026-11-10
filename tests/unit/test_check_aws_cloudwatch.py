@@ -4,6 +4,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_aws_cloudwatch import CheckAwsCloudwatch
 
@@ -262,3 +264,31 @@ def test_cloudwatch_different_statistics() -> None:
                 ]
             )
             assert code == Status.OK.value
+
+
+def test_cloudwatch_perfdata_is_numeric_with_nagios_unit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The CloudWatch unit name maps to a perfdata UOM instead of a text metric."""
+    with patch(
+        "nagios_plugins.plugins.check_aws_cloudwatch.get_metric_statistics",
+        return_value={"value": 45.5, "timestamp": "2024-01-01T12:00:00+00:00", "unit": "Percent"},
+    ):
+        code = CheckAwsCloudwatch().run(
+            [
+                "--namespace",
+                "AWS/EC2",
+                "--metric",
+                "CPUUtilization",
+                "--instance-id",
+                "i-1",
+                "--warning",
+                "70",
+                "--critical",
+                "90",
+            ]
+        )
+    out = capsys.readouterr().out
+    assert code == Status.OK.value
+    assert out.rstrip("\n").endswith("| value=45.5%;70;90")
+    assert "unit=" not in out

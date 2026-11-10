@@ -9,7 +9,7 @@ import argparse
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
 from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
 
 
@@ -42,25 +42,13 @@ class CheckPrometheusQuery(NagiosPlugin):
                 # Expecting scalar or vector with one sample
                 val = result[0].get("value") or result[0].get("scalar") or [None, "0"]
                 value = float(val[1])
-            status = Status.OK
-            if args.critical and not _ok(value, str(args.critical)):
-                status = Status.CRITICAL
-            elif args.warning and not _ok(value, str(args.warning)):
-                status = Status.WARNING
-            return CheckResult(status, f"PromQL {args.query}={value}", metrics={"value": value})
+            status = threshold_check(value, args.warning, args.critical)
+            perf = PerfData(value, warning=args.warning, critical=args.critical)
+            return CheckResult(status, f"PromQL {args.query}={value}", metrics={"value": perf})
         except httpx.HTTPError as e:
             return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
-
-
-def _ok(value: float, threshold: str) -> bool:
-    # Reuse Nagios semantics: we can leverage threshold_check if needed, but here we treat simple numeric
-    """Check a scalar against a numeric upper bound."""
-    try:
-        return value <= float(threshold)
-    except ValueError:
-        return True
 
 
 def main() -> int:

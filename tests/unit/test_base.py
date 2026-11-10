@@ -7,7 +7,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
+from nagios_plugins.base import (
+    CheckResult,
+    NagiosPlugin,
+    PerfData,
+    Status,
+    ThresholdRange,
+    threshold_check,
+)
 
 
 class TestStatus:
@@ -69,6 +76,69 @@ class TestCheckResult:
             str(result) == "UNKNOWN - Unknown status | uptime=3600\n"
             "Could not determine the status of the service."
         )
+
+
+class TestPerfdataContract:
+    """The status line and perfdata follow the Nagios Plugin Guidelines."""
+
+    def test_full_perfdata_item(self) -> None:
+        """Units, thresholds and bounds render in guideline order."""
+        result = CheckResult(
+            Status.OK,
+            "fine",
+            metrics={
+                "used": PerfData(42.5, "%", warning="80", critical="90", minimum=0, maximum=100)
+            },
+        )
+        assert str(result) == "OK - fine | used=42.5%;80;90;0;100"
+
+    def test_trailing_empty_fields_are_omitted(self) -> None:
+        """Only the fields up to the last populated one are emitted."""
+        result = CheckResult(Status.OK, "fine", metrics={"t": PerfData(1, "s", critical="5")})
+        assert str(result) == "OK - fine | t=1s;;5"
+
+    def test_labels_with_spaces_equals_or_quotes_are_quoted(self) -> None:
+        """Labels are quoted and embedded single quotes doubled."""
+        result = CheckResult(
+            Status.OK, "fine", metrics={"job a": 1, "a=b": 2, "it's": 3, "plain_label": 4}
+        )
+        assert str(result) == "OK - fine | 'job a'=1 'a=b'=2 'it''s'=3 plain_label=4"
+
+    def test_non_numeric_and_non_finite_values_are_omitted(self) -> None:
+        """Strings, None and inf/nan never reach perfdata."""
+        result = CheckResult(
+            Status.OK,
+            "fine",
+            metrics={"unit": "Percent", "state": "ok", "p95": float("inf"), "x": None, "n": 2},
+        )
+        assert str(result) == "OK - fine | n=2"
+
+    def test_numbers_use_positional_notation(self) -> None:
+        """Perfdata values never use exponent notation."""
+        result = CheckResult(
+            Status.OK, "fine", metrics={"tiny": 0.00001, "big": 1e20, "flag": True}
+        )
+        assert str(result) == "OK - fine | tiny=0.00001 big=100000000000000000000 flag=1"
+
+    def test_message_is_a_single_line_without_pipes(self) -> None:
+        """A message cannot split the status line or inject perfdata."""
+        result = CheckResult(Status.CRITICAL, "a | b\nc", metrics={"n": 1}, details="x | y\nz")
+        assert str(result).splitlines() == ["CRITICAL - a / b c | n=1", "x / y", "z"]
+
+    def test_invalid_unit_is_rejected(self) -> None:
+        """Only guideline units are accepted."""
+        with pytest.raises(ValueError):
+            PerfData(1, "Percent")
+
+    def test_json_metrics_stay_plain_and_valid(self) -> None:
+        """JSON keeps plain metric values and never emits Infinity."""
+        import json
+
+        result = CheckResult(
+            Status.OK, "fine", metrics={"v": PerfData(1.5, "%"), "p95": float("inf"), "u": "Count"}
+        )
+        assert json.loads(result.to_json())["metrics"] == {"v": 1.5, "p95": None, "u": "Count"}
+        assert "Infinity" not in result.to_json()
 
 
 class TestNagiosPlugin:
@@ -155,12 +225,17 @@ class TestThresholdCheck:
         assert threshold_check(97, warning="10:90", critical="5:95") == Status.CRITICAL
 
     def test_inverted_thresholds(self) -> None:
-        """Test inverted thresholds."""
-        # Value outside inverted range (OK)
-        assert threshold_check(5, warning="@10:90", critical="@5:95") == Status.OK
-        # Value inside inverted warning range but outside inverted critical range
-        assert threshold_check(7, warning="@10:90", critical="@5:95") == Status.OK
-        # Value inside inverted critical range
+        """``@a:b`` alerts when a <= value <= b; critical wins when both alert."""
+        # Outside both inverted ranges (OK)
+        assert threshold_check(4, warning="@10:90", critical="@5:95") == Status.OK
+        assert threshold_check(96, warning="@10:90", critical="@5:95") == Status.OK
+        # Inside the critical range only: CRITICAL, as documented in usage.rst
+        assert threshold_check(7, warning="@10:80", critical="@5:90") == Status.CRITICAL
+        # Endpoints are inside the range
+        assert threshold_check(5, warning="@10:90", critical="@5:95") == Status.CRITICAL
+        assert threshold_check(10, warning="@10:90") == Status.WARNING
+        assert threshold_check(90, warning="@10:90") == Status.WARNING
+        # Inside both ranges
         assert threshold_check(50, warning="@10:90", critical="@5:95") == Status.CRITICAL
 
     def test_min_only_thresholds(self) -> None:
@@ -180,6 +255,43 @@ class TestThresholdCheck:
         assert threshold_check(92, warning=":90", critical=":95") == Status.WARNING
         # Value above critical maximum
         assert threshold_check(97, warning=":90", critical=":95") == Status.CRITICAL
+
+    def test_bare_value_means_zero_to_value(self) -> None:
+        """A bare ``10`` is ``0:10``: negative values alert as well as values above 10."""
+        assert threshold_check(10, critical="10") == Status.OK
+        assert threshold_check(0, critical="10") == Status.OK
+        assert threshold_check(-1, critical="10") == Status.CRITICAL
+        assert threshold_check(10.5, critical="10") == Status.CRITICAL
+
+    def test_negative_infinity_start(self) -> None:
+        """``~:10`` has no lower bound and alerts only above 10."""
+        assert threshold_check(-1000, critical="~:10") == Status.OK
+        assert threshold_check(11, critical="~:10") == Status.CRITICAL
+        assert threshold_check(-1000, critical="@~:0") == Status.CRITICAL
+
+    def test_range_endpoints_are_inclusive(self) -> None:
+        """``10:20`` accepts both endpoints."""
+        assert threshold_check(10, warning="10:20") == Status.OK
+        assert threshold_check(20, warning="10:20") == Status.OK
+        assert threshold_check(9.99, warning="10:20") == Status.WARNING
+
+    @pytest.mark.parametrize("threshold", ["abc", "1:2:3", "20:10", "~:x", "nan", "1:inf"])
+    def test_malformed_threshold_raises(self, threshold: str) -> None:
+        """Malformed ranges are rejected rather than ignored."""
+        with pytest.raises(ValueError):
+            threshold_check(1, critical=threshold)
+
+    def test_nan_value_is_unknown(self) -> None:
+        """A NaN measurement cannot be compared with a range."""
+        assert threshold_check(float("nan"), warning="1", critical="2") == Status.UNKNOWN
+
+    @pytest.mark.parametrize(
+        ("threshold", "rendered"),
+        [("10", "10"), ("10:", "10:"), ("~:10", "~:10"), ("@1.5:2", "@1.5:2"), ("", "")],
+    )
+    def test_range_round_trips_to_nagios_syntax(self, threshold: str, rendered: str) -> None:
+        """ThresholdRange renders standard syntax usable in perfdata."""
+        assert str(ThresholdRange.from_string(threshold)) == rendered
 
     def test_no_thresholds(self) -> None:
         """Test with no thresholds."""
