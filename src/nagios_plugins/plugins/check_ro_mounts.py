@@ -25,19 +25,9 @@ import logging
 import sys
 import tempfile
 
-from rich.console import Console
-from rich.logging import RichHandler
-
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
 from nagios_plugins.utils import execute_command
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
 logger = logging.getLogger("check_ro_mounts")
 
 
@@ -66,7 +56,6 @@ class MountStatusChecker:
         self.ssh_port = ssh_port
         self.exclude_mounts = set(exclude_mounts or [])
         self.timeout = timeout
-        self.console = Console()
 
         # Add default excludes if not explicitly excluded (system and special filesystems)
         # Instead of hardcoding /tmp, use tempfile.gettempdir() to get the system temp directory
@@ -233,7 +222,7 @@ def parse_args() -> argparse.Namespace:
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
+    parser = NagiosArgumentParser(
         description="Check for read-only mounts",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -276,52 +265,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    args = parse_args()
-
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Parse exclude list
-    exclude_mounts = []
-    if args.exclude:
-        exclude_mounts = [x.strip() for x in args.exclude.split(",")]
-
-    # Create checker and run check
-    checker = MountStatusChecker(
+async def _check(args: argparse.Namespace) -> CheckResult:
+    """Check mounts on the local or configured remote host."""
+    exclude_mounts = [x.strip() for x in args.exclude.split(",")] if args.exclude else []
+    return await MountStatusChecker(
         host=args.host,
         ssh_user=args.ssh_user,
         ssh_port=args.ssh_port,
         exclude_mounts=exclude_mounts,
         timeout=args.timeout,
-    )
+    ).check_mounts()
 
-    # This check doesn't need to be async
-    import asyncio
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    result = loop.run_until_complete(checker.check_mounts())
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+def main() -> int:
+    """Run the installed command and return its Nagios status code."""
+    return run_async_check(parse_args(), _check)
 
 
 if __name__ == "__main__":

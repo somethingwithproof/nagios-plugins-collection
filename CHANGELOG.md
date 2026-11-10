@@ -7,6 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- Usage errors (unknown or missing arguments, invalid values) exit 3 (UNKNOWN)
+  with an `UNKNOWN - <command>: <error>` status line instead of argparse's exit
+  2, which Nagios reads as CRITICAL. `--help` still exits 0.
+- Logging is configured once per run, after argument parsing, and always
+  writes to stderr. Seven plugins previously configured a Rich handler on
+  stdout at import time, so log lines could precede the status line. Log
+  records are now plain `LEVEL logger: message` text. Standalone plugins share
+  one runner that also reports an unhandled exception as UNKNOWN instead of a
+  traceback with exit 1.
 - Missing data no longer reports OK. `check_prometheus_query` returns UNKNOWN
   for an empty or sample-less result instead of treating it as `0`;
   `check_log_errors` returns UNKNOWN when the response has no `hits.total`

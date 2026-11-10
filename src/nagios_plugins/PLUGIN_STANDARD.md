@@ -30,175 +30,53 @@ Every plugin class should include these standard methods:
 
 ```python
 #!/usr/bin/env python3
-"""
-[Service] Check Plugin for Nagios.
+"""[Service] check: report [specific data points] against -w/-c ranges."""
 
-This plugin checks [specific metric/service] and reports [specific data points].
-It supports [features like thresholds, remote execution].
-
-Usage:
-    check_[service].py [--host HOST] [--timeout SECONDS] [--warning THRESHOLD]
-                     [--critical THRESHOLD] [--json] [--verbose]
-
-Returns:
-    0 (OK): [condition for OK]
-    1 (WARNING): [condition for WARNING]
-    2 (CRITICAL): [condition for CRITICAL]
-    3 (UNKNOWN): An unexpected error occurred during the check
-"""
+from __future__ import annotations
 
 import argparse
-import json
-import logging
-import sys
-from typing import Dict, Optional, List
 
-from nagios_plugins.base import Status, CheckResult, NagiosPlugin
-from nagios_plugins.utils import [only necessary utilities]
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
+from nagios_plugins.base import (
+    CheckResult,
+    NagiosPlugin,
+    PerfData,
+    Status,
+    threshold_check,
 )
-logger = logging.getLogger("check_[service]")
 
 
-class ServiceChecker:
-    """[Service] checker class."""
+class CheckService(NagiosPlugin):
+    """Check [service]."""
 
-    def __init__(
-        self,
-        [required parameters],
-        [optional parameters with defaults],
-    ):
-        """Initialize the [service] checker.
+    def __init__(self) -> None:
+        """Register plugin-specific arguments next to the shared ones."""
+        super().__init__()
+        self.parser.add_argument("--host", required=True, help="[Service] host")
 
-        Args:
-            [document all parameters]
-        """
-        [initialize instance variables]
-
-    async def check(self) -> CheckResult:
-        """Perform the service check.
-
-        Returns:
-            CheckResult with status and metrics
-        """
-        try:
-            [perform check logic]
-
-            # Create metrics dictionary
-            metrics = {
-                "key": value,
-            }
-
-            # Evaluate results against thresholds
-            if [critical condition]:
-                return CheckResult(
-                    Status.CRITICAL,
-                    "[critical message]",
-                    metrics=metrics,
-                )
-            elif [warning condition]:
-                return CheckResult(
-                    Status.WARNING,
-                    "[warning message]",
-                    metrics=metrics,
-                )
-            else:
-                return CheckResult(
-                    Status.OK,
-                    "[ok message]",
-                    metrics=metrics,
-                )
-
-        except Exception as e:
-            logger.exception("Error checking [service]")
-            return CheckResult(
-                Status.UNKNOWN,
-                f"Error checking [service]: {str(e)}",
-                details=str(e),
-            )
-
-
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
-
-    Returns:
-        Parsed arguments
-    """
-    parser = argparse.ArgumentParser(
-        description="Check [service]",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    # Common arguments
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="Timeout in seconds",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
-
-    # Plugin-specific arguments
-    [add plugin-specific arguments]
-
-    return parser.parse_args()
+    def check(self, args: argparse.Namespace) -> CheckResult:
+        """Measure the value and classify it with the shared Nagios ranges."""
+        value = ...  # absent data is UNKNOWN, never a default of 0
+        if value is None:
+            return CheckResult(Status.UNKNOWN, "[service] returned no data")
+        status = threshold_check(value, args.warning, args.critical)
+        perf = PerfData(value, warning=args.warning, critical=args.critical)
+        return CheckResult(status, f"[service] value={value}", metrics={"value": perf})
 
 
 def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    args = parse_args()
-
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Create checker and run check
-    checker = ServiceChecker(
-        [initialize with args],
-    )
-
-    # Run the check
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    result = loop.run_until_complete(checker.check())
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+    """Run the installed command and return its Nagios status code."""
+    return CheckService().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
 ```
+
+`NagiosPlugin` supplies `-v`, `-t`, `-w`, `-c` and `--json`, a
+`NagiosArgumentParser` whose usage errors exit UNKNOWN (3), stderr logging
+configured after parsing, and conversion of unhandled exceptions to UNKNOWN.
+Standalone plugins that build their own parser use `NagiosArgumentParser` and
+finish with `run_async_check(parse_args(), check)` for the same behavior.
 
 ## Dependencies
 
@@ -219,7 +97,6 @@ Limit dependencies to these essential libraries:
 
 2. **Essential External Libraries**:
    - `httpx`: For HTTP requests (preferred over `requests` for async support)
-   - `rich`: For improved console output and logging
 
 ### Optional Dependencies
 
@@ -265,18 +142,21 @@ All plugins should follow these logging practices:
    - `ERROR`: Error conditions preventing normal operation
    - `CRITICAL`: Critical errors requiring immediate attention
 
-2. **Log Format**:
-   - Include timestamps
-   - Include log level
-   - Keep messages clear and actionable
+2. **Log Destination**:
+   - Use `logging.getLogger(...)`; never call `logging.basicConfig` or add
+     handlers at import time
+   - `configure_logging` (called by `NagiosPlugin` and `run_async_check`) sends
+     records to stderr, so stdout carries only the plugin result
+   - Include the log level and keep messages clear and actionable
 
 ## Output Format
 
 All plugins must support these output formats:
 
 1. **Standard Output**:
-   - First line: STATUS - Message
-   - Performance data: 'metric=value;warning;critical;min;max'
+   - First line: STATUS - Message, on a single line
+   - Performance data: `'label'=value[UOM];warn;crit;min;max`, rendered by
+     `CheckResult` from numeric metrics or `PerfData` values
 
 2. **JSON Output**:
    - Status code
