@@ -12,7 +12,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosPlugin
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosPlugin, nagios_range
 
 ENTRY_POINTS = list(distribution("nagios-plugins-collection").entry_points)
 
@@ -137,3 +137,31 @@ def test_verbosity_selects_log_level(verbosity: int, level: int) -> None:
 
     configure_logging(verbosity)
     assert logging.getLogger().level == level
+
+
+def _plugin_class(entry_point: EntryPoint) -> type[NagiosPlugin]:
+    module = importlib.import_module(entry_point.module)
+    (plugin,) = (
+        value
+        for value in vars(module).values()
+        if inspect.isclass(value)
+        and issubclass(value, NagiosPlugin)
+        and value.__module__ == module.__name__
+    )
+    return plugin
+
+
+@pytest.mark.parametrize("value", ["5:1", "abc", "1..5"])
+@pytest.mark.parametrize("entry_point", ENTRY_POINTS, ids=lambda entry: entry.name)
+def test_malformed_ranges_are_usage_errors(
+    entry_point: EntryPoint, value: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A typo in -w must exit UNKNOWN before the check contacts anything."""
+    plugin = _plugin_class(entry_point)()
+    warning = [a for a in plugin.parser._actions if "--warning" in a.option_strings]
+    if not warning or warning[0].type is not nagios_range:
+        pytest.skip("-w is not a Nagios range for this command")
+    with pytest.raises(SystemExit) as exited:
+        plugin.parse_args(["-w", value])
+    assert exited.value.code == 3
+    assert "invalid Nagios range" in capsys.readouterr().out

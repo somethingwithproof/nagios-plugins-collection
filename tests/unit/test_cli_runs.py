@@ -86,12 +86,9 @@ def test_ro_mounts_reads_mount_output(
 @pytest.mark.parametrize("entry_point", ENTRY_POINTS, ids=lambda entry: entry.name)
 def test_module_runs_as_a_script(entry_point: EntryPoint) -> None:
     """``python -m nagios_plugins.plugins.NAME`` behaves like the installed command."""
-    with (
-        patch("sys.argv", [entry_point.name, "--help"]),
-        warnings.catch_warnings(),
-        pytest.raises(SystemExit) as exited,
-    ):
+    with patch("sys.argv", [entry_point.name, "--help"]), warnings.catch_warnings():
         # The module is already imported by other tests; running it again is the point.
         warnings.simplefilter("ignore", RuntimeWarning)
-        runpy.run_module(entry_point.module, run_name="__main__")
+        with pytest.raises(SystemExit) as exited:
+            runpy.run_module(entry_point.module, run_name="__main__")
     assert exited.value.code == 0
