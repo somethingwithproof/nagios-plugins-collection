@@ -2,29 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 """Nagios Plugins Collection.
 
-This package contains a collection of standardized Nagios plugins
-for monitoring various services and systems. All plugins follow a consistent
-interface and use the plugin framework for standardization.
-
-Available plugins:
-- check_component_status: Checks component status via a JSON API
-- check_mongodb_health: Checks MongoDB health status
-- check_website_status: Checks website status and response time
-- check_ro_mounts: Checks for read-only mounts
-- check_hadoop: Checks Hadoop cluster status
-- check_jobs: Checks job status
-- check_dig: DNS query checker
-- check_procs: Process check
+Each module is one installed command implemented as a
+:class:`nagios_plugins.base.NagiosPlugin` subclass, so every command shares the
+same options, exit codes, logging and output format. ``pyproject.toml`` lists
+the commands.
 """
 
 # List all standardized plugins here for easy import and discovery
 __all__ = [
-    # New standardized plugins
     "check_component_status",
     "check_mongodb_health",
     "check_website_status",
     "check_ro_mounts",
-    # Legacy plugins
     "check_monghealth",
     "check_hadoop",
     "check_jobs",

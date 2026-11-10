@@ -24,10 +24,9 @@ import asyncio
 import datetime
 import json
 import logging
-import sys
 from typing import Any
 
-from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosArgumentParser, Status
 from nagios_plugins.utils import check_http_endpoint_async
 
 logger = logging.getLogger("check_component_status")
@@ -169,7 +168,7 @@ class ComponentStatusChecker:
                 component_list = ", ".join(critical_components)
                 return CheckResult(
                     Status.CRITICAL,
-                    f"CRITICAL - Components with issues: {component_list}",
+                    f"Components with issues: {component_list}",
                     metrics=all_metrics,
                     details=json.dumps(component_statuses, default=str, indent=2),
                 )
@@ -177,14 +176,14 @@ class ComponentStatusChecker:
                 component_list = ", ".join(warning_components)
                 return CheckResult(
                     Status.WARNING,
-                    f"WARNING - Components not recently updated: {component_list}",
+                    f"Components not recently updated: {component_list}",
                     metrics=all_metrics,
                     details=json.dumps(component_statuses, default=str, indent=2),
                 )
             else:
                 return CheckResult(
                     Status.OK,
-                    f"OK - All {len(self.components)} components are healthy and recently updated",
+                    f"All {len(self.components)} components are healthy and recently updated",
                     metrics=all_metrics,
                     details=json.dumps(component_statuses, default=str, indent=2),
                 )
@@ -199,78 +198,52 @@ class ComponentStatusChecker:
             )
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
+class CheckComponentStatus(AsyncNagiosPlugin):
+    """Check component status and update freshness via a JSON API."""
 
-    Returns:
-        Parsed arguments
-    """
-    parser = NagiosArgumentParser(
-        description="Check component status via JSON API",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+    default_timeout = 10
 
-    # Required arguments
-    parser.add_argument(
-        "--url",
-        required=True,
-        help="URL of the API endpoint (without protocol)",
-    )
-    parser.add_argument(
-        "--components",
-        required=True,
-        nargs="+",
-        help="List of component names to check",
-    )
+    def __init__(self) -> None:
+        """Register the API endpoint and component arguments."""
+        super().__init__()
+        self.parser.add_argument(
+            "--url", required=True, help="URL of the API endpoint (without protocol)"
+        )
+        self.parser.add_argument(
+            "--components", required=True, nargs="+", help="List of component names to check"
+        )
 
-    # Optional arguments
-    parser.add_argument(
-        "--warning",
-        type=int,
-        default=10,
-        help="Warning threshold in minutes for stale updates",
-    )
-    parser.add_argument(
-        "--critical",
-        type=int,
-        help="Critical threshold in minutes for stale updates (default: 2x warning)",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=10,
-        help="Request timeout in seconds",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
+    def add_threshold_arguments(self, parser: NagiosArgumentParser) -> None:
+        """Take staleness thresholds as whole minutes, as the command always has."""
+        parser.add_argument(
+            "-w",
+            "--warning",
+            type=int,
+            default=10,
+            help="Warning threshold in minutes for stale updates (default: 10)",
+        )
+        parser.add_argument(
+            "-c",
+            "--critical",
+            type=int,
+            help="Critical threshold in minutes for stale updates (default: 2x warning)",
+        )
 
-    return parser.parse_args()
-
-
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Check the configured components."""
-    return await ComponentStatusChecker(
-        url=args.url,
-        components=args.components,
-        warning_threshold=args.warning,
-        critical_threshold=args.critical,
-        timeout=args.timeout,
-    ).check()
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Check the configured components."""
+        return await ComponentStatusChecker(
+            url=args.url,
+            components=args.components,
+            warning_threshold=args.warning,
+            critical_threshold=args.critical,
+            timeout=args.timeout,
+        ).check()
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckComponentStatus().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -144,6 +144,38 @@ async def test_remote_dns_latency(duration: float, expected: Status) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "critical,duration,expected",
+    [("@0:0.5", 0.2, Status.CRITICAL), ("@0:0.5", 1.0, Status.OK), ("0.5:", 0.2, Status.CRITICAL)],
+)
+async def test_remote_dns_latency_accepts_nagios_ranges(
+    critical: str, duration: float, expected: Status
+) -> None:
+    result = CommandResult(execution_time=0.05, exit_code=0, stdout="192.0.2.1", stderr="")
+    checker = SSHDNSChecker("monitor.example", "example.com", critical_threshold=critical)
+    with (
+        patch(
+            "nagios_plugins.plugins.check_dig.execute_command_async",
+            new=AsyncMock(return_value=result),
+        ),
+        patch("nagios_plugins.plugins.check_dig.time") as timer,
+    ):
+        timer.time.side_effect = [0.0, duration]
+        checked = await checker.check_dns()
+    assert checked.status == expected
+
+
+def test_commands_without_thresholds_reject_warning(capsys: pytest.CaptureFixture[str]) -> None:
+    """-w would be silently ignored by a check that has no thresholds, so it is a usage error."""
+    from nagios_plugins.plugins.check_ro_mounts import CheckRoMounts
+
+    with pytest.raises(SystemExit) as exited:
+        CheckRoMounts().parse_args(["--warning", "1"])
+    assert exited.value.code == 3
+    assert capsys.readouterr().out.startswith("UNKNOWN - check_ro_mounts: ")
+
+
+@pytest.mark.asyncio
 async def test_remote_dns_missing_expected_answer() -> None:
     result = CommandResult(execution_time=0.05, exit_code=0, stdout="192.0.2.2", stderr="")
     with patch(

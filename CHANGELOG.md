@@ -7,6 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- Every command now runs on the shared `NagiosPlugin` base class.
+  `check_component_status`, `check_mongodb_health`, `check_monghealth`,
+  `check_hadoop`, `check_jobs`, `check_dig` and `check_ro_mounts` had their own
+  parsers and runner; their options, defaults (including `--timeout`) and exit
+  codes are unchanged, and they gain the shared `-v`/`-t` short options. The
+  `CRITICAL - CRITICAL - ` and `OK - OK - ` double prefixes in
+  `check_component_status` and `check_mongodb_health` status lines are gone.
+  `check_component_status` also accepts `-w`/`-c` for its minute thresholds.
+  `check_dig -w`/`-c` take Nagios ranges for the query time in seconds; a plain
+  number keeps its meaning (alert above it). Checks without thresholds
+  (`check_mongodb_health`, `check_monghealth`, `check_hadoop`, `check_jobs`,
+  `check_ro_mounts`) reject `-w`/`-c` as a usage error. `--help` prints the
+  description without source indentation. The unused
+  `nagios_plugins.base.run_async_check` helper is removed; derive from
+  `AsyncNagiosPlugin` instead.
 - `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
   certificate as CRITICAL with the verification reason instead of UNKNOWN,
   and accepts `--ca-file` for private CAs like the HTTP checks.

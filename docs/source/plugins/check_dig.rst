@@ -16,31 +16,34 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_dig [-h] --host HOST --query QUERY [--ssh-user SSH_USER]
+   usage: check_dig [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL] [--json]
+                    --host HOST --query QUERY [--ssh-user SSH_USER]
                     [--ssh-port SSH_PORT] [--dns-port DNS_PORT]
                     [--record-type RECORD_TYPE] [--dig-arguments DIG_ARGUMENTS]
-                    [--expected EXPECTED] [--warning WARNING]
-                    [--critical CRITICAL] [--timeout TIMEOUT] [--retries RETRIES]
-                    [--json] [--verbose]
+                    [--expected EXPECTED] [--retries RETRIES]
 
-   Check DNS via SSH using dig
+   Check DNS via SSH using dig.
+
+   -w/-c are Nagios ranges for the query time in seconds.
 
    options:
      -h, --help            show this help message and exit
-     --host HOST           SSH host to connect to (default: None)
-     --query QUERY         DNS name to query (default: None)
-     --ssh-user SSH_USER   SSH username (default: None)
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 30)
+     -w WARNING, --warning WARNING
+                           Warning threshold (plugin-specific)
+     -c CRITICAL, --critical CRITICAL
+                           Critical threshold (plugin-specific)
+     --json                Output results in JSON format
+     --host HOST           SSH host to connect to
+     --query QUERY         DNS name to query
+     --ssh-user SSH_USER   SSH username
      --ssh-port SSH_PORT   SSH port (default: 22)
      --dns-port DNS_PORT   DNS port (default: 53)
      --record-type RECORD_TYPE
-                           DNS record type (A, AAAA, MX, etc.) (default: A)
+                           DNS record type (A, AAAA, MX, etc.; default: A)
      --dig-arguments DIG_ARGUMENTS
-                           Additional dig command arguments (default: None)
-     --expected EXPECTED   Expected result from the DNS query (default: None)
-     --warning WARNING     Warning threshold in seconds (default: None)
-     --critical CRITICAL   Critical threshold in seconds (default: None)
-     --timeout TIMEOUT     Command timeout in seconds (default: 30)
-     --retries RETRIES     Number of retries on failure (default: 1)
-     --json                Output in JSON format (default: False)
-     --verbose             Increase verbosity (can be used multiple times)
-                           (default: 0)
+                           Additional dig command arguments
+     --expected EXPECTED   Expected result from the DNS query
+     --retries RETRIES     Number of attempts (default: 1)

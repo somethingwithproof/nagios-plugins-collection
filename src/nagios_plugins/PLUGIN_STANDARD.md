@@ -73,10 +73,17 @@ if __name__ == "__main__":
 ```
 
 `NagiosPlugin` supplies `-v`, `-t`, `-w`, `-c` and `--json`, a
-`NagiosArgumentParser` whose usage errors exit UNKNOWN (3), stderr logging
-configured after parsing, and conversion of unhandled exceptions to UNKNOWN.
-Standalone plugins that build their own parser use `NagiosArgumentParser` and
-finish with `run_async_check(parse_args(), check)` for the same behavior.
+`NagiosArgumentParser` named after the command whose usage errors exit UNKNOWN
+(3), stderr logging configured after parsing, and conversion of unhandled
+exceptions to UNKNOWN. Every installed command is a `NagiosPlugin` subclass;
+do not build a separate parser or `main()` loop.
+
+- A check that awaits I/O derives from `AsyncNagiosPlugin` and implements
+  `async def check_async(self, args)`; the base class owns the event loop.
+- Set `default_timeout` to change the `-t/--timeout` default.
+- Set `has_thresholds = False` when the check has no `-w`/`-c`, so they are
+  rejected instead of silently ignored, or override `add_threshold_arguments`
+  when established options take something other than Nagios ranges.
 
 ## Dependencies
 
@@ -145,7 +152,7 @@ All plugins should follow these logging practices:
 2. **Log Destination**:
    - Use `logging.getLogger(...)`; never call `logging.basicConfig` or add
      handlers at import time
-   - `configure_logging` (called by `NagiosPlugin` and `run_async_check`) sends
+   - `configure_logging` (called by `NagiosPlugin.parse_args`) sends
      records to stderr, so stdout carries only the plugin result
    - Include the log level and keep messages clear and actionable
 

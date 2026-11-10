@@ -22,10 +22,9 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 import tempfile
 
-from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
 from nagios_plugins.utils import execute_command
 
 logger = logging.getLogger("check_ro_mounts")
@@ -226,71 +225,37 @@ class MountStatusChecker:
             )
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
+class CheckRoMounts(AsyncNagiosPlugin):
+    """Check for read-only mounts."""
 
-    Returns:
-        Parsed arguments
-    """
-    parser = NagiosArgumentParser(
-        description="Check for read-only mounts",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--host",
-        help="Remote host to check (None for local)",
-    )
-    parser.add_argument(
-        "--ssh-user",
-        help="SSH username",
-    )
-    parser.add_argument(
-        "--ssh-port",
-        type=int,
-        default=22,
-        help="SSH port",
-    )
-    parser.add_argument(
-        "--exclude",
-        help="Comma-separated list of mount points to exclude",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="Command timeout in seconds",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
+    has_thresholds = False
 
-    return parser.parse_args()
+    def __init__(self) -> None:
+        """Register the local or SSH target and exclude arguments."""
+        super().__init__()
+        self.parser.add_argument("--host", help="Remote host to check over SSH (default: local)")
+        self.parser.add_argument("--ssh-user", help="SSH username")
+        self.parser.add_argument("--ssh-port", type=int, default=22, help="SSH port (default: 22)")
+        self.parser.add_argument(
+            "--exclude", help="Comma-separated list of mount points to exclude"
+        )
 
-
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Check mounts on the local or configured remote host."""
-    exclude_mounts = [x.strip() for x in args.exclude.split(",")] if args.exclude else []
-    return await MountStatusChecker(
-        host=args.host,
-        ssh_user=args.ssh_user,
-        ssh_port=args.ssh_port,
-        exclude_mounts=exclude_mounts,
-        timeout=args.timeout,
-    ).check_mounts()
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Check mounts on the local or configured remote host."""
+        exclude_mounts = [x.strip() for x in args.exclude.split(",")] if args.exclude else []
+        return await MountStatusChecker(
+            host=args.host,
+            ssh_user=args.ssh_user,
+            ssh_port=args.ssh_port,
+            exclude_mounts=exclude_mounts,
+            timeout=args.timeout,
+        ).check_mounts()
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckRoMounts().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -16,14 +16,14 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_jobs [-h] --url URL [--timeout TIMEOUT] [--json] [--verbose]
+   usage: check_jobs [-h] [-v] [-t TIMEOUT] [--json] --url URL
 
-   Check job statuses
+   Check job statuses.
 
    options:
-     -h, --help         show this help message and exit
-     --url URL          URL to the jobs status API (default: None)
-     --timeout TIMEOUT  HTTP request timeout in seconds (default: 30)
-     --json             Output in JSON format (default: False)
-     --verbose          Increase verbosity (can be used multiple times) (default:
-                        0)
+     -h, --help            show this help message and exit
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 30)
+     --json                Output results in JSON format
+     --url URL             URL to the jobs status API

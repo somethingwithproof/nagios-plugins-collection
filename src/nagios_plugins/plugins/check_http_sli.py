@@ -11,14 +11,14 @@ import statistics
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, PerfData, Status, threshold_check
 from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
 
 # Most severe first when combining the latency and error-rate verdicts.
 _SEVERITY = {Status.OK: 0, Status.UNKNOWN: 1, Status.WARNING: 2, Status.CRITICAL: 3}
 
 
-class CheckHttpSli(NagiosPlugin):
+class CheckHttpSli(AsyncNagiosPlugin):
     """Probe one or more URLs concurrently and report p50/p95/p99 and error-rate.
 
     Latency and error rate have separate Nagios ranges. -w/-c are aliases for
@@ -66,11 +66,7 @@ class CheckHttpSli(NagiosPlugin):
             setattr(parsed, option, getattr(parsed, alias))
         return parsed
 
-    def check(self, args: argparse.Namespace) -> CheckResult:
-        """Evaluate the configured check and return status and performance data."""
-        return asyncio.run(self._async_check(args))
-
-    async def _async_check(self, args: argparse.Namespace) -> CheckResult:
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Collect HTTP samples and summarize latency and failures."""
         latencies: list[float] = []
         errors = 0
