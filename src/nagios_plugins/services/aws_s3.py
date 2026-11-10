@@ -6,21 +6,14 @@ from __future__ import annotations
 
 import datetime as dt
 
+from nagios_plugins.services import aws
+
 
 def latest_object_age_seconds(
     bucket: str, prefix: str = "", region: str | None = None, timeout: int = 10
 ) -> int:
     """Return the age in seconds of the newest object under an S3 prefix."""
-    try:
-        import boto3  # type: ignore
-    except Exception as e:  # pragma: no cover
-        raise RuntimeError("boto3 extra not installed") from e
-
-    s3 = boto3.client(
-        "s3",
-        region_name=region,
-        config=boto3.session.Config(connect_timeout=timeout, read_timeout=timeout),
-    )  # type: ignore
+    s3 = aws.client("s3", region=region, timeout=timeout)
     paginator = s3.get_paginator("list_objects_v2")
     latest: dt.datetime | None = None
     for page in paginator.paginate(

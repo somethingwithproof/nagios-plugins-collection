@@ -20,6 +20,7 @@ def get_stats(url: str, timeout: int = 5) -> dict[str, float | int]:
     hitratio = (hits / total) if total > 0 else 1.0
     return {
         "used_memory": int(info.get("used_memory", 0)),
+        "maxmemory": int(info.get("maxmemory", 0)),
         "evicted_keys": int(info.get("evicted_keys", 0)),
         "blocked_clients": int(info.get("blocked_clients", 0)),
         "hitratio": hitratio,

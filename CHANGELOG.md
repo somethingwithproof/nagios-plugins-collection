@@ -7,6 +7,27 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
+  certificate as CRITICAL with the verification reason instead of UNKNOWN,
+  and accepts `--ca-file` for private CAs like the HTTP checks.
+- `check_cloud_budget` no longer fails on the first day of the month: the Cost
+  Explorer period ends tomorrow (End is exclusive), so it always includes
+  today. An empty Cost Explorer result is UNKNOWN instead of $0, and the
+  client honors `--timeout`.
+- All AWS clients come from one helper with connect/read timeouts and capped
+  standard-mode retries (3 attempts).
+- `check_ro_mounts --exclude` ignores empty entries, so a trailing comma no
+  longer excludes every mount, and excludes match whole path components:
+  the default `/run` exclude no longer hides `/runner`, and only `/var` and
+  paths below it (not `/variant`) are CRITICAL.
+- `check_redis_saturation` changes what `-w`/`-c` mean: they are now Nagios
+  ranges for `used_memory` as a percentage of `maxmemory` (UNKNOWN when
+  thresholds are given and `maxmemory` is 0). Previously `-w` was compared with
+  `evicted_keys`, a counter that only grows until restart, so a single
+  eviction latched WARNING; `-c` was compared with `blocked_clients`, and fixed
+  hit-ratio cutoffs (0.8/0.5) applied whenever a threshold was set. Evictions,
+  blocked clients and hit ratio are now perfdata only (`evicted_keys` as a
+  `c` counter for rate graphs). `--timeout` is now honored.
 - `check_http_sli` thresholds are split by measurement. `-w`/`-c` compared one
   number with both the error rate (a 0-1 fraction) and p95 latency (ms), so a
   value meant for one was meaningless for the other. `--latency-warning` and

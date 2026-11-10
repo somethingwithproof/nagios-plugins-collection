@@ -7,12 +7,18 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
 from nagios_plugins.services.redis_svc import get_stats
 
 
 class CheckRedisSaturation(NagiosPlugin):
-    """Monitor Redis memory use, evictions and cache hits."""
+    """Monitor Redis memory saturation, evictions and cache hits.
+
+    -w/-c are Nagios ranges for used_memory as a percentage of maxmemory, a
+    gauge that recovers when memory is freed. evicted_keys is a monotonic
+    counter since restart, so it is published as perfdata (UOM c) for the
+    graphing system to turn into a rate rather than compared with a threshold.
+    """
 
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
@@ -27,26 +33,37 @@ class CheckRedisSaturation(NagiosPlugin):
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         try:
-            stats = get_stats(args.url)
+            stats = get_stats(args.url, timeout=args.timeout)
         except RuntimeError as e:
             return CheckResult(Status.UNKNOWN, str(e))
-        status = Status.OK
-        if args.critical and (
-            stats["blocked_clients"] > int(args.critical) or stats["hitratio"] < 0.5
-        ):
-            status = Status.CRITICAL
-        elif args.warning and (
-            stats["evicted_keys"] > int(args.warning) or stats["hitratio"] < 0.8
-        ):
-            status = Status.WARNING
-        msg = f"used={stats['used_memory']} evicted={stats['evicted_keys']} blocked={stats['blocked_clients']} hitratio={stats['hitratio']:.2f}"
+        used, maxmemory = int(stats["used_memory"]), int(stats["maxmemory"])
+        metrics: dict[str, PerfData] = {
+            "used_memory": PerfData(used, "B", minimum=0, maximum=maxmemory or None),
+            "evicted_keys": PerfData(stats["evicted_keys"], "c"),
+            "blocked_clients": PerfData(stats["blocked_clients"]),
+            "hitratio": PerfData(round(stats["hitratio"], 4), minimum=0, maximum=1),
+        }
+        summary = (
+            f"evicted={stats['evicted_keys']} blocked={stats['blocked_clients']} "
+            f"hitratio={stats['hitratio']:.2f}"
+        )
+        if not maxmemory:
+            if args.warning or args.critical:
+                return CheckResult(
+                    Status.UNKNOWN,
+                    f"maxmemory is not set, so memory saturation is undefined; used={used}B "
+                    f"{summary}",
+                    metrics=metrics,
+                )
+            return CheckResult(Status.OK, f"used={used}B (no maxmemory) {summary}", metrics=metrics)
+        percent = used / maxmemory * 100
+        metrics["memory_used_pct"] = PerfData(
+            round(percent, 2), "%", args.warning, args.critical, 0, 100
+        )
         return CheckResult(
-            status,
-            msg,
-            metrics={
-                k: (int(v) if isinstance(v, float) and v.is_integer() else v)
-                for k, v in stats.items()
-            },
+            threshold_check(percent, args.warning, args.critical),
+            f"memory {percent:.1f}% of maxmemory ({used}/{maxmemory}B) {summary}",
+            metrics=metrics,
         )
 
 

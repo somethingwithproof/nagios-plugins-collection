@@ -3,11 +3,14 @@
 """Exercise vendor response parsing without live accounts or credentials."""
 
 import datetime as dt
+import ssl
+from collections.abc import Callable
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from nagios_plugins.services import aws
 from nagios_plugins.services.aws_cloudwatch import get_metric_statistics
 from nagios_plugins.services.aws_s3 import latest_object_age_seconds
 from nagios_plugins.services.aws_sqs import queue_depth
@@ -95,6 +98,7 @@ def test_redis_hit_ratio(info: dict, expected_ratio: float) -> None:
         result = get_stats("redis://cache.example", timeout=7)
     assert result["hitratio"] == expected_ratio
     assert result["used_memory"] == 0
+    assert result["maxmemory"] == 0
 
 
 def test_kubernetes_pressure_and_kubeconfig_fallback() -> None:
@@ -125,3 +129,43 @@ def test_kubernetes_pressure_and_kubeconfig_fallback() -> None:
     assert result.disk_pressure == 1
     assert result.memory_pressure == 1
     assert result.pid_pressure == 1
+
+
+def test_aws_client_bounds_timeouts_and_retries() -> None:
+    with patch("boto3.client") as client:
+        aws.client("sqs", region="eu-west-1", timeout=7)
+    assert client.call_args.args == ("sqs",)
+    assert client.call_args.kwargs["region_name"] == "eu-west-1"
+    config = client.call_args.kwargs["config"]
+    assert (config.connect_timeout, config.read_timeout) == (7, 7)
+    assert config.retries == {"max_attempts": 3, "mode": "standard"}
+
+
+@pytest.mark.parametrize(
+    "call,service",
+    [
+        (lambda: queue_depth("https://sqs.example/queue", timeout=7), "sqs"),
+        (lambda: latest_object_age_seconds("backups", timeout=7), "s3"),
+        (lambda: get_metric_statistics("AWS/Test", "Requests", [], timeout=7), "cloudwatch"),
+    ],
+)
+def test_aws_services_use_the_shared_client(call: Callable[[], object], service: str) -> None:
+    with (
+        patch("nagios_plugins.services.aws.client", side_effect=RuntimeError("stop")) as client,
+        pytest.raises(RuntimeError, match="stop"),
+    ):
+        call()
+    client.assert_called_once_with(service, region=None, timeout=7)
+
+
+def test_tls_ca_file_is_used_for_verification() -> None:
+    from nagios_plugins.services import tls
+
+    with (
+        patch("ssl.create_default_context") as context,
+        patch("socket.create_connection"),
+    ):
+        context.return_value.wrap_socket.side_effect = ssl.SSLError("stop")
+        with pytest.raises(ssl.SSLError):
+            tls.fetch_server_cert("example.com", ca_file="/etc/pki/private-ca.pem")
+    context.assert_called_once_with(cafile="/etc/pki/private-ca.pem")
