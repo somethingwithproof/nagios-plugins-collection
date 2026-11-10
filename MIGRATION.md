@@ -69,6 +69,16 @@ review each one against your Nagios or Icinga configuration before upgrading.
   description without source indentation. The unused
   `nagios_plugins.base.run_async_check` helper is removed; derive from
   `AsyncNagiosPlugin` instead.
+- `check_dns_health`, `check_k8s_node_status` and `check_oauth2_token`
+  accepted `-w`/`-c` and ignored them; they now apply them as Nagios ranges.
+  `check_dns_health` compares the round-trip time in milliseconds (`rtt_ms`).
+  `check_k8s_node_status` compares the number of unready nodes (for example
+  `-w 0 -c 2`); without thresholds any unready node stays CRITICAL, and node
+  pressure is always CRITICAL. `check_oauth2_token` compares `expires_in` in
+  seconds; give a lower bound such as `-w 300:` to alert on short-lived
+  tokens (a plain `300` alerts above 300), and with thresholds a response
+  without `expires_in` is UNKNOWN. Perfdata carries the thresholds. Every
+  other command either applies `-w`/`-c` or rejects them.
 - A bare `@` is no longer accepted as a range (it silently meant `@0:`,
   alerting on every non-negative value); it is a usage error (exit 3), as is
   a malformed `check_http_sli` `--latency-*`/`--error-rate-*` range. Ranges

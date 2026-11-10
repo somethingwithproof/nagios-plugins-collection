@@ -499,6 +499,8 @@ class NagiosPlugin(ABC):
     default_timeout: ClassVar[int] = 30
     #: Whether ``-w``/``-c`` take Nagios ranges; plugins without thresholds set False.
     has_thresholds: ClassVar[bool] = True
+    #: What ``-w``/``-c`` measure, for ``--help`` (for example "query time in ms").
+    threshold_metric: ClassVar[str] = "plugin-specific"
 
     def __init__(self) -> None:
         """Initialize the plugin."""
@@ -559,10 +561,16 @@ class NagiosPlugin(ABC):
         established options take plain numbers does.
         """
         parser.add_argument(
-            "-w", "--warning", type=nagios_range, help="Warning threshold (plugin-specific)"
+            "-w",
+            "--warning",
+            type=nagios_range,
+            help=f"Warning threshold ({self.threshold_metric})",
         )
         parser.add_argument(
-            "-c", "--critical", type=nagios_range, help="Critical threshold (plugin-specific)"
+            "-c",
+            "--critical",
+            type=nagios_range,
+            help=f"Critical threshold ({self.threshold_metric})",
         )
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:

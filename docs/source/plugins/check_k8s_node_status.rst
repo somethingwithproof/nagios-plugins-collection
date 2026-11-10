@@ -21,6 +21,10 @@ Installed command options
 
    Monitor Kubernetes node readiness.
 
+   -w/-c are Nagios ranges for the number of nodes that are not ready (for
+   example -w 0 -c 2). Without them any unready node is CRITICAL. Disk,
+   memory or PID pressure on any node is always CRITICAL.
+
    options:
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
@@ -28,8 +32,10 @@ Installed command options
                            Timeout in seconds for the whole run (default: 30);
                            the plugin exits UNKNOWN 1 second after it
      -w WARNING, --warning WARNING
-                           Warning threshold (plugin-specific)
+                           Warning threshold (Nagios range for the number of
+                           unready nodes)
      -c CRITICAL, --critical CRITICAL
-                           Critical threshold (plugin-specific)
+                           Critical threshold (Nagios range for the number of
+                           unready nodes)
      --json                Output results in JSON format
      --label LABEL         Label selector for nodes

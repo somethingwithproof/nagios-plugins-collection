@@ -37,6 +37,7 @@ import psycopg
 import pytest
 import redis
 
+from nagios_plugins.base import NagiosPlugin
 from nagios_plugins.utils import CommandResult
 from tests.fakes import FakeHttpBackend
 from tests.perfdata_grammar import KEYWORDS, parse_output
@@ -451,3 +452,41 @@ def test_logs_reach_stderr(
     out, err = capsys.readouterr()
     assert LOG_RECORD.search(err)
     assert not LOG_RECORD.search(out)
+
+
+#: A -c value each command must alert on in its healthy scenario. Ranges use
+#: "@~:" (alert on every value); plain-number thresholds use their unit.
+ALWAYS_CRITICAL = {
+    "check_tls_expiry": "1000",  # days remaining at or below
+    "check_component_status": "-1",  # minutes since the last update above
+    "check_website_status": "0",  # response seconds above
+}
+
+
+@pytest.mark.parametrize("name", sorted(SPECS))
+def test_no_command_silently_ignores_thresholds(
+    name: str, http_backend: FakeHttpBackend, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """-w/-c either change the result or are rejected; accepting and ignoring them is a lie."""
+    module = importlib.import_module(SCRIPTS[name].partition(":")[0])
+    plugins: list[type[NagiosPlugin]] = [
+        value
+        for value in vars(module).values()
+        if isinstance(value, type)
+        and issubclass(value, NagiosPlugin)
+        and value.__module__ == module.__name__
+    ]
+    (plugin,) = plugins
+    critical = ALWAYS_CRITICAL.get(name, "@~:")
+    spec = SPECS[name]
+    with ExitStack() as stack:
+        spec.arrange("success", stack, http_backend)
+        stack.enter_context(patch("sys.argv", [name, *spec.args, "-c", critical]))
+        if not plugin.has_thresholds:
+            with pytest.raises(SystemExit) as exited:
+                module.main()
+            assert exited.value.code == 3
+            return
+        code = int(module.main())
+    out = capsys.readouterr().out
+    assert code == 2, f"{name} ignored -c {critical}: {out}"

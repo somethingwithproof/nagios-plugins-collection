@@ -22,6 +22,9 @@ Installed command options
 
    Check DNS recursion/authoritative responsiveness and TCP fallback (optional dnspython).
 
+   -w/-c are Nagios ranges for the round-trip time in milliseconds; a plain
+   number alerts above it.
+
    options:
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
@@ -29,9 +32,11 @@ Installed command options
                            Timeout in seconds for the whole run (default: 30);
                            the plugin exits UNKNOWN 1 second after it
      -w WARNING, --warning WARNING
-                           Warning threshold (plugin-specific)
+                           Warning threshold (Nagios range for the round-trip
+                           time in ms)
      -c CRITICAL, --critical CRITICAL
-                           Critical threshold (plugin-specific)
+                           Critical threshold (Nagios range for the round-trip
+                           time in ms)
      --json                Output results in JSON format
      --name NAME           Name to resolve
      --type TYPE           Record type

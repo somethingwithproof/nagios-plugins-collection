@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
 
 try:
     import dns.resolver  # type: ignore
@@ -18,7 +18,13 @@ except Exception:  # pragma: no cover - optional
 
 
 class CheckDnsHealth(NagiosPlugin):
-    """Check DNS recursion/authoritative responsiveness and TCP fallback (optional dnspython)."""
+    """Check DNS recursion/authoritative responsiveness and TCP fallback (optional dnspython).
+
+    -w/-c are Nagios ranges for the round-trip time in milliseconds; a plain
+    number alerts above it.
+    """
+
+    threshold_metric = "Nagios range for the round-trip time in ms"
 
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
@@ -46,10 +52,14 @@ class CheckDnsHealth(NagiosPlugin):
                 else 0
             )
             count = len(answer)
+            rtt = int(rtt_ms)
             return CheckResult(
-                Status.OK,
+                threshold_check(rtt, args.warning, args.critical),
                 f"DNS {args.name} {args.type} answers={count}",
-                metrics={"answers": count, "rtt_ms": int(rtt_ms)},
+                metrics={
+                    "answers": count,
+                    "rtt_ms": PerfData(rtt, warning=args.warning, critical=args.critical),
+                },
             )
         except dns.resolver.NXDOMAIN:
             return CheckResult(Status.CRITICAL, "NXDOMAIN")
