@@ -11,11 +11,15 @@ import statistics
 
 import httpx
 
-from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, PerfData, Status, threshold_check
-from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
-
-# Most severe first when combining the latency and error-rate verdicts.
-_SEVERITY = {Status.OK: 0, Status.UNKNOWN: 1, Status.WARNING: 2, Status.CRITICAL: 3}
+from nagios_plugins.base import (
+    AsyncNagiosPlugin,
+    CheckResult,
+    PerfData,
+    Status,
+    most_severe,
+    threshold_check,
+)
+from nagios_plugins.services import http
 
 
 class CheckHttpSli(AsyncNagiosPlugin):
@@ -52,7 +56,8 @@ class CheckHttpSli(AsyncNagiosPlugin):
             metavar="RANGE",
             help="Range for the fraction of failed requests (0-1) for CRITICAL",
         )
-        add_tls_arguments(self.parser)
+        # Every sample is a measurement, so failed requests are never retried.
+        http.add_http_arguments(self.parser, env_prefix="CHECK_HTTP_SLI", retries=None)
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         """Resolve -w/-c into the latency thresholds they alias."""
@@ -71,9 +76,7 @@ class CheckHttpSli(AsyncNagiosPlugin):
         latencies: list[float] = []
         errors = 0
         total = 0
-        async with httpx.AsyncClient(
-            verify=tls_verification(args.ca_file), timeout=args.timeout
-        ) as client:
+        async with http.async_client(args, follow_redirects=True) as client:
             tasks = [self._probe(client, url) for url in args.url for _ in range(args.samples)]
             results = await asyncio.gather(*tasks, return_exceptions=True)
         for r in results:
@@ -91,7 +94,7 @@ class CheckHttpSli(AsyncNagiosPlugin):
             statuses.append(Status.CRITICAL)
         else:
             statuses.append(threshold_check(p95, args.latency_warning, args.latency_critical))
-        status = max(statuses, key=_SEVERITY.__getitem__)
+        status = most_severe(*statuses)
         latency = f"{p95:.1f}ms" if latencies else "n/a"
         msg = f"SLI p95={latency} error_rate={error_rate:.2%}"
         metrics = {
@@ -123,7 +126,7 @@ class CheckHttpSli(AsyncNagiosPlugin):
     async def _probe(self, client: httpx.AsyncClient, url: str) -> float | None:
         """Return elapsed milliseconds for one successful HTTP request."""
         try:
-            r = await client.get(url, follow_redirects=True)
+            r = await client.get(url)
             r.raise_for_status()
             return float(r.elapsed.total_seconds() * 1000)
         except Exception:

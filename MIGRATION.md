@@ -11,6 +11,30 @@ SPDX-License-Identifier: Apache-2.0
 exit codes, output or threshold semantics for existing command definitions;
 review each one against your Nagios or Icinga configuration before upgrading.
 
+- Every HTTP check now uses one shared client (`nagios_plugins.services.http`);
+  see "HTTP Options" in the usage guide. All of them accept `--ca-file`, `--insecure`, `--client-cert`/`--client-key`,
+  `--retries`/`--retry-delay`, and `--username`/`--password`,
+  `--bearer-token` and `--api-key`/`--api-key-header`, each secret with a
+  `-file` option, a `CHECK_<COMMAND>_<NAME>` variable and a `*_FILE` variable.
+  Every secret option, including the existing `--client-secret` and
+  `--password`, now also reads the file named by its variable plus `_FILE`.
+  Credentials are sent only to the requested origin: redirects to another
+  scheme, host or port drop them, and an HTTPS to HTTP redirect with
+  credentials configured is CRITICAL. Transient failures are retried within
+  `--timeout` (2 retries by default; `POST` only when the connection was never
+  made; none for `check_website_status` unless `--retries` is given, and none
+  for `check_http_sli`). Proxy variables are honored, requests send a
+  versioned User-Agent, and HTTP errors name the URL without credentials or
+  query string. `check_website_status --retry-delay` is now the first pause
+  and doubles for each further retry (capped at 5 seconds), and only transient
+  failures are retried. `--password` without `--username`, `--bearer-token` with
+  `--username`, `--insecure` with `--ca-file` and `--client-key` without
+  `--client-cert` are usage errors (exit 3); `check_monghealth --password`
+  without `--username` previously sent no credentials. Library callers:
+  `nagios_plugins.utils.check_http_endpoint`, `check_http_endpoint_async` and
+  `nagios_plugins.services.http_tls` are removed in favor of
+  `nagios_plugins.services.http`, and `WebsiteStatusChecker` takes a
+  `settings` argument instead of `retries`.
 - `--timeout` now bounds the whole run of every plugin. One second after it
   the run ends with `UNKNOWN - Plugin timed out after N seconds` (or the JSON
   equivalent) and exit 3, even while it waits on DNS resolution, a TCP
@@ -172,23 +196,23 @@ compatibility; omitting it no longer disables verification. For an internal CA,
 use `--ca-file /path/to/ca.pem`. Keep endpoint hostnames consistent with the
 certificate SAN. An expired, untrusted or mismatched certificate fails the check.
 
-Async utility functions no longer accept a `timeout` argument. Apply a caller
-deadline instead:
+`nagios_plugins.utils.check_http_endpoint` and `check_http_endpoint_async` were
+removed. Build clients with `nagios_plugins.services.http.client()` or
+`async_client()`, which apply the shared TLS, credential, retry, proxy and
+User-Agent policy, and register the options with `add_http_arguments()`:
 
 ```python
-import asyncio
-from nagios_plugins.utils import check_http_endpoint_async
+from nagios_plugins.services import http
 
-
-async def check_endpoint():
-    async with asyncio.timeout(10):
-        return await check_http_endpoint_async("https://example.com")
+settings = http.HttpSettings(timeout=10, bearer_token=token)
+with http.client(settings) as client:
+    response = client.get("https://example.com/health")
 ```
 
-Use the same pattern for `execute_command_async`; cancellation terminates and
-reaps its child process. HTTP utilities also impose a 30-second transport ceiling.
-CLI `--timeout` continues to bound each check. Catch `TimeoutError` when directly
-calling the utilities; plugin wrappers translate deadlines into Nagios results.
+`execute_command_async` no longer accepts a `timeout` argument; wrap it in
+`asyncio.timeout()`. Cancellation terminates and reaps its child process. CLI
+`--timeout` bounds the whole run (see the usage guide); catch `TimeoutError` when
+calling utilities directly.
 
 HTTP SLI thresholds are **milliseconds** (`--warning 200 --critical 500`), while
 website-status thresholds are seconds (`--warning 1 --critical 2`). All failed

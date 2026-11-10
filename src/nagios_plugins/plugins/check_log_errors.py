@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
-from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
+from nagios_plugins.services import http
 
 
 class CheckLogErrors(NagiosPlugin):
@@ -25,7 +25,7 @@ class CheckLogErrors(NagiosPlugin):
         self.parser.add_argument("--index", required=True, help="Index or alias")
         self.parser.add_argument("--minutes", type=int, default=5)
         self.parser.add_argument("--query", default="level:ERROR OR status:[500 TO 599]")
-        add_tls_arguments(self.parser)
+        http.add_http_arguments(self.parser, env_prefix="CHECK_LOG_ERRORS")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
@@ -48,9 +48,7 @@ class CheckLogErrors(NagiosPlugin):
             },
         }
         try:
-            with httpx.Client(
-                timeout=args.timeout, verify=tls_verification(args.ca_file)
-            ) as client:
+            with http.client(args) as client:
                 r = client.post(url, json=body)
             r.raise_for_status()
             hits = _total_hits(r.json())
@@ -62,7 +60,7 @@ class CheckLogErrors(NagiosPlugin):
                 status, f"errors={hits} in {args.minutes}m", metrics={"errors": hits}
             )
         except httpx.HTTPError as e:
-            return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
+            return CheckResult(Status.CRITICAL, f"HTTP error: {http.describe_error(e)}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
 

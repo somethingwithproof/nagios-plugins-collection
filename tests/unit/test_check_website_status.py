@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the check_website_status plugin."""
 
+from collections.abc import Callable
 from datetime import timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
 from nagios_plugins.base import Status
-from nagios_plugins.plugins.check_website_status import WebsiteStatusChecker
+from nagios_plugins.plugins.check_website_status import CheckWebsiteStatus, WebsiteStatusChecker
+from nagios_plugins.services import http
+from tests.fakes import serve_http
 
 
 @pytest.mark.asyncio
@@ -23,17 +26,35 @@ async def test_invalid_pattern_does_not_retry_transport() -> None:
         response.elapsed = timedelta(milliseconds=5)
         return response
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    transport = httpx.MockTransport(respond)
     with (
-        patch("httpx.AsyncClient", return_value=client),
+        serve_http(transport.handle_request),
         patch("asyncio.sleep", new=AsyncMock()) as sleep,
     ):
         result = await WebsiteStatusChecker(
-            "https://example.com", pattern="[", retries=3
+            "https://example.com",
+            pattern="[",
+            settings=http.HttpSettings(retry=http.RetryPolicy(retries=3)),
         ).check_website()
     assert result.status == Status.UNKNOWN
     assert len(requests) == 1
     sleep.assert_not_called()
+
+
+def _site(status: int, text: str, seconds: float) -> Callable[[httpx.Request], httpx.Response]:
+    def respond(request: httpx.Request) -> httpx.Response:
+        response = httpx.Response(status, text=text, request=request)
+        response.elapsed = timedelta(seconds=seconds)
+        return response
+
+    return respond
+
+
+def _failing(error: Exception) -> Callable[[httpx.Request], httpx.Response]:
+    def respond(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    return respond
 
 
 class TestWebsiteStatusChecker:
@@ -51,169 +72,60 @@ class TestWebsiteStatusChecker:
         )
 
     @pytest.mark.asyncio
-    async def test_check_website_success(self, checker: WebsiteStatusChecker) -> None:
-        """Test a successful website check."""
-        # Mock httpx.AsyncClient
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "Example Domain"
-        mock_response.elapsed.total_seconds.return_value = 0.5
-
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_instance
-
-            result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.OK
-            assert "Website OK" in result.message
-            assert "0.5s" in result.message
-            assert result.metrics["status_code"] == 200
-            assert result.metrics["duration"] == 0.5
-            assert result.metrics["pattern_found"] == 1
-
-    @pytest.mark.asyncio
-    async def test_check_website_warning(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check with warning response time."""
-        # Mock httpx.AsyncClient
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "Example Domain"
-        mock_response.elapsed.total_seconds.return_value = 1.5  # Between warning and critical
-
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_instance
-
-            result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.WARNING
-            assert "exceeds warning threshold" in result.message
-            assert result.metrics["status_code"] == 200
-            assert result.metrics["duration"] == 1.5
-
-    @pytest.mark.asyncio
-    async def test_check_website_critical_response_time(
-        self, checker: WebsiteStatusChecker
+    @pytest.mark.parametrize(
+        "status,text,seconds,expected,message",
+        [
+            (200, "Example Domain", 0.5, Status.OK, "Website OK - 0.5s"),
+            (200, "Example Domain", 1.5, Status.WARNING, "exceeds warning threshold"),
+            (200, "Example Domain", 2.5, Status.CRITICAL, "exceeds critical threshold"),
+            (404, "Not Found", 0.5, Status.CRITICAL, "HTTP 404 error"),
+            (200, "Not what we're looking for", 0.5, Status.CRITICAL, "Pattern not found"),
+        ],
+    )
+    async def test_response_classification(
+        self,
+        checker: WebsiteStatusChecker,
+        status: int,
+        text: str,
+        seconds: float,
+        expected: Status,
+        message: str,
     ) -> None:
-        """Test a website check with critical response time."""
-        # Mock httpx.AsyncClient
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "Example Domain"
-        mock_response.elapsed.total_seconds.return_value = 2.5  # Above critical
-
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_instance
-
+        with serve_http(_site(status, text, seconds)):
             result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.CRITICAL
-            assert "exceeds critical threshold" in result.message
-            assert result.metrics["status_code"] == 200
-            assert result.metrics["duration"] == 2.5
-
-    @pytest.mark.asyncio
-    async def test_check_website_error_status_code(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check with an error status code."""
-        # Mock httpx.AsyncClient
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_response.text = "Not Found"
-        mock_response.elapsed.total_seconds.return_value = 0.5
-
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_instance
-
-            result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.CRITICAL
-            assert "HTTP 404 error" in result.message
-            assert result.metrics["status_code"] == 404
-            assert result.metrics["duration"] == 0.5
-
-    @pytest.mark.asyncio
-    async def test_check_website_pattern_not_found(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check with the pattern not found in the response."""
-        # Mock httpx.AsyncClient
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "Not what we're looking for"
-        mock_response.elapsed.total_seconds.return_value = 0.5
-
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(return_value=mock_response)
-            mock_client.return_value = mock_instance
-
-            result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.CRITICAL
-            assert "Pattern not found" in result.message
-            assert result.metrics["status_code"] == 200
-            assert result.metrics["duration"] == 0.5
-            assert result.metrics["pattern_found"] == 0
+        assert result.status == expected
+        assert message in result.message
+        assert result.metrics["status_code"] == status
+        assert result.metrics["duration"] == seconds
+        assert result.metrics["pattern_found"] == int("Example Domain" in text)
 
     @pytest.mark.asyncio
     async def test_check_website_timeout(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check that times out."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(
-                side_effect=httpx.TimeoutException("Timeout")
-            )
-            mock_client.return_value = mock_instance
-
+        with serve_http(_failing(httpx.ReadTimeout("Timeout"))):
             result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.CRITICAL
-            assert "timed out" in result.message
-            assert result.metrics["duration"] == 10  # Timeout value
+        assert result.status == Status.CRITICAL
+        assert "timed out" in result.message
+        assert result.metrics["duration"] == 10
 
     @pytest.mark.asyncio
     async def test_check_website_http_error(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check with an HTTP error."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(
-                side_effect=httpx.HTTPError("HTTP Error")
-            )
-            mock_client.return_value = mock_instance
-
+        with serve_http(_failing(httpx.ConnectError("refused"))):
             result = await checker.check_website()
-
-            # Verify result
-            assert result.status == Status.CRITICAL
-            assert "HTTP error" in result.message
-            assert result.metrics["duration"] == 0
+        assert result.status == Status.CRITICAL
+        assert result.message == "HTTP error: refused requesting https://example.com"
+        assert result.metrics["duration"] == 0
 
     @pytest.mark.asyncio
-    async def test_check_website_unexpected_error(self, checker: WebsiteStatusChecker) -> None:
-        """Test a website check with an unexpected error."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.request = AsyncMock(
-                side_effect=Exception("Unexpected error")
-            )
-            mock_client.return_value = mock_instance
+    async def test_check_website_unexpected_error_propagates(
+        self, checker: WebsiteStatusChecker
+    ) -> None:
+        """Unexpected failures reach the plugin wrapper, which reports UNKNOWN."""
+        with serve_http(_failing(RuntimeError("Unexpected error"))), pytest.raises(RuntimeError):
+            await checker.check_website()
 
-            # Mock logger to prevent output during tests
-            with patch("nagios_plugins.plugins.check_website_status.logger"):
-                result = await checker.check_website()
 
-                # Verify result
-                assert result.status == Status.UNKNOWN
-                assert "Unexpected error" in result.message
-                assert result.metrics["duration"] == 0
+def test_plugin_reports_unexpected_errors_as_unknown(capsys: pytest.CaptureFixture[str]) -> None:
+    with serve_http(_failing(RuntimeError("Unexpected error"))):
+        code = CheckWebsiteStatus().run(["--url", "https://example.com"])
+    assert code == Status.UNKNOWN.value
+    assert capsys.readouterr().out.startswith("UNKNOWN - Unhandled exception: Unexpected error")

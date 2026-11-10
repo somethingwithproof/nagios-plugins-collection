@@ -20,7 +20,13 @@ Installed command options
                          [--json] --url URL [--samples SAMPLES]
                          [--latency-warning RANGE] [--latency-critical RANGE]
                          [--error-rate-warning RANGE]
-                         [--error-rate-critical RANGE] [--ca-file CA_FILE]
+                         [--error-rate-critical RANGE] [--ca-file PATH]
+                         [--insecure] [--client-cert PATH] [--client-key PATH]
+                         [--username USERNAME]
+                         [--password PASSWORD | --password-file PATH]
+                         [--bearer-token BEARER_TOKEN | --bearer-token-file PATH]
+                         [--api-key API_KEY | --api-key-file PATH]
+                         [--api-key-header NAME]
 
    Probe one or more URLs concurrently and report p50/p95/p99 and error-rate.
 
@@ -50,4 +56,36 @@ Installed command options
      --error-rate-critical RANGE
                            Range for the fraction of failed requests (0-1) for
                            CRITICAL
-     --ca-file CA_FILE     PEM CA bundle; defaults to system trust
+
+   TLS:
+     --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store
+                           or $SSL_CERT_FILE)
+     --insecure            Do not verify TLS certificates or hostnames (for
+                           testing; prefer --ca-file)
+     --client-cert PATH    PEM client certificate for mutual TLS
+     --client-key PATH     PEM private key for --client-cert (when not in the
+                           same file)
+
+   HTTP authentication:
+     --username USERNAME   User name for HTTP basic authentication
+     --password PASSWORD   password for HTTP basic authentication (visible in the
+                           process list; prefer --password-file or
+                           $CHECK_HTTP_SLI_PASSWORD)
+     --password-file PATH  Read password for HTTP basic authentication from PATH
+                           (or the file named by $CHECK_HTTP_SLI_PASSWORD_FILE)
+     --bearer-token BEARER_TOKEN
+                           bearer token sent in the Authorization header (visible
+                           in the process list; prefer --bearer-token-file or
+                           $CHECK_HTTP_SLI_BEARER_TOKEN)
+     --bearer-token-file PATH
+                           Read bearer token sent in the Authorization header
+                           from PATH (or the file named by
+                           $CHECK_HTTP_SLI_BEARER_TOKEN_FILE)
+     --api-key API_KEY     API key sent in the --api-key-header header (visible
+                           in the process list; prefer --api-key-file or
+                           $CHECK_HTTP_SLI_API_KEY)
+     --api-key-file PATH   Read API key sent in the --api-key-header header from
+                           PATH (or the file named by
+                           $CHECK_HTTP_SLI_API_KEY_FILE)
+     --api-key-header NAME
+                           Header that carries --api-key (default: X-API-Key)

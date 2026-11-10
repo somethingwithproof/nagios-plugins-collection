@@ -10,6 +10,7 @@ import pytest
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_http_sli import CheckHttpSli
+from tests.fakes import serve_http
 
 
 @pytest.mark.parametrize("samples", [1, 2])
@@ -19,16 +20,16 @@ def test_http_sli_ok(samples: int) -> None:
         response.elapsed = timedelta(milliseconds=50)
         return response
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(respond)
+    with serve_http(transport.handle_request):
         code = CheckHttpSli().run(["--url", "https://example.com", "--samples", str(samples)])
     assert code == Status.OK.value
 
 
 @pytest.mark.parametrize("thresholds", [[], ["--warning", "200"], ["--critical", "500"]])
 def test_all_failed_probes_are_critical(thresholds: list[str]) -> None:
-    client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(503)))
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(503))
+    with serve_http(transport.handle_request):
         code = CheckHttpSli().run(["--url", "https://example.com", *thresholds])
     assert code == Status.CRITICAL.value
 
@@ -42,9 +43,9 @@ def _run(statuses: list[int], latency_ms: int, *args: str) -> tuple[int, str]:
         response.elapsed = timedelta(milliseconds=latency_ms)
         return response
 
-    client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    transport = httpx.MockTransport(respond)
     with (
-        patch("httpx.AsyncClient", return_value=client),
+        serve_http(transport.handle_request),
         patch("sys.stdout.write") as write,
     ):
         code = CheckHttpSli().run(["--url", "https://example.com", "--samples", "4", *args])

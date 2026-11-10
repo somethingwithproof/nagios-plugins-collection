@@ -10,7 +10,7 @@ import argparse
 import httpx
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
-from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
+from nagios_plugins.services import http
 
 
 class CheckOAuth2Token(NagiosPlugin):
@@ -28,14 +28,12 @@ class CheckOAuth2Token(NagiosPlugin):
             required=True,
         )
         self.parser.add_argument("--scope", action="append", default=[])
-        add_tls_arguments(self.parser)
+        http.add_http_arguments(self.parser, env_prefix="CHECK_OAUTH2_TOKEN", auth=False)
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         try:
-            with httpx.Client(
-                timeout=args.timeout, verify=tls_verification(args.ca_file)
-            ) as client:
+            with http.client(args) as client:
                 r = client.post(
                     args.token_url,
                     data={
@@ -64,7 +62,7 @@ class CheckOAuth2Token(NagiosPlugin):
                 msg += f" missing_scopes={','.join(missing)}"
             return CheckResult(status, msg, metrics=metrics)
         except httpx.HTTPError as e:
-            return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
+            return CheckResult(Status.CRITICAL, f"HTTP error: {http.describe_error(e)}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
 

@@ -20,14 +20,15 @@ Returns:
 """
 
 import argparse
-import asyncio
 import datetime
 import json
 import logging
 from typing import Any
 
+import httpx
+
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosArgumentParser, Status
-from nagios_plugins.utils import check_http_endpoint_async
+from nagios_plugins.services import http
 
 logger = logging.getLogger("check_component_status")
 
@@ -42,6 +43,7 @@ class ComponentStatusChecker:
         warning_threshold: int = 10,
         critical_threshold: int | None = None,
         timeout: int = 10,
+        settings: http.HttpSettings | None = None,
     ):
         """Initialize the component status checker.
 
@@ -51,20 +53,23 @@ class ComponentStatusChecker:
             warning_threshold: Warning threshold in minutes for stale updates
             critical_threshold: Critical threshold in minutes for stale updates
             timeout: Request timeout in seconds
+            settings: Shared HTTP options (TLS, authentication, retries)
         """
         self.url = url
         self.components = components
         self.warning_threshold = warning_threshold
         self.critical_threshold = critical_threshold or warning_threshold * 2
         self.timeout = timeout
+        self.settings = settings or http.HttpSettings(timeout=timeout)
 
     async def get_component_status(
-        self, component: str
+        self, component: str, client: httpx.AsyncClient
     ) -> tuple[str, datetime.datetime | None, dict[str, Any]]:
         """Check the status of a component by querying the JSON API.
 
         Args:
             component: Name of the component
+            client: The HTTP client shared by every component request
 
         Returns:
             Tuple of (status, updated_time, metrics) where:
@@ -78,18 +83,21 @@ class ComponentStatusChecker:
         )
         api_url = f"{base_url.rstrip('/')}/api/component/{component}"
 
-        # Use the utility function for HTTP checking
+        problem = ""
         try:
-            async with asyncio.timeout(self.timeout):
-                status, message, response_data = await check_http_endpoint_async(
-                    url=api_url, expected_status=200
-                )
-        except TimeoutError:
-            logger.warning("Component request timed out")
+            response = await client.get(api_url)
+            response.raise_for_status()
+            response_data = response.json()
+        except httpx.HTTPError as error:
+            problem = http.describe_error(error)
+        except ValueError:
+            problem = "the body is not JSON"
+        if problem:
+            # An expected failure of the endpoint, reported without a traceback.
+            logger.error("Error fetching component %s status: %s", component, problem)
             return "error", None, {"status": "error"}
 
-        # Process response
-        if status == Status.OK and response_data:
+        if isinstance(response_data, dict) and response_data:
             component_status = response_data.get("status", "").lower()
 
             # Parse updated timestamp
@@ -110,9 +118,8 @@ class ComponentStatusChecker:
             }
 
             return component_status, updated_time, metrics
-        else:
-            logger.error(f"Error fetching component status: {message}")
-            return "error", None, {"status": "error"}
+        logger.error("Component %s returned no status object", component)
+        return "error", None, {"status": "error"}
 
     async def check(self) -> CheckResult:
         """Perform the component status check.
@@ -130,8 +137,14 @@ class ComponentStatusChecker:
             # Get current time for freshness checks
             current_time = datetime.datetime.now(datetime.UTC)
 
-            for component in self.components:
-                status, updated_time, metrics = await self.get_component_status(component)
+            async with http.async_client(self.settings, follow_redirects=True) as client:
+                results = [
+                    await self.get_component_status(component, client)
+                    for component in self.components
+                ]
+            for component, (status, updated_time, metrics) in zip(
+                self.components, results, strict=True
+            ):
                 component_statuses[component] = (status, updated_time)
 
                 # Add component-specific metrics
@@ -212,6 +225,7 @@ class CheckComponentStatus(AsyncNagiosPlugin):
         self.parser.add_argument(
             "--components", required=True, nargs="+", help="List of component names to check"
         )
+        http.add_http_arguments(self.parser, env_prefix="CHECK_COMPONENT_STATUS")
 
     def add_threshold_arguments(self, parser: NagiosArgumentParser) -> None:
         """Take staleness thresholds as whole minutes, as the command always has."""
@@ -237,6 +251,7 @@ class CheckComponentStatus(AsyncNagiosPlugin):
             warning_threshold=args.warning,
             critical_threshold=args.critical,
             timeout=args.timeout,
+            settings=http.HttpSettings.from_args(args),
         ).check()
 
 
