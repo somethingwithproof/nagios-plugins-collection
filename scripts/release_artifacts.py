@@ -105,6 +105,23 @@ def copy_role(payload: Path) -> None:
         shutil.copy2(ROOT / name, destination / name)
 
 
+def _archive_member(source: Path, path: Path, prefix: str, epoch: int) -> tarfile.TarInfo:
+    """Describe ``path`` as a root-owned member below ``prefix``; reject unsafe entries."""
+    if path.is_symlink():
+        raise ValueError("Release archive sources must not contain symlinks")
+    relative = path.relative_to(source)
+    if any(part in {".", ".."} or "\\" in part for part in relative.parts):
+        raise ValueError("Release archive member names must be safe relative paths")
+    info = tarfile.TarInfo(f"{prefix}/{relative.as_posix()}")
+    info.type = tarfile.DIRTYPE if path.is_dir() else tarfile.REGTYPE
+    info.size = 0 if path.is_dir() else path.stat().st_size
+    info.uid = info.gid = 0
+    info.uname = info.gname = "root"
+    info.mtime = epoch
+    info.mode = 0o755 if path.is_dir() else 0o644
+    return info
+
+
 def stable_archive(source: Path, prefix: str, output: Path, epoch: int) -> None:
     """Archive ``source`` under ``prefix`` with stable ownership, modes and timestamps.
 
@@ -121,18 +138,7 @@ def stable_archive(source: Path, prefix: str, output: Path, epoch: int) -> None:
         tarfile.open(fileobj=compressed, mode="w") as archive,
     ):
         for path in sorted(source.rglob("*")):
-            if path.is_symlink():
-                raise ValueError("Release archive sources must not contain symlinks")
-            relative = path.relative_to(source)
-            if any(part in {".", ".."} or "\\" in part for part in relative.parts):
-                raise ValueError("Release archive member names must be safe relative paths")
-            info = tarfile.TarInfo(f"{prefix}/{relative.as_posix()}")
-            info.type = tarfile.DIRTYPE if path.is_dir() else tarfile.REGTYPE
-            info.size = 0 if path.is_dir() else path.stat().st_size
-            info.uid = info.gid = 0
-            info.uname = info.gname = "root"
-            info.mtime = epoch
-            info.mode = 0o755 if path.is_dir() else 0o644
+            info = _archive_member(source, path, prefix, epoch)
             if path.is_file():
                 with path.open("rb") as stream:
                     archive.addfile(info, stream)
