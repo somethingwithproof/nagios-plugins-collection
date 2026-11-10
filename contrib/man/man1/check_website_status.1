@@ -6,7 +6,7 @@
 check_website_status \- Check website content, status and response time in seconds.
 .SH SYNOPSIS
 .B check_website_status
-[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] \fB\-\-url\fR \fIURL\fR [\fB\-\-pattern\fR \fIPATTERN\fR] [\fB\-\-method\fR \fIMETHOD\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
+[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fISECONDS\fR] [\fB\-\-critical\fR \fISECONDS\fR] [\fB\-\-json\fR] \fB\-\-url\fR \fIURL\fR [\fB\-\-pattern\fR \fIPATTERN\fR] [\fB\-\-method\fR \fIMETHOD\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
 .SH DESCRIPTION
 \fBcheck_website_status\fR prints one status line, with performance data after a
 \(lq|\(rq, and exits with the Nagios plugin status.
@@ -21,11 +21,11 @@ Log more detail to standard error; repeat for debug output.
 \fB\-t\fR, \fB\-\-timeout\fR \fITIMEOUT\fR
 Timeout in seconds for the whole run (default: 30); the plugin exits UNKNOWN 1 second after it
 .TP
-\fB\-w\fR, \fB\-\-warning\fR \fIWARNING\fR
-Warning threshold (plugin\-specific)
+\fB\-w\fR, \fB\-\-warning\fR \fISECONDS\fR
+WARNING when the response takes longer (default: 1.0; not a range)
 .TP
-\fB\-c\fR, \fB\-\-critical\fR \fICRITICAL\fR
-Critical threshold (plugin\-specific)
+\fB\-c\fR, \fB\-\-critical\fR \fISECONDS\fR
+CRITICAL when the response takes longer (default: 2.0; not a range)
 .TP
 \fB\-\-json\fR
 Output results in JSON format

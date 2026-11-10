@@ -96,7 +96,7 @@ class TestWebsiteStatusChecker:
         assert result.status == expected
         assert message in result.message
         assert result.metrics["status_code"] == status
-        assert result.metrics["duration"] == seconds
+        assert result.metrics["duration"].value == seconds
         assert result.metrics["pattern_found"] == int("Example Domain" in text)
 
     @pytest.mark.asyncio

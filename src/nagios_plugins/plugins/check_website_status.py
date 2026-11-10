@@ -7,16 +7,35 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import re
 from typing import Any
 
 import httpx
 
-from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
+from nagios_plugins.base import (
+    AsyncNagiosPlugin,
+    CheckResult,
+    NagiosArgumentParser,
+    PerfData,
+    Status,
+    ThresholdRange,
+)
 from nagios_plugins.services import http
 
 # Module level logger so tests can patch it
 logger = logging.getLogger(__name__)
+
+
+def seconds(text: str) -> float:
+    """Parse a response-time limit in seconds for ``-w``/``-c``; ranges are not accepted."""
+    try:
+        value = float(text)
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value) or value < 0:
+        raise argparse.ArgumentTypeError(f"expected a number of seconds, not a range: {text!r}")
+    return value
 
 
 class WebsiteStatusChecker:
@@ -60,7 +79,15 @@ class WebsiteStatusChecker:
     def _response_result(self, response: httpx.Response) -> CheckResult:
         """Classify HTTP status, optional content and latency independently."""
         duration = response.elapsed.total_seconds()
-        metrics = {"status_code": response.status_code, "duration": duration}
+        # A duration is never negative, so "above N" is the Nagios range 0:N.
+        metrics: dict[str, Any] = {
+            "status_code": response.status_code,
+            "duration": PerfData(
+                duration,
+                warning=str(ThresholdRange(0, self.warning_threshold)),
+                critical=str(ThresholdRange(0, self.critical_threshold)),
+            ),
+        }
         logger.debug("Response: %s in %.3fs", response.status_code, duration)
         if self.pattern is not None:
             metrics["pattern_found"] = int(bool(re.search(self.pattern, response.text)))
@@ -97,7 +124,11 @@ class WebsiteStatusChecker:
 
 
 class CheckWebsiteStatus(AsyncNagiosPlugin):
-    """Check website content, status and response time in seconds."""
+    """Check website content, status and response time in seconds.
+
+    -w/-c are response times in seconds, not Nagios ranges: the check alerts
+    when the response takes longer.
+    """
 
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
@@ -109,14 +140,33 @@ class CheckWebsiteStatus(AsyncNagiosPlugin):
             self.parser, env_prefix="CHECK_WEBSITE_STATUS", retries=0, retry_delay=1.0
         )
 
+    def add_threshold_arguments(self, parser: NagiosArgumentParser) -> None:
+        """Take thresholds as response times in seconds, as the command always has."""
+        parser.add_argument(
+            "-w",
+            "--warning",
+            type=seconds,
+            default=1.0,
+            metavar="SECONDS",
+            help="WARNING when the response takes longer (default: %(default)s; not a range)",
+        )
+        parser.add_argument(
+            "-c",
+            "--critical",
+            type=seconds,
+            default=2.0,
+            metavar="SECONDS",
+            help="CRITICAL when the response takes longer (default: %(default)s; not a range)",
+        )
+
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         checker = WebsiteStatusChecker(
             url=args.url,
             pattern=args.pattern,
             timeout=args.timeout,
-            warning_threshold=float(args.warning) if args.warning is not None else 1.0,
-            critical_threshold=float(args.critical) if args.critical is not None else 2.0,
+            warning_threshold=args.warning,
+            critical_threshold=args.critical,
             method=args.method,
             settings=http.HttpSettings.from_args(args),
         )
