@@ -380,7 +380,7 @@ jobs:
         run: |
           cosign attest --yes \
             --predicate sbom.spdx.json \
-            --type spdx \
+            --type spdxjson \
             "$IMAGE@$DIGEST"
       - name: Promote verified container tags
         if: inputs.release-version == ''
