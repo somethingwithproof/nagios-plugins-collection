@@ -167,12 +167,11 @@ class SSHDNSChecker:
             details=f"Response: {response}",
         )
 
-    async def _query(self, timeout: float) -> CheckResult:
+    async def _query(self) -> CheckResult:
         """Run dig over SSH once and classify its answer and latency."""
         ssh_cmd = self._build_ssh_command(self._build_dig_command())
         start_time = time.time()
-        async with asyncio.timeout(timeout):
-            result = await execute_command_async(ssh_cmd)
+        result = await execute_command_async(ssh_cmd)
         duration = time.time() - start_time
         if result.exit_code != 0:
             raise RuntimeError(f"SSH command failed: {result.stderr}")
@@ -193,7 +192,8 @@ class SSHDNSChecker:
             if timeout <= 0:
                 break
             try:
-                return await self._query(timeout)
+                async with asyncio.timeout(timeout):
+                    return await self._query()
             except Exception as e:
                 logger.exception("DNS attempt %s failed", attempt + 1)
                 last_error = str(e) or type(e).__name__
