@@ -14,6 +14,8 @@ def get_stats(url: str, timeout: int = 5) -> dict[str, float | int]:
 
     r = redis.from_url(url, socket_timeout=timeout)
     info = r.info()  # type: ignore
+    if "used_memory" not in info:
+        raise RuntimeError("Redis INFO has no used_memory; is this a Redis server?")
     hits = float(info.get("keyspace_hits", 0))
     misses = float(info.get("keyspace_misses", 0))
     total = hits + misses

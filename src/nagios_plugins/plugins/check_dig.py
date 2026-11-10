@@ -135,6 +135,14 @@ class SSHDNSChecker:
                 f"No {self.record_type} answer for {self.query_address}",
                 metrics={"duration": duration, "response_matches": 0},
             )
+        # dig prints ";;" diagnostics (no reply, truncated, refused) instead of an answer.
+        if any(line.startswith(";;") for line in response.splitlines()):
+            return CheckResult(
+                Status.CRITICAL,
+                f"dig gave no {self.record_type} answer for {self.query_address}",
+                metrics={"duration": duration, "response_matches": 0},
+                details=f"Response: {response}",
+            )
         # Check expected address
         if self.expected_address and self.expected_address not in response:
             return CheckResult(

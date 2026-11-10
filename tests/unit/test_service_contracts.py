@@ -93,12 +93,36 @@ def test_postgres_lag_rows(row: tuple[float | None] | None, expected: float | No
 )
 def test_redis_hit_ratio(info: dict, expected_ratio: float) -> None:
     client = MagicMock()
-    client.info.return_value = info
+    client.info.return_value = {"used_memory": 0, **info}
     with patch("redis.from_url", return_value=client):
         result = get_stats("redis://cache.example", timeout=7)
     assert result["hitratio"] == expected_ratio
     assert result["used_memory"] == 0
     assert result["maxmemory"] == 0
+
+
+def test_redis_info_without_memory_is_an_error() -> None:
+    """An INFO reply without used_memory is not a healthy, empty server."""
+    client = MagicMock()
+    client.info.return_value = {}
+    with (
+        patch("redis.from_url", return_value=client),
+        pytest.raises(RuntimeError, match="used_memory"),
+    ):
+        get_stats("redis://cache.example", timeout=7)
+
+
+@pytest.mark.parametrize(
+    "attributes,message",
+    [({}, "no ApproximateNumberOfMessages"), ({"ApproximateNumberOfMessages": "x"}, "non-numeric")],
+)
+def test_queue_depth_rejects_missing_or_malformed_attributes(
+    attributes: dict[str, str], message: str
+) -> None:
+    sqs = MagicMock()
+    sqs.get_queue_attributes.return_value = {"Attributes": attributes}
+    with patch("boto3.client", return_value=sqs), pytest.raises(RuntimeError, match=message):
+        queue_depth("https://sqs.example/q", timeout=7)
 
 
 def test_kubernetes_pressure_and_kubeconfig_fallback() -> None:

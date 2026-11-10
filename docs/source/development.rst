@@ -45,6 +45,18 @@ Use isolated HTTP transports, verified local TLS servers or disposable services;
 the Docker end-to-end mocks use static fake credentials and isolated networking.
 Update the plugin page and migration guide when the public interface changes.
 
+``tests/unit/test_contracts.py`` runs every installed command end to end against
+fakes at its library boundary (httpx, boto3, redis, psycopg, kubernetes,
+dnspython, TLS sockets, the SSH and ``mount`` subprocess) in five scenarios: a
+healthy answer, a timeout, an authentication failure, an empty answer and a
+malformed one. Only the healthy answer may be OK, and every run must print one
+status line whose keyword matches the exit code, perfdata that the independent
+parser in ``tests/perfdata_grammar.py`` accepts, log records only on stderr and
+never the configured secret. A new command fails the suite until it has an entry
+in ``SPECS``. ``tests/unit/test_properties.py`` checks the range parser and the
+perfdata formatter with Hypothesis against the guidelines; set
+``HYPOTHESIS_PROFILE=thorough`` to run 5000 examples per property locally.
+
 Build documentation with
 ``uv run sphinx-build -W -b html docs/source docs/build/html`` and check docstrings
 with ``uv run docstr-coverage src --fail-under=95``. The Sphinx pages include all installed
@@ -53,7 +65,8 @@ plugin APIs; ``sphinx-build -W`` treats documentation warnings as failures.
 Release changes
 ---------------
 
-Update the project and Helm versions together. Run ``uv lock`` after changing
+Release Please bumps the project, lock, Helm and Nomad versions in its release
+pull request; do not edit them by hand. Run ``uv lock`` after changing
 dependencies. Run the Linux package smoke
 tests and full CI before publication; see :doc:`releasing`. Validate supported
 platform dates against upstream sources before expanding the matrix.

@@ -24,7 +24,6 @@ from nagios_plugins.utils import CommandResult, get_directory_size, get_system_i
         ("/dev/root on / type ext4 (ro,relatime)", Status.CRITICAL, 1),
         ("/dev/data on /data type ext4 (ro,relatime)", Status.WARNING, 1),
         ("proc on /proc type proc (ro,relatime)", Status.OK, 0),
-        ("unrecognized output", Status.OK, 0),
     ],
 )
 async def test_mount_status(output: str, expected: Status, count: int) -> None:
@@ -34,6 +33,17 @@ async def test_mount_status(output: str, expected: Status, count: int) -> None:
         result = await MountStatusChecker().check_mounts()
     assert result.status == expected
     assert result.metrics["ro_mounts_count"] == count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("output", ["", "\n", "unrecognized output"])
+async def test_mount_output_without_filesystems_is_unknown(output: str) -> None:
+    """Every system mounts /, so output with no mount lines is missing data, not OK."""
+    with patch(
+        "nagios_plugins.plugins.check_ro_mounts.execute_command", return_value=(0, output, "")
+    ):
+        result = await MountStatusChecker().check_mounts()
+    assert result.status == Status.UNKNOWN
 
 
 @pytest.mark.asyncio

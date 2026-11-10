@@ -109,8 +109,12 @@ class PerfData:
 
 
 def format_perfdata_label(label: str) -> str:
-    """Quote a perfdata label when it contains spaces, ``=`` or quotes."""
-    label = single_line(label)
+    """Quote a perfdata label when it contains spaces, ``=`` or quotes.
+
+    Characters that are not printable (tabs, control and unassigned code
+    points) become ``_``: a tab would split the item, and parsers reject them.
+    """
+    label = "".join(char if char.isprintable() else "_" for char in single_line(label))
     if any(char in label for char in " ='"):
         return "'" + label.replace("'", "''") + "'"
     return label

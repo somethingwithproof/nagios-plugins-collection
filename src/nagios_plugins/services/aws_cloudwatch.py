@@ -58,7 +58,9 @@ def get_metric_statistics(
 
     # Get the most recent datapoint
     latest = max(datapoints, key=lambda x: x["Timestamp"])
-    value = latest.get(statistic, 0.0)
+    if statistic not in latest:
+        raise RuntimeError(f"The latest datapoint has no {statistic} value")
+    value = latest[statistic]
 
     return {
         "value": float(value),
