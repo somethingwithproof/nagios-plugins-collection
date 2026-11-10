@@ -48,7 +48,7 @@ dependencies, development tools and first-party source with uv:
 
    git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
    cd nagios-plugins-collection
-   mise exec python@3.12 -- uv sync --locked --all-extras
+   mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
    uv run check_website_status --help
 
 PyPI publishing is an explicit manual workflow and requires a configured PyPI

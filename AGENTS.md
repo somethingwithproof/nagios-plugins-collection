@@ -20,14 +20,14 @@ only dependency lock; development tools are PEP 735 dependency groups. Install
 the locked, hash-verified wheels and run the checks with uv:
 
 ```sh
-mise exec python@3.12 -- uv sync --locked --all-extras
-mise exec python@3.12 -- uv run pytest tests
-mise exec python@3.12 -- uv run ruff check .
-mise exec python@3.12 -- uv run ruff format --check src tests
-mise exec python@3.12 -- uv run mypy src
-mise exec python@3.12 -- uv run pytest --cov=nagios_plugins tests
-mise exec python@3.12 -- uv run python scripts/check_spdx.py
-mise exec python@3.12 -- uv run python scripts/check_licenses.py
+mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
+uv run pytest tests
+uv run ruff check .
+uv run ruff format --check src tests
+uv run mypy src
+uv run pytest --cov=nagios_plugins tests
+uv run python scripts/check_spdx.py
+uv run python scripts/check_licenses.py
 ```
 
 Read `.github/workflows/ci.yml` for docs, security, container, Helm,

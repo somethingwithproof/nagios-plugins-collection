@@ -9,17 +9,17 @@ Select Python through ``mise`` and use the locked tooling described in
 
 .. code-block:: bash
 
-   mise exec python@3.12 -- uv sync --locked --all-extras
-   mise exec python@3.12 -- uv run pytest tests
-   mise exec python@3.12 -- uv run ruff check .
-   mise exec python@3.12 -- uv run ruff format --check src tests
-   mise exec python@3.12 -- uv run mypy src
-   mise exec python@3.12 -- uv run pytest --cov=nagios_plugins tests
-   mise exec python@3.12 -- uv run bandit -r src/ -c pyproject.toml --severity-level medium
-   mise exec python@3.12 -- uv run pip-audit --local
-   mise exec python@3.12 -- uv run pre-commit run --all-files
+   mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
+   uv run pytest tests
+   uv run ruff check .
+   uv run ruff format --check src tests
+   uv run mypy src
+   uv run pytest --cov=nagios_plugins tests
+   uv run bandit -r src/ -c pyproject.toml --severity-level medium
+   uv run pip-audit --local
+   uv run pre-commit run --all-files
 
-Test another interpreter with ``uv run --python 3.13 pytest tests``.
+Test another interpreter with ``uv run --python 3.13 --all-extras pytest tests``.
 ``uv.lock`` is the single dependency lock. Development tools are the ``test``,
 ``lint``, ``type``, ``docs``, ``security`` and ``build`` dependency groups, which
 the default ``dev`` group includes. uv verifies the locked hashes and installs
