@@ -25,6 +25,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 ROLE_PATHS = ("defaults", "vars", "handlers", "meta", "tasks", "templates", "docs", "examples")
 SEMVER_IDENTIFIER = re.compile(r"[A-Za-z\d-]+", re.ASCII)
+ARCHIVE_PREFIX = re.compile(r"[A-Za-z\d][A-Za-z\d._+-]*", re.ASCII)
 # Plugin extras bundled into the DEB and RPM payloads.
 NATIVE_EXTRAS = ("aws", "dns", "k8s", "pg", "redis")
 
@@ -105,7 +106,15 @@ def copy_role(payload: Path) -> None:
 
 
 def stable_archive(source: Path, prefix: str, output: Path, epoch: int) -> None:
-    """Archive ``source`` under ``prefix`` with stable ownership, modes and timestamps."""
+    """Archive ``source`` under ``prefix`` with stable ownership, modes and timestamps.
+
+    Raises:
+        ValueError: If ``prefix`` is not one safe path component, or a source
+            entry is a symlink or has an unsafe name.
+    """
+    # The prefix carries the release version; every member must stay below it.
+    if not ARCHIVE_PREFIX.fullmatch(prefix):
+        raise ValueError(f"Release archive prefix must be one safe path component: {prefix!r}")
     with (
         output.open("wb") as raw,
         gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=epoch) as compressed,

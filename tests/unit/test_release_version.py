@@ -222,3 +222,10 @@ def test_release_please_files_and_lock_agree_with_the_source_version() -> None:
         # The generic updater rewrites every x.y.z in those lines, so any other
         # version there would be overwritten too.
         assert versions == {version}, f"{name} bumps {versions}, expected {version}"
+
+
+@pytest.mark.parametrize("prefix", ["../escape", "a/b", "", ".hidden", "x\\y"])
+def test_archive_prefix_must_be_one_safe_component(tmp_path: Path, prefix: str) -> None:
+    (tmp_path / "source").mkdir()
+    with pytest.raises(ValueError, match="one safe path component"):
+        release.stable_archive(tmp_path / "source", prefix, tmp_path / "out.tar.gz", 0)

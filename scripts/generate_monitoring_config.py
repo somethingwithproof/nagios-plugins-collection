@@ -155,6 +155,41 @@ def _icinga_string(text: str) -> str:
     return f'"{escaped}"'
 
 
+def _icinga_argument(command: Command, option: Option) -> list[str]:
+    """Render one ``arguments`` entry: value or switch, repetition, help, requirement."""
+    var = f"${command.name}_{option.dest}$"
+    lines = [
+        f'    "{option.flag}" = {{',
+        f'      {"value" if option.takes_value else "set_if"} = "{var}"',
+    ]
+    if option.repeat:
+        lines.append("      repeat_key = true")
+    if option.help:
+        lines.append(f"      description = {_icinga_string(option.help)}")
+    if option.required:
+        lines.append("      required = true")
+    return [*lines, "    }"]
+
+
+def _icinga_command(command: Command) -> list[str]:
+    """Render one CheckCommand; secrets go into ``env``, never into ``arguments``."""
+    lines = [
+        "",
+        f'object CheckCommand "{command.name}" {{',
+        f'  import "{PROJECT}"',
+        f'  command = [ "$nagios_plugins_collection_dir$/{command.name}" ]',
+        "  arguments = {",
+    ]
+    for option in command.options:
+        lines += _icinga_argument(command, option)
+    lines.append("  }")
+    if command.secrets:
+        lines.append("  env = {")
+        lines += [f'    {s.env} = "${command.name}_{s.dest}$"' for s in command.secrets]
+        lines.append("  }")
+    return [*lines, "}"]
+
+
 def render_icinga(commands: list[Command]) -> str:
     """Render one CheckCommand per command, importing a template that sets the path."""
     lines = [f"// {line}" for line in (*HEADER, NOTICE)]
@@ -169,31 +204,7 @@ def render_icinga(commands: list[Command]) -> str:
         "}",
     ]
     for command in commands:
-        lines += [
-            "",
-            f'object CheckCommand "{command.name}" {{',
-            f'  import "{PROJECT}"',
-            f'  command = [ "$nagios_plugins_collection_dir$/{command.name}" ]',
-            "  arguments = {",
-        ]
-        for option in command.options:
-            var = f"${command.name}_{option.dest}$"
-            lines.append(f'    "{option.flag}" = {{')
-            lines.append(f'      {"value" if option.takes_value else "set_if"} = "{var}"')
-            if option.repeat:
-                lines.append("      repeat_key = true")
-            if option.help:
-                lines.append(f"      description = {_icinga_string(option.help)}")
-            if option.required:
-                lines.append("      required = true")
-            lines.append("    }")
-        lines.append("  }")
-        if command.secrets:
-            lines.append("  env = {")
-            for secret in command.secrets:
-                lines.append(f'    {secret.env} = "${command.name}_{secret.dest}$"')
-            lines.append("  }")
-        lines.append("}")
+        lines += _icinga_command(command)
     return "\n".join(lines) + "\n"
 
 

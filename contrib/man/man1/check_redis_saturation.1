@@ -6,7 +6,7 @@
 check_redis_saturation \- Monitor Redis memory saturation, evictions and cache hits.
 .SH SYNOPSIS
 .B check_redis_saturation
-[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] [\fB\-\-url\-file\fR \fIPATH\fR]
+[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] [\fB\-\-url\-file\fR \fIPATH\fR] [\fB\-\-blocked\-warning\fR \fIRANGE\fR] [\fB\-\-blocked\-critical\fR \fIRANGE\fR] [\fB\-\-hitratio\-warning\fR \fIRANGE\fR] [\fB\-\-hitratio\-critical\fR \fIRANGE\fR]
 .SH DESCRIPTION
 \fBcheck_redis_saturation\fR prints one status line, with performance data after a
 \(lq|\(rq, and exits with the Nagios plugin status.
@@ -32,6 +32,18 @@ Output results in JSON format
 .TP
 \fB\-\-url\-file\fR \fIPATH\fR
 Read Redis URL e.g. redis://:password@host:6379/0 from PATH (or the file named by $CHECK_REDIS_URL_FILE)
+.TP
+\fB\-\-blocked\-warning\fR \fIRANGE\fR
+WARNING range for blocked_clients (clients waiting in BLPOP and similar) (default: not checked)
+.TP
+\fB\-\-blocked\-critical\fR \fIRANGE\fR
+CRITICAL range for blocked_clients (clients waiting in BLPOP and similar) (default: not checked)
+.TP
+\fB\-\-hitratio\-warning\fR \fIRANGE\fR
+WARNING range for keyspace hit ratio (0\-1); for example 0.8: alerts below 0.8 (default: not checked)
+.TP
+\fB\-\-hitratio\-critical\fR \fIRANGE\fR
+CRITICAL range for keyspace hit ratio (0\-1); for example 0.8: alerts below 0.8 (default: not checked)
 .SH ENVIRONMENT
 .TP
 \fBCHECK_REDIS_URL\fR

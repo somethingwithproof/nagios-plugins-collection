@@ -23,7 +23,8 @@ def _load() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
         "generate_monitoring_config", ROOT / "scripts/generate_monitoring_config.py"
     )
-    assert spec and spec.loader
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module  # dataclasses resolve their module while executing
     spec.loader.exec_module(module)
@@ -73,7 +74,7 @@ def test_nagios_command_line_parses(name: str, monkeypatch: pytest.MonkeyPatch) 
             monkeypatch.setenv(secret.env, "from-environment")
     line = _nagios_lines()[name]
     args = shlex.split(line)[1:]
-    assert args[-1].startswith("$ARG") and args[-1].endswith("$")
+    assert re.fullmatch(r"\$ARG\d+\$", args[-1]), line
     args = args[:-1]  # the free-form trailing $ARGn$ may be empty
     filled, mapped = [], set()
     for flag, macro in zip(args[::2], args[1::2], strict=True):
@@ -93,7 +94,8 @@ def test_icinga_arguments_are_real_options(name: str) -> None:
     block = _icinga_blocks()[name]
     flags = {flag for action in parser._actions for flag in action.option_strings}
     declared = re.findall(r'^    "(--?[\w-]+)" = \{', block, re.M)
-    assert declared and set(declared) <= flags
+    assert declared
+    assert set(declared) <= flags
     required = {
         max(action.option_strings, key=len)
         for action in parser._actions
