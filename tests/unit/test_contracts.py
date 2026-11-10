@@ -439,7 +439,8 @@ def test_command_contract(
     else:
         assert code != 0, f"{scenario} reported OK: {out}"
     assert not LOG_RECORD.search(out), "log records belong on stderr"
-    assert SECRET not in out and SECRET not in err
+    assert SECRET not in out
+    assert SECRET not in err
 
 
 def test_logs_reach_stderr(

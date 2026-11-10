@@ -83,8 +83,9 @@ def test_a_start_above_the_end_is_rejected(first: Decimal, second: Decimal) -> N
     if first == second:
         return
     low, high = sorted((first, second))
+    inverted = f"{_text(high)}:{_text(low)}"
     with pytest.raises(ValueError):
-        ThresholdRange.from_string(f"{_text(high)}:{_text(low)}")
+        ThresholdRange.from_string(inverted)
 
 
 @given(st.text(max_size=12))
@@ -215,4 +216,5 @@ def test_grammar_parser_accepts_guideline_examples() -> None:
         ("load", None, ""),
         ("it's", 3.0, "c"),
     ]
-    assert items[0].warn == "1" and items[0].minimum == 0
+    assert items[0].warn == "1"
+    assert items[0].minimum == 0
