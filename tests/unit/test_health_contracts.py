@@ -172,3 +172,39 @@ async def test_malformed_mongodb_health_answers_are_critical(answer: httpx.Respo
         result = await MongoHealthChecker("https://monitor.example/health", mode=2).check()
     assert result.status == Status.CRITICAL
     assert result.message.startswith("Error connecting to MongoDB health endpoint: ")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"status": "ok"},
+        {"status": "ok", "updated": None},
+        {"status": "ok", "updated": "yesterday"},
+        {"status": "ok", "updated": 1700000000},
+    ],
+)
+async def test_component_without_a_valid_update_time_is_unknown(payload: dict) -> None:
+    """Freshness cannot be judged without a timestamp; missing data is never OK."""
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    with serve_http(transport.handle_request):
+        result = await ComponentStatusChecker("https://monitor.example", ["database"]).check()
+    assert result.status == Status.UNKNOWN
+    assert result.message == "Components without a valid update time: database"
+    assert result.metrics["unknown_components"] == 1
+    assert result.metrics["ok_components"] == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_component_outranks_an_undated_one() -> None:
+    def respond(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/db"):
+            return httpx.Response(200, json={"status": "error"})
+        return httpx.Response(200, json={"status": "ok"})
+
+    with serve_http(httpx.MockTransport(respond).handle_request):
+        result = await ComponentStatusChecker("https://monitor.example", ["db", "web"]).check()
+    assert result.status == Status.CRITICAL
+    assert result.message == (
+        "Components with issues: db; Components without a valid update time: web"
+    )
