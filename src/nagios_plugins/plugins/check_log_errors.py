@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import time
+from typing import Any
 
 import httpx
 
@@ -52,7 +53,9 @@ class CheckLogErrors(NagiosPlugin):
             ) as client:
                 r = client.post(url, json=body)
             r.raise_for_status()
-            hits = r.json().get("hits", {}).get("total", {}).get("value", 0)
+            hits = _total_hits(r.json())
+            if hits is None:
+                return CheckResult(Status.UNKNOWN, "Search response has no hits.total count")
             status = Status.OK
             if args.critical and hits >= int(args.critical):
                 status = Status.CRITICAL
@@ -65,6 +68,16 @@ class CheckLogErrors(NagiosPlugin):
             return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
+
+
+def _total_hits(body: Any) -> int | None:
+    """Read ``hits.total`` from an ES 7+/OpenSearch object or an ES 6 integer."""
+    total = body.get("hits", {}).get("total") if isinstance(body, dict) else None
+    if isinstance(total, dict):
+        total = total.get("value")
+    if isinstance(total, bool) or not isinstance(total, int):
+        return None
+    return total
 
 
 def main() -> int:

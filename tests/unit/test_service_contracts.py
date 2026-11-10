@@ -75,8 +75,9 @@ def test_cloudwatch_missing_data_is_unknown() -> None:
         get_metric_statistics("AWS/Test", "Requests", [])
 
 
-@pytest.mark.parametrize("row,expected", [(None, 0.0), ((None,), 0.0), ((12.5,), 12.5)])
-def test_postgres_lag_rows(row: tuple[float | None] | None, expected: float) -> None:
+@pytest.mark.parametrize("row,expected", [(None, None), ((None,), 0.0), ((12.5,), 12.5)])
+def test_postgres_lag_rows(row: tuple[float | None] | None, expected: float | None) -> None:
+    """No pg_stat_replication row means no standby; a NULL lag is an idle, caught-up one."""
     connection = MagicMock()
     connection.__enter__.return_value.cursor.return_value.__enter__.return_value.fetchone.return_value = row
     with patch("psycopg.connect", return_value=connection):

@@ -25,6 +25,9 @@ class CheckK8sNodeStatus(NagiosPlugin):
             s = summarize_nodes(label_selector=args.label, timeout=args.timeout)
         except RuntimeError as e:
             return CheckResult(Status.UNKNOWN, str(e))
+        if s.ready + s.not_ready == 0:
+            selector = f" matching {args.label!r}" if args.label else ""
+            return CheckResult(Status.UNKNOWN, f"No nodes found{selector}")
         msg = f"ready={s.ready} not_ready={s.not_ready} disk={s.disk_pressure} mem={s.memory_pressure} pid={s.pid_pressure}"
         status = Status.OK
         if s.not_ready > 0 or s.disk_pressure or s.memory_pressure or s.pid_pressure:

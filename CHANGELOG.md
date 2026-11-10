@@ -7,6 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- Missing data no longer reports OK. `check_prometheus_query` returns UNKNOWN
+  for an empty or sample-less result instead of treating it as `0`;
+  `check_log_errors` returns UNKNOWN when the response has no `hits.total`
+  (ES 6 integer totals are now read too); `check_k8s_node_status` returns
+  UNKNOWN when no node matches; `check_oauth2_token` returns CRITICAL for a
+  success response without an `access_token` and no longer publishes a missing
+  `expires_in` as `0`; `check_postgres_replication_lag` returns CRITICAL when
+  no standby is connected; and `check_dig` returns CRITICAL when `dig +short`
+  prints no answer (NXDOMAIN, SERVFAIL or NODATA) even without `--expected`.
 - Thresholds follow the Nagios Plugin Guidelines range format in one shared
   parser: `@a:b` now alerts when `a <= value <= b` (endpoints were excluded),
   `~:10` is accepted, a bare `10` means `0:10` so negative values alert, and a
