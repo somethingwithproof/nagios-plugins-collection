@@ -16,7 +16,10 @@ SPDX-License-Identifier: Apache-2.0
   `check_component_status` and `check_mongodb_health` status lines are gone.
   `check_component_status` also accepts `-w`/`-c` for its minute thresholds.
   `check_dig -w`/`-c` take Nagios ranges for the query time in seconds; a plain
-  number keeps its meaning (alert above it). Checks without thresholds
+  number keeps its meaning (alert above it). A malformed `-w`/`-c` range is now a
+  usage error (exit 3) for every command whose thresholds are ranges, reported
+  before the check contacts anything; previously `check_dig` retried and
+  reported CRITICAL, and other commands reported UNKNOWN after running. Checks without thresholds
   (`check_mongodb_health`, `check_monghealth`, `check_hadoop`, `check_jobs`,
   `check_ro_mounts`) reject `-w`/`-c` as a usage error. `--help` prints the
   description without source indentation. The unused
