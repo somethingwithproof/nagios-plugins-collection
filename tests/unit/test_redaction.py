@@ -168,3 +168,38 @@ def test_prometheus_error_does_not_dump_the_body(capsys: pytest.CaptureFixture[s
     with serve_http(lambda request: httpx.Response(200, json=body)):
         CheckPrometheusQuery().run(["--server", "https://prom.example", "--query", "up"])
     assert capsys.readouterr().out == "UNKNOWN - Prometheus error: timeout: query timed out\n"
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("password=ab}cd next", "password=*** next"),
+        ("token=x)y and", "token=*** and"),
+        ("api_key=a]b]c", "api_key=***"),
+        ('{"password": abc}', '{"password": ***}'),
+        ("{'token': x1y2z3]}", "{'token': ***]}"),
+        ('{"secret": "a}b"}', '{"secret": "***"}'),
+    ],
+)
+def test_unquoted_values_keep_closing_brackets_unless_the_key_is_quoted(
+    text: str, expected: str
+) -> None:
+    """A bracket ends a bare value only in JSON or repr form, where it closes the object."""
+    assert redact(text) == expected
+
+
+@pytest.mark.parametrize("secret", ["ab}cd", "x)y-z", "a]b]c"])
+def test_registered_secrets_with_brackets_are_masked_whole(secret: str) -> None:
+    register_secret(secret)
+    assert redact(f"echo {secret} and {{{secret}}}") == f"echo {MASK} and {{{MASK}}}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cannot read the --client-secret file /run/secrets/secret: not UTF-8 text",
+        "GET https://vault.example/v1/token: 404",
+    ],
+)
+def test_path_components_named_like_keys_are_not_parameters(text: str) -> None:
+    assert redact(text) == text
