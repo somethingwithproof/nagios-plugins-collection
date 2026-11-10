@@ -69,3 +69,4 @@ nosetests.xml
 # Local assistant sessions and isolated worktrees
 .omc/
 .worktrees/
+.hypothesis/

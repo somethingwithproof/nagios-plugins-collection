@@ -297,3 +297,10 @@ class TestThresholdCheck:
         """Test with no thresholds."""
         assert threshold_check(50) == Status.OK
         assert threshold_check(50, warning=None, critical=None) == Status.OK
+
+
+def test_perfdata_labels_replace_unprintable_characters() -> None:
+    """A tab or control character would split or corrupt the perfdata item."""
+    from nagios_plugins.base import format_perfdata
+
+    assert format_perfdata({"disk\tsda": 1, "bell\x07": 2}) == "disk_sda=1 bell_=2"

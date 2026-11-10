@@ -67,6 +67,15 @@ review each one against your Nagios or Icinga configuration before upgrading.
   thresholds are ranges, reported before the check contacts anything.
   Previously `check_dig` retried and reported CRITICAL, and other commands
   reported UNKNOWN only after running the check.
+- Empty or malformed answers that were reported OK are now UNKNOWN or
+  CRITICAL: `check_ro_mounts` when `mount` lists no filesystems (an SSH
+  wrapper that prints nothing, for example), `check_queue_depth` when SQS
+  returns no or non-numeric queue attributes, `check_redis_saturation` when
+  `INFO` has no `used_memory`, `check_aws_cloudwatch` when the latest
+  datapoint lacks the requested statistic (it reported 0), and `check_dig`
+  when dig prints `;;` diagnostics such as "connection timed out" instead of
+  an answer. Perfdata labels replace tabs and other non-printable characters
+  with `_`.
 - `rich` is no longer a runtime dependency. No plugin has imported it since
   logging moved to plain stderr records, so a base install and the native
   packages no longer pull it in. Install it separately if other code relied on

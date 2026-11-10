@@ -167,11 +167,12 @@ class MountStatusChecker:
             if exit_code != 0:
                 return CheckResult(Status.UNKNOWN, f"Cannot inspect mounts: {stderr}")
 
-            # Get the mount information
-            ro_mounts: list[dict[str, str]] = []
-
-            if exit_code == 0 and stdout.strip():
-                ro_mounts = self._parse_mount_output(stdout)
+            # Every system mounts at least /, so no parseable line is missing data.
+            if not any(map(self._parse_mount_line, stdout.splitlines())):
+                return CheckResult(
+                    Status.UNKNOWN, "mount listed no filesystems; cannot inspect mounts"
+                )
+            ro_mounts = self._parse_mount_output(stdout)
 
             # Determine severity of read-only mounts
             critical_mounts = []

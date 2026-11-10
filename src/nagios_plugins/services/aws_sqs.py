@@ -18,8 +18,18 @@ def queue_depth(queue_url: str, region: str | None = None, timeout: int = 10) ->
             "ApproximateNumberOfMessagesDelayed",
         ],
     )["Attributes"]
+    if "ApproximateNumberOfMessages" not in attrs:
+        raise RuntimeError("SQS returned no ApproximateNumberOfMessages for the queue")
+    try:
+        return _depths(attrs)
+    except ValueError as error:
+        raise RuntimeError(f"SQS returned a non-numeric queue attribute: {error}") from None
+
+
+def _depths(attrs: dict[str, str]) -> dict[str, int]:
+    """Convert the SQS attribute strings; a missing secondary count is zero."""
     return {
-        "depth": int(attrs.get("ApproximateNumberOfMessages", 0)),
+        "depth": int(attrs["ApproximateNumberOfMessages"]),
         "inflight": int(attrs.get("ApproximateNumberOfMessagesNotVisible", 0)),
         "delayed": int(attrs.get("ApproximateNumberOfMessagesDelayed", 0)),
     }
