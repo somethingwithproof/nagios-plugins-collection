@@ -93,6 +93,22 @@ class RetryPolicy:
             return None
         return delay
 
+    def next_pause(
+        self,
+        request: httpx.Request,
+        attempt: int,
+        *,
+        error: Exception | None = None,
+        response: httpx.Response | None = None,
+    ) -> float | None:
+        """Return how long to wait before repeating ``request``, or None to stop."""
+        if not self.retryable(request, error=error, response=response):
+            return None
+        delay = self.pause(attempt)
+        if delay is not None:
+            logger.info("Retrying %s %s in %.1fs", request.method, safe_url(request.url), delay)
+        return delay
+
 
 def _bounded_timeout(request: httpx.Request, configured: dict[str, float | None]) -> None:
     """Shrink each timeout phase of ``request`` to what is left of the run."""
@@ -252,17 +268,12 @@ class RetryingClient(httpx.Client):
             try:
                 response = super().send(request, follow_redirects=False, **kwargs)
             except httpx.TransportError as error:
-                if not self.retry.retryable(request, error=error):
-                    raise
-                if (delay := self.retry.pause(attempt)) is None:
+                if (delay := self.retry.next_pause(request, attempt, error=error)) is None:
                     raise
             else:
-                if not self.retry.retryable(request, response=response):
-                    return response
-                if (delay := self.retry.pause(attempt)) is None:
+                if (delay := self.retry.next_pause(request, attempt, response=response)) is None:
                     return response
                 response.close()
-            logger.info("Retrying %s %s in %.1fs", request.method, safe_url(request.url), delay)
             time.sleep(delay)
             attempt += 1
 
@@ -296,17 +307,12 @@ class RetryingAsyncClient(httpx.AsyncClient):
             try:
                 response = await super().send(request, follow_redirects=False, **kwargs)
             except httpx.TransportError as error:
-                if not self.retry.retryable(request, error=error):
-                    raise
-                if (delay := self.retry.pause(attempt)) is None:
+                if (delay := self.retry.next_pause(request, attempt, error=error)) is None:
                     raise
             else:
-                if not self.retry.retryable(request, response=response):
-                    return response
-                if (delay := self.retry.pause(attempt)) is None:
+                if (delay := self.retry.next_pause(request, attempt, response=response)) is None:
                     return response
                 await response.aclose()
-            logger.info("Retrying %s %s in %.1fs", request.method, safe_url(request.url), delay)
             await asyncio.sleep(delay)
             attempt += 1
 
