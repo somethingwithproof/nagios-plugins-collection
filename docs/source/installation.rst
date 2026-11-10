@@ -63,7 +63,96 @@ The GHCR image runs as UID/GID 10001 and defaults to website-status CLI help.
 Pass another installed plugin as the container command. Deploy the release's Helm chart on
 maintained Kubernetes 1.35–1.37. Enable token automount and ``rbac.create`` only
 for Kubernetes node monitoring; the opt-in ClusterRole grants list access to
-nodes. Use the README's complete Helm and Nomad examples.
+nodes. The chart and the Nomad job run one check per schedule and treat every
+exit as final, so a WARNING, CRITICAL or UNKNOWN result is not retried; read
+the result from the job's log and exit status.
+
+Helm
+^^^^
+
+The chart ships as ``nagios-plugins-collection-<version>.tgz`` in each GitHub
+release. Download and verify it, then install it with a values file that names
+the check to run. This example monitors an OAuth2 token endpoint and reads the
+client secret from a Kubernetes Secret instead of the command line:
+
+.. code-block:: yaml
+
+   # oauth-values.yaml
+   schedule: "*/5 * * * *"
+   command: ["check_oauth2_token"]
+   args:
+     - --token-url=https://issuer.example/oauth2/token
+     - --client-id=monitor
+     - --scope=openid
+     - --timeout=10
+   env:
+     - name: CHECK_OAUTH2_CLIENT_SECRET
+       valueFrom:
+         secretKeyRef: {name: oauth-monitor, key: client-secret}
+
+.. code-block:: bash
+
+   gh release download v2.0.1 --repo somethingwithproof/nagios-plugins-collection \
+     --pattern 'nagios-plugins-collection-2.0.1.tgz' --pattern SHA256SUMS
+   sha256sum --check --ignore-missing SHA256SUMS
+   kubectl create secret generic oauth-monitor --from-file=client-secret=./client-secret
+   helm install oauth-monitor ./nagios-plugins-collection-2.0.1.tgz -f oauth-values.yaml
+   # Run once now and read the status line:
+   kubectl create job oauth-monitor-now --from=cronjob/oauth-monitor-nagios-plugins-collection
+   kubectl logs job/oauth-monitor-now
+
+``image.tag`` defaults to the chart's ``appVersion``; set
+``image.repository`` to ``ghcr.io/somethingwithproof/nagios-plugins-collection@sha256``
+and ``image.tag`` to the digest to pin by digest. Keep ``job.activeDeadlineSeconds``
+above the plugin ``--timeout``.
+
+Node monitoring needs the API token and the opt-in, list-only ClusterRole:
+
+.. code-block:: yaml
+
+   # nodes-values.yaml
+   command: ["check_k8s_node_status"]
+   args: ["--label=node-role.kubernetes.io/worker"]
+   serviceAccount:
+     automountServiceAccountToken: true
+   rbac:
+     create: true
+
+.. code-block:: bash
+
+   helm install node-monitor ./nagios-plugins-collection-2.0.1.tgz -f nodes-values.yaml
+
+Nomad
+^^^^^
+
+``deploy/nomad/nagios-plugins-collection.nomad.hcl`` is a periodic batch job
+with restarts and rescheduling disabled. Edit the task's ``command`` and
+``args`` for the check to run, then submit it with a pinned image:
+
+.. code-block:: bash
+
+   nomad job run \
+     -var image=ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1 \
+     deploy/nomad/nagios-plugins-collection.nomad.hcl
+
+To pass a secret, store it as a Nomad Variable readable by the job and render
+it into the task environment with a ``template`` block inside ``task "plugin"``:
+
+.. code-block:: hcl
+
+   template {
+     destination = "secrets/check.env"
+     env         = true
+     data        = <<-EOT
+       {{ with nomadVar "nomad/jobs/nagios-plugins-collection" }}
+       CHECK_OAUTH2_CLIENT_SECRET={{ .client_secret }}
+       {{ end }}
+     EOT
+   }
+
+.. code-block:: bash
+
+   nomad var put nomad/jobs/nagios-plugins-collection client_secret=@client-secret
 
 Troubleshooting
 ---------------

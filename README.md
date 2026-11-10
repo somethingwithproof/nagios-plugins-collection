@@ -58,6 +58,8 @@ uv run check_tls_expiry --help
 
 ## Compatibility and operations
 
+To run checks on Kubernetes or Nomad, use the Helm chart in [charts/nagios-plugins-collection](charts/nagios-plugins-collection) or the job in [deploy/nomad](deploy/nomad); the [installation guide](docs/source/installation.rst#containers-and-kubernetes) has complete Helm and Nomad examples, including secrets supplied from a Kubernetes Secret or a Nomad Variable.
+
 Use [MIGRATION.md](MIGRATION.md) for historical migration notes, but verify command names and options against this checkout. A Python-version change, type hints, or CI configuration do not establish unchanged behavior for every legacy check. External services and platform tools must be available for the check being run.
 
 ## Development
