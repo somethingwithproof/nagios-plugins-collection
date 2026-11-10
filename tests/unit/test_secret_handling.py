@@ -137,23 +137,26 @@ def test_missing_required_secret_is_a_usage_error(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET", raising=False)
+    plugin, args = CheckOAuth2Token(), _token_args()
     with pytest.raises(SystemExit) as exited:
-        CheckOAuth2Token().run(_token_args())
+        plugin.run(args)
     assert exited.value.code == 3
     assert "$CHECK_OAUTH2_CLIENT_SECRET is required" in capsys.readouterr().out
 
 
 def test_unreadable_secret_file_is_a_usage_error(tmp_path: Path) -> None:
+    plugin = CheckOAuth2Token()
+    args = _token_args("--client-secret-file", str(tmp_path / "missing"))
     with pytest.raises(SystemExit) as exited:
-        CheckOAuth2Token().run(_token_args("--client-secret-file", str(tmp_path / "missing")))
+        plugin.run(args)
     assert exited.value.code == 3
 
 
 def test_secret_flag_and_file_are_mutually_exclusive(tmp_path: Path) -> None:
+    plugin = CheckOAuth2Token()
+    args = _token_args("--client-secret", "a", "--client-secret-file", str(tmp_path))
     with pytest.raises(SystemExit) as exited:
-        CheckOAuth2Token().run(
-            _token_args("--client-secret", "a", "--client-secret-file", str(tmp_path))
-        )
+        plugin.run(args)
     assert exited.value.code == 3
 
 

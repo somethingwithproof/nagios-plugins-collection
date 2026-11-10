@@ -27,7 +27,7 @@ _SECRET_PARAMETER = re.compile(
 )
 
 # Authorization header values such as "Bearer abc".
-_AUTH_SCHEME = re.compile(r"(?i)\b(?P<scheme>bearer|basic)\s{1,8}[A-Za-z0-9._~+/=-]{8,}")
+_AUTH_SCHEME = re.compile(r"(?i)\b(?P<scheme>bearer|basic)\s{1,8}[a-z0-9._~+/=-]{8,}")
 
 
 def redact(text: str) -> str:
