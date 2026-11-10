@@ -42,9 +42,24 @@ The separate ``Publish verified Python release`` workflow on main downloads
 the matching GitHub release's wheel and source archive, verifies checksums and
 the Release workflow's tag-bound attestations, then runs Twine checks. Dry-run
 is the default and may validate a review branch. Uploads require main and
-select the PyPI or TestPyPI environment;
-it publishes those verified assets without rebuilding them. The repository's
-configured environment credentials supply upload authentication.
+select the ``pypi`` or ``testpypi`` environment, and publish those verified
+assets without rebuilding them through ``pypa/gh-action-pypi-publish`` with
+`trusted publishing <https://docs.pypi.org/trusted-publishers/>`_: only the
+upload job holds ``id-token: write``, and PyPI exchanges its OIDC token for a
+short-lived upload token, so no API token is stored. The action also uploads
+PEP 740 attestations for the wheel and source archive, alongside the GitHub
+build provenance attestations from the Release workflow.
+
+Until a maintainer enables it, an upload run fails before uploading and names
+the missing setup. To enable a destination:
+
+1. On https://pypi.org/manage/account/publishing/ (or the TestPyPI equivalent),
+   add a pending trusted publisher with owner ``somethingwithproof``,
+   repository ``nagios-plugins-collection``, workflow ``publish-release.yml``
+   and environment ``pypi`` (``testpypi`` for TestPyPI). The first upload
+   creates the project and turns the pending publisher into a normal one.
+2. In the repository settings, add required reviewers to that environment and
+   set its variable ``TRUSTED_PUBLISHING`` to ``true``.
 
 Version 3.0 changes
 -------------------
