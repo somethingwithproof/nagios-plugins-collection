@@ -111,10 +111,10 @@ client secret from a Kubernetes Secret instead of the command line:
 
 .. x-release-please-end
 
-``image.tag`` defaults to the chart's ``appVersion``; set
-``image.repository`` to ``ghcr.io/somethingwithproof/nagios-plugins-collection@sha256``
-and ``image.tag`` to the digest to pin by digest. Keep ``job.activeDeadlineSeconds``
-above the plugin ``--timeout``.
+``image.tag`` defaults to the chart's ``appVersion``. To pin the image, set
+``image.digest`` to ``sha256:`` and the 64 hex digits of the release digest;
+the chart then runs ``image.repository@digest`` and ignores the tag. Keep
+``job.activeDeadlineSeconds`` above the plugin ``--timeout``.
 
 Node monitoring needs the API token and the opt-in, list-only ClusterRole:
 
