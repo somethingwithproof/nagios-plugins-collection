@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 image:
   repository: ghcr.io/somethingwithproof/nagios-plugins-collection
-  tag: ""  # defaults to the chart appVersion; set a release tag or use repository@sha256 pinning
+  tag: ""  # defaults to the chart appVersion
+  # sha256:<64 hex digits>; when set the image is repository@digest and tag is ignored.
+  digest: ""
   pullPolicy: IfNotPresent
 
 schedule: "*/10 * * * *"  # every 10 minutes

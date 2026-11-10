@@ -30,7 +30,7 @@ spec:
           containers:
             - name: plugin
               securityContext: {{- toYaml .Values.securityContext | nindent 16 }}
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              image: {{ include "nagios-plugins-collection.image" . | quote }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               command: {{ toJson .Values.command }}
               args: {{ toJson .Values.args }}
