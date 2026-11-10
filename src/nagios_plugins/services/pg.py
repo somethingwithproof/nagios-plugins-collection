@@ -5,8 +5,11 @@
 from __future__ import annotations
 
 
-def replication_lag_seconds(dsn: str, timeout: int = 10) -> float:
-    """Return seconds since the last replayed PostgreSQL transaction."""
+def replication_lag_seconds(dsn: str, timeout: int = 10) -> float | None:
+    """Return the largest standby lag in seconds, or None when no standby is connected.
+
+    A connected standby with NULL lag columns is caught up and idle, so it reports 0.
+    """
     try:
         import psycopg  # type: ignore
     except Exception as e:  # pragma: no cover
@@ -23,8 +26,8 @@ def replication_lag_seconds(dsn: str, timeout: int = 10) -> float:
                 """
             )
             row = cur.fetchone()
-            if not row or row[0] is None:
-                return 0.0
-            return float(row[0])
+            if not row:
+                return None
+            return 0.0 if row[0] is None else float(row[0])
     except Exception as e:  # pragma: no cover
         raise RuntimeError(f"postgres error: {e}") from e

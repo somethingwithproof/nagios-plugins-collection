@@ -4,6 +4,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_postgres_replication_lag import CheckPostgresReplicationLag
 from nagios_plugins.plugins.check_redis_saturation import CheckRedisSaturation
@@ -27,3 +29,14 @@ def test_redis_saturation_thresholds() -> None:
             ["--url", "redis://localhost:6379/0", "--warning", "10", "--critical", "20"]
         )
         assert code == Status.WARNING.value
+
+
+def test_pg_without_standby_is_critical(capsys: pytest.CaptureFixture[str]) -> None:
+    """An empty pg_stat_replication is the failure being monitored, not zero lag."""
+    with patch(
+        "nagios_plugins.plugins.check_postgres_replication_lag.replication_lag_seconds",
+        return_value=None,
+    ):
+        code = CheckPostgresReplicationLag().run(["--dsn", "postgres://", "-w", "5", "-c", "10"])
+    assert code == Status.CRITICAL.value
+    assert capsys.readouterr().out.startswith("CRITICAL - No standby connected")

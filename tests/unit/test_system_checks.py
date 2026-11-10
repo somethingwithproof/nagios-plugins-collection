@@ -119,6 +119,18 @@ async def test_remote_dns_missing_expected_answer() -> None:
 
 
 @pytest.mark.asyncio
+async def test_remote_dns_empty_answer_is_critical() -> None:
+    """dig +short prints nothing and exits 0 on NXDOMAIN/SERVFAIL/NODATA."""
+    result = CommandResult(execution_time=0.05, exit_code=0, stdout="\n", stderr="")
+    with patch(
+        "nagios_plugins.plugins.check_dig.execute_command_async", new=AsyncMock(return_value=result)
+    ):
+        checked = await SSHDNSChecker("monitor.example", "missing.example").check_dns()
+    assert checked.status == Status.CRITICAL
+    assert checked.message == "No A answer for missing.example"
+
+
+@pytest.mark.asyncio
 async def test_remote_dns_retries_failed_command() -> None:
     result = CommandResult(
         execution_time=0.05, exit_code=1, stdout="", stderr="connection unavailable"

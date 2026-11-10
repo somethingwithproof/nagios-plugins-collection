@@ -42,17 +42,22 @@ class CheckOAuth2Token(NagiosPlugin):
                 )
             r.raise_for_status()
             data = r.json()
-            expires_in = int(data.get("expires_in", 0))
+            if not isinstance(data, dict) or not data.get("access_token"):
+                return CheckResult(Status.CRITICAL, "Token endpoint returned no access_token")
             scopes = set((data.get("scope") or "").split())
             missing = [s for s in args.scope if s not in scopes]
+            metrics: dict[str, int] = {"scope_count": len(scopes)}
+            # expires_in is optional (RFC 6749 section 5.1); never report a missing one as 0.
+            if data.get("expires_in") is None:
+                msg = "Token ok expires_in=unknown"
+            else:
+                metrics["expires_in"] = int(data["expires_in"])
+                msg = f"Token ok expires_in={metrics['expires_in']}s"
             status = Status.OK
-            msg = f"Token ok expires_in={expires_in}s"
             if missing:
                 status = Status.WARNING
                 msg += f" missing_scopes={','.join(missing)}"
-            return CheckResult(
-                status, msg, metrics={"expires_in": expires_in, "scope_count": len(scopes)}
-            )
+            return CheckResult(status, msg, metrics=metrics)
         except httpx.HTTPError as e:
             return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
         except Exception as e:  # pragma: no cover

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from typing import Any
 
 import httpx
 
@@ -35,13 +36,9 @@ class CheckPrometheusQuery(NagiosPlugin):
             data = r.json()
             if data.get("status") != "success":
                 return CheckResult(Status.UNKNOWN, f"Prometheus error: {data}")
-            result = data.get("data", {}).get("result", [])
-            if not result:
-                value = 0.0
-            else:
-                # Expecting scalar or vector with one sample
-                val = result[0].get("value") or result[0].get("scalar") or [None, "0"]
-                value = float(val[1])
+            value = _first_sample(data.get("data", {}))
+            if value is None:
+                return CheckResult(Status.UNKNOWN, f"PromQL {args.query} returned no samples")
             status = threshold_check(value, args.warning, args.critical)
             perf = PerfData(value, warning=args.warning, critical=args.critical)
             return CheckResult(status, f"PromQL {args.query}={value}", metrics={"value": perf})
@@ -49,6 +46,25 @@ class CheckPrometheusQuery(NagiosPlugin):
             return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
+
+
+def _first_sample(data: dict[str, Any]) -> float | None:
+    """Return the first sample of a scalar or instant-vector result, if any.
+
+    An empty vector means the series is absent, which is not the same as zero.
+    """
+    result = data.get("result")
+    if data.get("resultType") == "scalar" or (
+        isinstance(result, list) and len(result) == 2 and not isinstance(result[0], dict)
+    ):
+        sample = result
+    elif isinstance(result, list) and result and isinstance(result[0], dict):
+        sample = result[0].get("value")
+    else:
+        return None
+    if not isinstance(sample, list) or len(sample) != 2:
+        return None
+    return float(sample[1])
 
 
 def main() -> int:

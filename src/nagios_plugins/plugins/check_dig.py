@@ -136,6 +136,13 @@ class SSHDNSChecker:
 
     def _response_result(self, response: str, duration: float) -> CheckResult:
         """Classify DNS output and latency after a successful SSH command."""
+        # dig +short exits 0 with no output for NXDOMAIN, SERVFAIL and NODATA.
+        if not response:
+            return CheckResult(
+                Status.CRITICAL,
+                f"No {self.record_type} answer for {self.query_address}",
+                metrics={"duration": duration, "response_matches": 0},
+            )
         # Check expected address
         if self.expected_address and self.expected_address not in response:
             return CheckResult(

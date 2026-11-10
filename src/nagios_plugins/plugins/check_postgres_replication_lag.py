@@ -25,6 +25,10 @@ class CheckPostgresReplicationLag(NagiosPlugin):
             lag = replication_lag_seconds(args.dsn, timeout=args.timeout)
         except RuntimeError as e:
             return CheckResult(Status.UNKNOWN, str(e))
+        if lag is None:
+            return CheckResult(
+                Status.CRITICAL, "No standby connected (pg_stat_replication is empty)"
+            )
         status = Status.OK
         if args.critical and lag >= float(args.critical):
             status = Status.CRITICAL
