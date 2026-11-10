@@ -11,8 +11,8 @@ SPDX-License-Identifier: Apache-2.0
 exit codes, output or threshold semantics for existing command definitions;
 review each one against your Nagios or Icinga configuration before upgrading.
 
-- Every HTTP check now uses one shared client (`nagios_plugins.services.http`); see "HTTP Options" in the usage guide.
-  All of them accept `--ca-file`, `--insecure`, `--client-cert`/`--client-key`,
+- Every HTTP check now uses one shared client (`nagios_plugins.services.http`);
+  see "HTTP Options" in the usage guide. All of them accept `--ca-file`, `--insecure`, `--client-cert`/`--client-key`,
   `--retries`/`--retry-delay`, and `--username`/`--password`,
   `--bearer-token` and `--api-key`/`--api-key-header`, each secret with a
   `-file` option, a `CHECK_<COMMAND>_<NAME>` variable and a `*_FILE` variable.
