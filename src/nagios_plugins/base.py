@@ -420,27 +420,35 @@ class NagiosArgumentParser(argparse.ArgumentParser):
             SystemExit: With status 3 for a missing or unreadable secret or a
                 rejected option combination, after printing the UNKNOWN line.
         """
-        # Mask URL passwords in any option (--url https://user:pass@host).
-        for value in vars(parsed).values():
-            for text in value if isinstance(value, list) else [value]:
-                if isinstance(text, str):
-                    register_embedded_secrets(text)
+        _register_option_passwords(parsed)
         for secret in self._secrets:
-            try:
-                setattr(parsed, secret.dest, secret.resolve(parsed))
-            except OSError as exc:
-                self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
-            except ValueError as exc:
-                self.error(f"cannot read the {secret.flag} file {exc}")
-            register_secret(getattr(parsed, secret.dest))
-            if secret.required and not getattr(parsed, secret.dest):
-                self.error(
-                    f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "
-                    f"${secret.file_env} is required"
-                )
+            self._resolve(secret, parsed)
         for validator in self._validators:
             if problem := validator(parsed):
                 self.error(problem)
+
+    def _resolve(self, secret: SecretOption, parsed: argparse.Namespace) -> None:
+        """Store one secret's value and register it for redaction; usage error if unusable."""
+        try:
+            setattr(parsed, secret.dest, secret.resolve(parsed))
+        except OSError as exc:
+            self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
+        except ValueError as exc:
+            self.error(f"cannot read the {secret.flag} file {exc}")
+        register_secret(getattr(parsed, secret.dest))
+        if secret.required and not getattr(parsed, secret.dest):
+            self.error(
+                f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "
+                f"${secret.file_env} is required"
+            )
+
+
+def _register_option_passwords(parsed: argparse.Namespace) -> None:
+    """Mask URL passwords given in any option (``--url https://user:pass@host``)."""
+    for value in vars(parsed).values():
+        for text in value if isinstance(value, list) else [value]:
+            if isinstance(text, str):
+                register_embedded_secrets(text)
 
 
 class NagiosPlugin(ABC):
