@@ -147,3 +147,28 @@ async def test_mongodb_status_line_has_one_status_prefix(payload: dict) -> None:
     line = str(result).splitlines()[0]
     assert not line.startswith(f"{result.status} - {result.status}")
     assert line.count(" - ") == 1
+
+
+MALFORMED = [
+    httpx.Response(200, text="<html>maintenance</html>"),
+    httpx.Response(200, json=[]),
+    httpx.Response(200, json={}),
+    httpx.Response(500, text="boom"),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", MALFORMED, ids=["html", "list", "empty", "http-500"])
+async def test_malformed_component_answers_are_critical(answer: httpx.Response) -> None:
+    with serve_http(lambda request: answer):
+        result = await ComponentStatusChecker("https://monitor.example", ["database"]).check()
+    assert result.status == Status.CRITICAL
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", MALFORMED, ids=["html", "list", "empty", "http-500"])
+async def test_malformed_mongodb_health_answers_are_critical(answer: httpx.Response) -> None:
+    with serve_http(lambda request: answer):
+        result = await MongoHealthChecker("https://monitor.example/health", mode=2).check()
+    assert result.status == Status.CRITICAL
+    assert result.message.startswith("Error connecting to MongoDB health endpoint: ")

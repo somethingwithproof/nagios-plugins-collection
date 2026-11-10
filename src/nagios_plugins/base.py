@@ -293,11 +293,6 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         self._secrets: list[SecretOption] = []
         self._validators: list[Callable[[argparse.Namespace], str | None]] = []
 
-    @property
-    def secret_options(self) -> tuple[SecretOption, ...]:
-        """The credential options registered with :meth:`add_secret_argument`."""
-        return tuple(self._secrets)
-
     def error(self, message: str) -> NoReturn:
         """Print an UNKNOWN status line and usage, then exit 3."""
         sys.stdout.write(f"{Status.UNKNOWN} - {self.prog}: {single_line(redact(message))}\n")

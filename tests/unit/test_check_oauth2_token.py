@@ -44,3 +44,12 @@ def test_missing_expires_in_is_not_reported_as_zero(
     out = capsys.readouterr().out
     assert "expires_in=unknown" in out
     assert "expires_in=0" not in out
+
+
+def test_rejected_client_is_critical_without_the_secret(
+    http_backend: FakeHttpBackend, capsys: pytest.CaptureFixture[str]
+) -> None:
+    http_backend.reply(httpx.Response(401, json={"error": "invalid_client"}))
+    assert CheckOAuth2Token().run(ARGS) == Status.CRITICAL.value
+    out = capsys.readouterr().out
+    assert out.startswith("CRITICAL - HTTP error: HTTP 401 Unauthorized from https://issuer/token")
