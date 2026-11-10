@@ -8,7 +8,7 @@ origin-bound credentials, retries and proxy mounts under test.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import contextmanager
 from unittest.mock import patch
 
@@ -46,15 +46,46 @@ class FakeHttpBackend:
         self.respond = respond
 
 
+class _Body(httpx.SyncByteStream, httpx.AsyncByteStream):
+    """A body that, like a network stream, is read by the client after sending."""
+
+    def __init__(self, content: bytes) -> None:
+        self._content = content
+
+    def __iter__(self) -> Iterator[bytes]:
+        yield self._content
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        yield self._content
+
+
+def _streamed(response: httpx.Response) -> httpx.Response:
+    """Return ``response`` as a transport would: unread, so httpx times and reads it.
+
+    A response whose ``elapsed`` a test set explicitly is passed through as is.
+    """
+    if hasattr(response, "_elapsed"):
+        return response
+    return httpx.Response(
+        response.status_code,
+        headers=response.headers,
+        stream=_Body(response.read()),
+        extensions=response.extensions,
+    )
+
+
 @contextmanager
 def serve_http(handler: Handler) -> Iterator[None]:
     """Answer every sync and async httpx request with ``handler``."""
 
+    def handle(_: httpx.HTTPTransport, request: httpx.Request) -> httpx.Response:
+        return _streamed(handler(request))
+
     async def handle_async(_: httpx.AsyncHTTPTransport, request: httpx.Request) -> httpx.Response:
-        return handler(request)
+        return _streamed(handler(request))
 
     with (
-        patch.object(httpx.HTTPTransport, "handle_request", lambda _, request: handler(request)),
+        patch.object(httpx.HTTPTransport, "handle_request", handle),
         patch.object(httpx.AsyncHTTPTransport, "handle_async_request", handle_async),
     ):
         yield

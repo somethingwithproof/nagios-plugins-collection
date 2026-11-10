@@ -20,7 +20,7 @@ import pytest
 
 from nagios_plugins import deadline
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosPlugin, Status
-from nagios_plugins.deadline import Deadline, remaining_time
+from nagios_plugins.deadline import Deadline, remaining_time, track_child
 from nagios_plugins.plugins.check_dig import CheckDig, execute_command_async
 from nagios_plugins.plugins.check_tls_expiry import CheckTlsExpiry
 from nagios_plugins.utils import CommandResult, execute_command
@@ -265,3 +265,62 @@ def test_watchdog_is_the_fallback_without_sigalrm() -> None:
     assert completed.returncode == 3
     assert json.loads(completed.stdout)["message"] == "Plugin timed out after 1 seconds"
     assert elapsed < 5
+
+
+class QuickAsync(AsyncNagiosPlugin):
+    """Return at once, or raise the plugin's own TimeoutError when asked."""
+
+    raise_own_timeout = False
+
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        if self.raise_own_timeout:
+            raise TimeoutError("backend said slow down")
+        return CheckResult(Status.OK, "quick")
+
+
+def test_async_check_runs_without_a_deadline() -> None:
+    """Calling check() directly (outside run) is not bounded and still works."""
+    plugin = QuickAsync()
+    assert plugin.check(plugin.parse_args([])).status == Status.OK
+
+
+def test_a_checks_own_timeout_error_is_not_the_deadline(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    plugin = QuickAsync()
+    plugin.raise_own_timeout = True
+    assert plugin.run(["--timeout", "5"]) == 3
+    out = capsys.readouterr().out
+    assert out.startswith("UNKNOWN - Unhandled exception: backend said slow down")
+
+
+def test_watchdog_writes_the_result_and_exits_unknown(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    command, pid_file = _child_pid_file(tmp_path)
+    child = subprocess.Popen(command)
+    started = time.monotonic()
+    while not pid_file.exists() and time.monotonic() - started < 10:
+        time.sleep(0.01)
+    watchdog = Deadline(1, "UNKNOWN - Plugin timed out after 1 seconds")
+    with (
+        track_child(child),
+        patch("os._exit", side_effect=SystemExit) as exit_,
+        pytest.raises(SystemExit),
+    ):
+        watchdog._on_watchdog()
+    exit_.assert_called_once_with(3)
+    assert capsys.readouterr().out == TIMED_OUT
+    assert child.wait(5) != 0
+
+
+def test_watchdog_and_alarm_do_nothing_once_the_run_finished(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with Deadline(5, "UNKNOWN - x") as finished:
+        pass
+    with patch("os._exit") as exit_:
+        finished._on_watchdog()
+        finished._on_alarm(14, None)
+    exit_.assert_not_called()
+    assert capsys.readouterr().out == ""
