@@ -5,6 +5,10 @@
 import argparse
 import json
 import logging
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs
@@ -12,7 +16,13 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status, configure_logging
+from nagios_plugins.base import (
+    MAX_SECRET_BYTES,
+    CheckResult,
+    NagiosPlugin,
+    Status,
+    configure_logging,
+)
 from nagios_plugins.plugins import check_jobs, check_monghealth
 from nagios_plugins.plugins.check_oauth2_token import CheckOAuth2Token
 from nagios_plugins.plugins.check_postgres_replication_lag import CheckPostgresReplicationLag
@@ -240,3 +250,81 @@ def test_monghealth_password_from_file(tmp_path: Path) -> None:
         ["--host", "db", "--username", "monitor", "--password-file", str(secret_file)]
     )
     assert args.password == SECRET
+
+
+def _usage_error(args: list[str], capsys: pytest.CaptureFixture[str]) -> str:
+    with pytest.raises(SystemExit) as exited:
+        CheckOAuth2Token().run(args)
+    assert exited.value.code == 3
+    captured = capsys.readouterr()
+    assert captured.out.startswith("UNKNOWN - check_oauth2_token: cannot read the --client-secret")
+    assert len(captured.out.splitlines()) == 1
+    assert "Traceback" not in captured.err
+    return captured.out
+
+
+@pytest.mark.parametrize(
+    "content,problem",
+    [
+        (b"\xff\xfesecret", "not UTF-8 text"),
+        (b"a" * (MAX_SECRET_BYTES + 1), "larger than 64 KiB"),
+    ],
+)
+def test_malformed_secret_file_is_a_usage_error(
+    content: bytes, problem: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    secret_file = tmp_path / "secret"
+    secret_file.write_bytes(content)
+    out = _usage_error(_token_args("--client-secret-file", str(secret_file)), capsys)
+    assert f"{secret_file}: {problem}" in out
+
+
+def test_secret_file_at_the_size_limit_is_read(tmp_path: Path) -> None:
+    secret_file = tmp_path / "secret"
+    secret_file.write_bytes(b"a" * MAX_SECRET_BYTES)
+    secret = _posted_secret(*_token_args("--client-secret-file", str(secret_file)))
+    assert secret == "a" * MAX_SECRET_BYTES
+
+
+def test_directory_as_secret_file_is_a_usage_error(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = _usage_error(_token_args("--client-secret-file", str(tmp_path)), capsys)
+    assert "not a regular file" in out
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFOs")
+def test_fifo_secret_file_is_refused_without_waiting_for_a_writer(tmp_path: Path) -> None:
+    """Opening a FIFO for reading blocks until a writer appears; it must be refused."""
+    fifo = tmp_path / "secret"
+    os.mkfifo(fifo)
+    started = time.monotonic()
+    completed = subprocess.run(
+        [sys.executable, "-m", "nagios_plugins.plugins.check_oauth2_token"]
+        + _token_args("--client-secret-file", str(fifo), "-t", "1"),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    assert completed.returncode == 3
+    assert completed.stdout.startswith("UNKNOWN - ")
+    assert f"{fifo}: not a regular file" in completed.stdout
+    assert time.monotonic() - started < 15
+
+
+def test_stuck_secret_file_read_is_bounded_by_the_timeout(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A read that never returns (a hung network mount) ends at --timeout."""
+
+    def stuck(path: str) -> str:
+        time.sleep(30)
+        return "never"
+
+    started = time.monotonic()
+    with patch("nagios_plugins.base._read_secret", side_effect=stuck):
+        code = CheckOAuth2Token().run(_token_args("--client-secret-file", "/mnt/s", "-t", "1"))
+    assert code == 3
+    assert capsys.readouterr().out == "UNKNOWN - Plugin timed out after 1 seconds\n"
+    assert time.monotonic() - started < 10

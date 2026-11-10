@@ -14,14 +14,15 @@ import json
 import logging
 import math
 import os
+import stat
 import sys
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
-from pathlib import Path
 from typing import Any, ClassVar, NoReturn
 
 from nagios_plugins.deadline import Deadline, PluginTimeout, hard_remaining
@@ -268,6 +269,8 @@ class SecretOption:
 
         Raises:
             OSError: If a named file cannot be read; ``filename`` identifies it.
+            ValueError: If a named file is not a regular file, is larger than
+                :data:`MAX_SECRET_BYTES` or is not UTF-8 text.
         """
         value = getattr(parsed, self.dest, None)
         path = getattr(parsed, f"{self.dest}_file", None)
@@ -279,9 +282,40 @@ class SecretOption:
         return value or None
 
 
+#: Largest secret file accepted; a credential is never anywhere near this.
+MAX_SECRET_BYTES = 64 * 1024
+
+
 def _read_secret(path: str) -> str:
-    """Read a secret file, dropping the line break editors and ``echo`` append."""
-    return Path(path).read_text(encoding="utf-8").strip("\r\n")
+    """Read a secret file, dropping the line break editors and ``echo`` append.
+
+    Only regular files are read: the file is opened without blocking, so a
+    FIFO or device is refused instead of waiting for a writer, and at most
+    :data:`MAX_SECRET_BYTES` are read.
+
+    Raises:
+        OSError: If the file cannot be opened or read.
+        ValueError: If it is not a regular file, too large or not UTF-8 text.
+    """
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOCTTY", 0)
+    descriptor = os.open(path, flags)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError(f"{path}: not a regular file")
+        data = b""
+        while len(data) <= MAX_SECRET_BYTES:
+            chunk = os.read(descriptor, MAX_SECRET_BYTES + 1 - len(data))
+            if not chunk:
+                break
+            data += chunk
+    finally:
+        os.close(descriptor)
+    if len(data) > MAX_SECRET_BYTES:
+        raise ValueError(f"{path}: larger than {MAX_SECRET_BYTES // 1024} KiB")
+    try:
+        return data.decode("utf-8").strip("\r\n")
+    except UnicodeDecodeError:
+        raise ValueError(f"{path}: not UTF-8 text") from None
 
 
 class NagiosArgumentParser(argparse.ArgumentParser):
@@ -296,6 +330,7 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         super().__init__(*args, **kwargs)
         self._secrets: list[SecretOption] = []
         self._validators: list[Callable[[argparse.Namespace], str | None]] = []
+        self._deferred = False
 
     @property
     def secret_options(self) -> tuple[SecretOption, ...]:
@@ -355,13 +390,39 @@ class NagiosArgumentParser(argparse.ArgumentParser):
     def parse_known_args(  # type: ignore[override]
         self, args: Any = None, namespace: Any = None
     ) -> tuple[argparse.Namespace, list[str]]:
-        """Parse arguments, resolve secrets, then run the cross-option validators."""
+        """Parse arguments, then :meth:`finish` them unless :meth:`deferred` is active."""
         parsed, extras = super().parse_known_args(args, namespace)
+        if not self._deferred:
+            self.finish(parsed)
+        return parsed, extras
+
+    @contextmanager
+    def deferred(self) -> Iterator[None]:
+        """Parse without reading secrets or validating; the caller calls :meth:`finish`.
+
+        Reading a secret file can block (a stuck network mount, for example),
+        so :class:`NagiosPlugin` finishes parsing inside the run deadline.
+        """
+        self._deferred = True
+        try:
+            yield
+        finally:
+            self._deferred = False
+
+    def finish(self, parsed: argparse.Namespace) -> None:
+        """Resolve the secret options, then run the cross-option validators.
+
+        Raises:
+            SystemExit: With status 3 for a missing or unreadable secret or a
+                rejected option combination, after printing the UNKNOWN line.
+        """
         for secret in self._secrets:
             try:
                 setattr(parsed, secret.dest, secret.resolve(parsed))
             except OSError as exc:
                 self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
+            except ValueError as exc:
+                self.error(f"cannot read the {secret.flag} file {exc}")
             if secret.required and not getattr(parsed, secret.dest):
                 self.error(
                     f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "
@@ -370,7 +431,6 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         for validator in self._validators:
             if problem := validator(parsed):
                 self.error(problem)
-        return parsed, extras
 
 
 class NagiosPlugin(ABC):
@@ -489,13 +549,17 @@ class NagiosPlugin(ABC):
         Raises:
             SystemExit: For ``--help`` (0) and usage errors (3), as argparse does.
         """
-        parsed_args = self.parse_args(args)
+        with self.parser.deferred():
+            parsed_args = self.parse_args(args)
         timed_out = CheckResult(
             Status.UNKNOWN, f"Plugin timed out after {parsed_args.timeout} seconds"
         )
         rendered = timed_out.to_json() if parsed_args.json else str(timed_out)
         try:
+            # Secret files are read under the deadline: a stuck path must not
+            # outlast --timeout.
             with Deadline(parsed_args.timeout, rendered):
+                self.parser.finish(parsed_args)
                 result = self._checked(parsed_args)
         except PluginTimeout:
             self.logger.warning("Run deadline expired")
