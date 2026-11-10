@@ -22,6 +22,15 @@ SPDX-License-Identifier: Apache-2.0
   description without source indentation. The unused
   `nagios_plugins.base.run_async_check` helper is removed; derive from
   `AsyncNagiosPlugin` instead.
+- The installation guide's Kubernetes section pointed to Helm and Nomad
+  examples in the README that did not exist. It now has complete examples: a
+  Helm values file that reads a secret from a Kubernetes Secret, the opt-in
+  node-monitoring RBAC values, and a Nomad job run with a pinned image and a
+  secret rendered from a Nomad Variable. The README links to them.
+- `rich` is no longer a runtime dependency. No plugin has imported it since
+  logging moved to plain stderr records, so a base install and the native
+  packages no longer pull it in. Install it separately if other code relied on
+  it arriving with this package.
 - `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
   certificate as CRITICAL with the verification reason instead of UNKNOWN,
   and accepts `--ca-file` for private CAs like the HTTP checks.
