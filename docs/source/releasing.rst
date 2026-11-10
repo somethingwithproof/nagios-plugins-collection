@@ -24,6 +24,11 @@ version; it checks that the version is complete SemVer matching the source,
 that an existing tag identifies the checked-out commit and that the source
 belongs to main. Pushing a tag by hand does not publish.
 
+To rehearse the provenance check without publishing, run the Release workflow
+by hand with ``dry-run`` set and the source version (any branch). It runs full
+CI and builds and attests the artifacts like a release, then verifies the
+attestations, but creates no tag, GitHub release or container tag.
+
 The release pull request is opened with ``GITHUB_TOKEN`` unless the
 ``RELEASE_PLEASE_TOKEN`` secret holds a fine-grained token or GitHub App token
 with contents and pull-request write access. GitHub does not start workflows
@@ -33,14 +38,21 @@ and reopen the release pull request to run CI before merging it.
 Publication reuses full CI, including native package builds and installation
 on Ubuntu 24.04 and Rocky Linux 9. GitHub assets include the wheel, source
 archive, Helm chart, Debian package, RPM, commit metadata and ``SHA256SUMS``.
-Public assets receive GitHub build provenance attestations. GHCR images are
+Public assets receive GitHub build provenance attestations, which the
+Release workflow verifies with ``scripts/verify_release_provenance.py`` before
+it publishes them. The workflow always runs on main (Release Please calls it
+from a push to main), so the attestations record ``refs/heads/main`` and the
+built commit, not the tag; verification requires both, plus the Release
+workflow as signer and a GitHub-hosted runner. GHCR images are
 scanned, signed by immutable digest and promoted to the SemVer tag after checks;
 prereleases do not replace the latest image tag. Build metadata maps ``+`` to
 ``_`` in container tags because OCI tags do not accept plus signs.
 
 The separate ``Publish verified Python release`` workflow on main downloads
 the matching GitHub release's wheel and source archive, verifies checksums and
-the Release workflow's tag-bound attestations, then runs Twine checks. Dry-run
+the Release workflow's attestations with the same script, binding them to
+``refs/heads/main`` at the commit the ``vX.Y.Z`` tag points to, then runs Twine
+checks. A dry-run artifact built from another commit cannot pass. Dry-run
 is the default and may validate a review branch. Uploads require main and
 select the ``pypi`` or ``testpypi`` environment, and publish those verified
 assets without rebuilding them through ``pypa/gh-action-pypi-publish`` with
