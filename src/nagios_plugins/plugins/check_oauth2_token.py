@@ -10,6 +10,7 @@ import argparse
 import httpx
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.redaction import register_secret
 from nagios_plugins.services import http
 
 
@@ -47,6 +48,10 @@ class CheckOAuth2Token(NagiosPlugin):
             data = r.json()
             if not isinstance(data, dict) or not data.get("access_token"):
                 return CheckResult(Status.CRITICAL, "Token endpoint returned no access_token")
+            # The issued tokens are live credentials; never let them reach output.
+            for token in ("access_token", "refresh_token", "id_token"):
+                if isinstance(data.get(token), str):
+                    register_secret(data[token])
             scopes = set((data.get("scope") or "").split())
             missing = [s for s in args.scope if s not in scopes]
             metrics: dict[str, int] = {"scope_count": len(scopes)}

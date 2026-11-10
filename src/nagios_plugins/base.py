@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any, ClassVar, NoReturn
 
 from nagios_plugins.deadline import Deadline, PluginTimeout, hard_remaining
-from nagios_plugins.redaction import redact
+from nagios_plugins.redaction import redact, register_embedded_secrets, register_secret
 
 _LOG_HANDLER_NAME = "nagios_plugins.stderr"
 # Root log level by -v count: none, -v, -vv (or more).
@@ -355,13 +355,24 @@ class NagiosArgumentParser(argparse.ArgumentParser):
     def parse_known_args(  # type: ignore[override]
         self, args: Any = None, namespace: Any = None
     ) -> tuple[argparse.Namespace, list[str]]:
-        """Parse arguments, resolve secrets, then run the cross-option validators."""
+        """Parse arguments, resolve secrets, then run the cross-option validators.
+
+        Every resolved secret, and every password inside a URL option, is
+        registered with :func:`nagios_plugins.redaction.register_secret` so
+        all output masks it.
+        """
         parsed, extras = super().parse_known_args(args, namespace)
+        # Mask URL passwords in any option (--url https://user:pass@host).
+        for value in vars(parsed).values():
+            for text in value if isinstance(value, list) else [value]:
+                if isinstance(text, str):
+                    register_embedded_secrets(text)
         for secret in self._secrets:
             try:
                 setattr(parsed, secret.dest, secret.resolve(parsed))
             except OSError as exc:
                 self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
+            register_secret(getattr(parsed, secret.dest))
             if secret.required and not getattr(parsed, secret.dest):
                 self.error(
                     f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "

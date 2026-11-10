@@ -276,8 +276,11 @@ Options that carry a secret also accept a file or an environment variable:
 
 The command-line option wins over the file, and the file over the environment
 variable. Line breaks around a file's content are ignored. Plugin output, JSON
-output and log records mask URL credentials (``scheme://***@host``), secret
-parameters such as ``token=***`` or ``password=***`` and bearer tokens.
+output and log records mask every resolved secret and every password in a URL
+option wherever it appears (also URL-encoded or as a quoted fragment), URL
+credentials (``scheme://***@host``), secret parameters such as ``token=***``,
+``password: ***`` or ``"password": "***"``, ``Authorization`` and cookie
+headers, bearer tokens and AWS access keys.
 
 Diagnostics
 ~~~~~~~~~~~
