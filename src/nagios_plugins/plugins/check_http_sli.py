@@ -17,6 +17,7 @@ from nagios_plugins.base import (
     PerfData,
     Status,
     most_severe,
+    nagios_range,
     threshold_check,
 )
 from nagios_plugins.services import http
@@ -39,21 +40,25 @@ class CheckHttpSli(AsyncNagiosPlugin):
         self.parser.add_argument(
             "--latency-warning",
             metavar="RANGE",
+            type=nagios_range,
             help="p95 latency range in ms for WARNING (alias: -w)",
         )
         self.parser.add_argument(
             "--latency-critical",
             metavar="RANGE",
+            type=nagios_range,
             help="p95 latency range in ms for CRITICAL (alias: -c)",
         )
         self.parser.add_argument(
             "--error-rate-warning",
             metavar="RANGE",
+            type=nagios_range,
             help="Range for the fraction of failed requests (0-1) for WARNING",
         )
         self.parser.add_argument(
             "--error-rate-critical",
             metavar="RANGE",
+            type=nagios_range,
             help="Range for the fraction of failed requests (0-1) for CRITICAL",
         )
         # Every sample is a measurement, so failed requests are never retried.

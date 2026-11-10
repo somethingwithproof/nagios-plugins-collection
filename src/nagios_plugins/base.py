@@ -93,7 +93,9 @@ def single_line(text: str) -> str:
 class PerfData:
     """One performance-data value with its optional unit, thresholds and bounds.
 
-    ``warning`` and ``critical`` are Nagios range strings, as passed to ``-w``/``-c``.
+    ``warning`` and ``critical`` are Nagios range strings, as passed to ``-w``/``-c``;
+    they are written in canonical form (``:10`` as ``~:10``, ``1e1`` as ``10``),
+    so perfdata parsers see plain positional numbers.
     """
 
     value: float
@@ -104,9 +106,17 @@ class PerfData:
     maximum: float | None = None
 
     def __post_init__(self) -> None:
-        """Reject units outside the Nagios Plugin Guidelines."""
+        """Reject units outside the Nagios Plugin Guidelines and normalize thresholds.
+
+        Raises:
+            ValueError: The unit is not allowed or a threshold is not a valid range.
+        """
         if self.uom not in PERFDATA_UOMS:
             raise ValueError(f"Invalid perfdata unit: {self.uom!r}")
+        for name in ("warning", "critical"):
+            threshold = getattr(self, name)
+            if threshold is not None:
+                object.__setattr__(self, name, str(ThresholdRange.from_string(threshold)))
 
 
 def format_perfdata_label(label: str) -> str:
@@ -686,6 +696,8 @@ class ThresholdRange:
         inclusive = text.startswith("@")
         if inclusive:
             text = text[1:]
+            if not text.strip():
+                raise ValueError(f"Invalid threshold range, '@' needs a range: {threshold!r}")
 
         start, separator, end = text.partition(":")
         if not separator:
@@ -739,19 +751,21 @@ def most_severe(*statuses: Status) -> Status:
 
 
 def nagios_range(value: str) -> str:
-    """Accept a well-formed Nagios range for an option and return it unchanged.
+    """Accept a well-formed Nagios range for an option and return it in canonical form.
 
     A malformed threshold is a configuration error, so it is rejected while
-    parsing (exit 3) instead of surfacing after the check has run.
+    parsing (exit 3) instead of surfacing after the check has run. The value
+    is returned as :class:`ThresholdRange` writes it (``:10`` becomes ``~:10``
+    and ``1e1`` becomes ``10``), so perfdata repeats it in valid syntax.
 
     Raises:
         argparse.ArgumentTypeError: If ``value`` is not a valid range.
     """
     try:
-        ThresholdRange.from_string(value)
+        parsed = ThresholdRange.from_string(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError(f"invalid Nagios range {value!r}: {error}") from None
-    return value
+    return str(parsed)
 
 
 def threshold_check(

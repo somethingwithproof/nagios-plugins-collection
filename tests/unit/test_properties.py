@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 from decimal import Decimal
 
 import pytest
@@ -97,7 +98,25 @@ def test_arbitrary_text_is_accepted_or_rejected_with_value_error(text: str) -> N
         with pytest.raises(argparse.ArgumentTypeError):
             nagios_range(text)
     else:
-        assert nagios_range(text) == text
+        assert nagios_range(text) == str(ThresholdRange.from_string(text))
+
+
+@given(st.text(max_size=12))
+def test_canonical_ranges_parse_to_the_same_range(text: str) -> None:
+    """The canonical form is stable and means what the operator wrote."""
+    try:
+        parsed = ThresholdRange.from_string(text)
+    except ValueError:
+        return
+    canonical = str(parsed)
+    again = ThresholdRange.from_string(canonical)
+    assert (again.min_value, again.max_value, again.inclusive) == (
+        parsed.min_value,
+        parsed.max_value,
+        parsed.inclusive,
+    )
+    assert str(again) == canonical
+    assert re.fullmatch(r"@?(?:(?:~|-?\d+(?:\.\d+)?):)?(?:-?\d+(?:\.\d+)?)?", canonical)
 
 
 @given(ranges(), ranges(), VALUE)

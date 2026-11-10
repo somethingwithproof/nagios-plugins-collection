@@ -64,6 +64,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   description without source indentation. The unused
   `nagios_plugins.base.run_async_check` helper is removed; derive from
   `AsyncNagiosPlugin` instead.
+- A bare `@` is no longer accepted as a range (it silently meant `@0:`,
+  alerting on every non-negative value); it is a usage error (exit 3), as is
+  a malformed `check_http_sli` `--latency-*`/`--error-rate-*` range. Ranges
+  are repeated in perfdata in canonical form: `:10` as `~:10` and `1e1` as
+  `10`.
 - A malformed `-w`/`-c` range is a usage error (exit 3) for every command whose
   thresholds are ranges, reported before the check contacts anything.
   Previously `check_dig` retried and reported CRITICAL, and other commands
