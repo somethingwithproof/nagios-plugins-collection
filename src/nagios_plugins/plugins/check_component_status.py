@@ -193,9 +193,9 @@ class ComponentStatusChecker:
                 (Status.UNKNOWN, "Components without a valid update time", undated_components),
             ]
             parts = [f"{label}: {', '.join(names)}" for _, label, names in findings if names]
-            status = most_severe(*(level for level, _, names in findings if names))
+            overall = most_severe(*(level for level, _, names in findings if names))
             return CheckResult(
-                status,
+                overall,
                 "; ".join(parts)
                 or f"All {len(self.components)} components are healthy and recently updated",
                 metrics=all_metrics,
