@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import math
+import os
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -19,7 +20,10 @@ from collections.abc import Callable, Coroutine
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
+from pathlib import Path
 from typing import Any, NoReturn
+
+from nagios_plugins.redaction import redact
 
 _LOG_HANDLER_NAME = "nagios_plugins.stderr"
 
@@ -157,12 +161,12 @@ class CheckResult:
         The first line is always ``STATUS - message[ | perfdata]``; ``details``
         follow as long output with any ``|`` removed so they cannot start perfdata.
         """
-        output = f"{self.status} - {single_line(self.message)}"
+        output = f"{self.status} - {single_line(redact(self.message))}"
         perfdata = format_perfdata(self.metrics)
         if perfdata:
             output += f" | {perfdata}"
         if self.details:
-            output += "\n" + self.details.replace("|", "/")
+            output += "\n" + redact(self.details).replace("|", "/")
         return output
 
     def to_json(self) -> str:
@@ -173,6 +177,8 @@ class CheckResult:
         """
         result_dict = asdict(self)
         result_dict["status"] = self.status.name
+        result_dict["message"] = redact(self.message)
+        result_dict["details"] = redact(self.details) if self.details else self.details
         result_dict["metrics"] = {key: _json_metric(value) for key, value in self.metrics.items()}
         result_dict["timestamp"] = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(self.timestamp)
@@ -184,6 +190,14 @@ def emit(result: CheckResult, as_json: bool = False) -> int:
     """Write the result to stdout and return its exit code."""
     sys.stdout.write((result.to_json() if as_json else str(result)) + "\n")
     return result.status.value
+
+
+class _RedactingFormatter(logging.Formatter):
+    """Mask credentials in log records, including exception tracebacks."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format the record, then redact the complete text."""
+        return redact(super().format(record))
 
 
 def configure_logging(verbosity: int = 0) -> None:
@@ -201,7 +215,7 @@ def configure_logging(verbosity: int = 0) -> None:
             root.removeHandler(handler)
     handler = logging.StreamHandler(sys.stderr)
     handler.set_name(_LOG_HANDLER_NAME)
-    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    handler.setFormatter(_RedactingFormatter("%(levelname)s %(name)s: %(message)s"))
     root.addHandler(handler)
     root.setLevel(
         logging.DEBUG if verbosity >= 2 else logging.INFO if verbosity == 1 else logging.WARNING
@@ -215,11 +229,58 @@ class NagiosArgumentParser(argparse.ArgumentParser):
     would otherwise page as an outage. ``--help`` still exits 0.
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Create the parser with no secret options registered."""
+        super().__init__(*args, **kwargs)
+        self._secrets: list[tuple[str, str, str, bool]] = []
+
     def error(self, message: str) -> NoReturn:
         """Print an UNKNOWN status line and usage, then exit 3."""
-        sys.stdout.write(f"{Status.UNKNOWN} - {self.prog}: {single_line(message)}\n")
+        sys.stdout.write(f"{Status.UNKNOWN} - {self.prog}: {single_line(redact(message))}\n")
         self.print_usage(sys.stderr)
         self.exit(Status.UNKNOWN.value)
+
+    def add_secret_argument(
+        self, flag: str, *, env: str, help: str, required: bool = False
+    ) -> None:
+        """Accept a secret from ``FLAG``, ``FLAG-file PATH`` or the ``env`` variable.
+
+        Command-line values are visible to other local users in the process
+        list, so the file and environment forms are preferred; the plain flag
+        keeps existing command definitions working. Precedence is flag, then
+        file, then environment. Surrounding line breaks are stripped from files.
+        """
+        dest = flag.lstrip("-").replace("-", "_")
+        group = self.add_mutually_exclusive_group()
+        group.add_argument(
+            flag,
+            dest=dest,
+            help=f"{help} (visible in the process list; prefer {flag}-file or ${env})",
+        )
+        group.add_argument(
+            f"{flag}-file", dest=f"{dest}_file", metavar="PATH", help=f"Read {help} from PATH"
+        )
+        self._secrets.append((dest, flag, env, required))
+
+    # typeshed declares parse_known_args as overloads keyed on the namespace
+    # type; one implementation covering every overload cannot restate them.
+    def parse_known_args(  # type: ignore[override]
+        self, args: Any = None, namespace: Any = None
+    ) -> tuple[argparse.Namespace, list[str]]:
+        """Parse arguments, then resolve secret options from files or the environment."""
+        parsed, extras = super().parse_known_args(args, namespace)
+        for dest, flag, env, required in self._secrets:
+            path = getattr(parsed, f"{dest}_file", None)
+            if not getattr(parsed, dest, None) and path:
+                try:
+                    setattr(parsed, dest, Path(path).read_text(encoding="utf-8").strip("\r\n"))
+                except OSError as exc:
+                    self.error(f"cannot read {flag}-file {path}: {exc.strerror}")
+            if not getattr(parsed, dest, None):
+                setattr(parsed, dest, os.environ.get(env) or None)
+            if required and not getattr(parsed, dest):
+                self.error(f"one of {flag}, {flag}-file or ${env} is required")
+        return parsed, extras
 
 
 def run_async_check(
@@ -257,7 +318,7 @@ class NagiosPlugin(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.start_time = time.time()
 
-    def _create_argument_parser(self) -> argparse.ArgumentParser:
+    def _create_argument_parser(self) -> NagiosArgumentParser:
         """Create the argument parser for the plugin.
 
         Returns:
