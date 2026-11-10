@@ -7,6 +7,8 @@ from unittest.mock import patch
 
 import httpx
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_http_sli import CheckHttpSli
@@ -102,3 +104,16 @@ def test_perfdata_carries_each_threshold_and_skips_inf_latency() -> None:
     assert code == Status.CRITICAL.value
     assert "inf" not in line
     assert "p95=n/a" in line
+
+
+@given(st.lists(st.floats(min_value=0, max_value=1e6), min_size=1, max_size=50))
+def test_percentiles_stay_within_the_observed_latencies(latencies: list[float]) -> None:
+    """A percentile of measured latencies can never exceed the slowest probe."""
+    p50, p95, p99 = CheckHttpSli._percentiles(latencies)
+    assert min(latencies) <= p50 <= p95 <= p99 <= max(latencies)
+
+
+def test_three_samples_do_not_extrapolate_beyond_the_slowest() -> None:
+    """The default sample count: p95 of 100/200/300 ms is 290 ms, not 300+."""
+    p50, p95, p99 = CheckHttpSli._percentiles([100.0, 200.0, 300.0])
+    assert (p50, p95, p99) == pytest.approx((200.0, 290.0, 298.0))
