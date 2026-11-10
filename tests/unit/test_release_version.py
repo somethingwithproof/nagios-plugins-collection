@@ -185,11 +185,12 @@ def _version_copies(line: str, version: str) -> bool:
     """Return whether ``line`` names ``version`` as a copy, not as another package's bound.
 
     ``>=X.Y.Z`` in a dependency constraint is a bound on some other package that
-    merely coincides with the project version on a release branch.
+    merely coincides with the project version on a release branch. A lone ``=``
+    is an assignment such as ``VERSION=X.Y.Z``, so it still counts as a copy.
     """
     pattern = re.compile(rf"(?<![\d.]){re.escape(version)}(?![\d])")
     return any(
-        not re.search(r"(?:[<>=!~^]=?|\^)\s*v?$", line[: match.start()])
+        not re.search(r"(?:[<>=!~]=|[<>^~])\s*v?$", line[: match.start()])
         for match in pattern.finditer(line)
     )
 
@@ -204,6 +205,10 @@ def _version_copies(line: str, version: str) -> bool:
         ("python-dateutil<7.8.9", False),
         ("pkg ~= 7.8.9", False),
         ("pkg == 7.8.9", False),
+        ("ARG VERSION=7.8.9", True),
+        ("version = 7.8.9", True),
+        ('kubeVersion: ">=7.8.9"', False),
+        ("pkg>7.8.9,<8", False),
         ("17.8.9 and 7.8.91", False),
     ],
 )
