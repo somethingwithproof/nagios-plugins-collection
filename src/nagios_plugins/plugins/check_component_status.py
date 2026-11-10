@@ -83,15 +83,18 @@ class ComponentStatusChecker:
         )
         api_url = f"{base_url.rstrip('/')}/api/component/{component}"
 
+        problem = ""
         try:
             response = await client.get(api_url)
             response.raise_for_status()
             response_data = response.json()
         except httpx.HTTPError as error:
-            logger.error("Error fetching component status: %s", http.describe_error(error))
-            return "error", None, {"status": "error"}
+            problem = http.describe_error(error)
         except ValueError:
-            logger.error("Component %s returned a body that is not JSON", component)
+            problem = "the body is not JSON"
+        if problem:
+            # An expected failure of the endpoint, reported without a traceback.
+            logger.error("Error fetching component %s status: %s", component, problem)
             return "error", None, {"status": "error"}
 
         if isinstance(response_data, dict) and response_data:

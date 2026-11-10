@@ -20,6 +20,7 @@ Returns:
 import argparse
 import json
 import logging
+from typing import Any
 
 import httpx
 
@@ -65,6 +66,21 @@ class MongoHealthChecker:
                 f"Invalid mode: {mode}. Must be one of {list(self.MODE_CHECKS.keys())}"
             )
 
+    async def _fetch(self, url: str) -> tuple[dict[str, Any], str]:
+        """Return the health document, or an empty one and the reason it is unusable."""
+        try:
+            async with http.async_client(self.settings, follow_redirects=True) as client:
+                response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+        except httpx.HTTPError as error:
+            return {}, http.describe_error(error)
+        except ValueError:
+            return {}, "response is not JSON"
+        if not isinstance(data, dict) or not data:
+            return {}, "no data"
+        return data, ""
+
     async def check(self) -> CheckResult:
         """Perform the MongoDB health check.
 
@@ -83,17 +99,7 @@ class MongoHealthChecker:
                 "check_count": 0,
                 "passing_checks": 0,
             }
-            try:
-                async with http.async_client(self.settings, follow_redirects=True) as client:
-                    response = await client.get(normalized_url)
-                response.raise_for_status()
-                response_data = response.json()
-            except httpx.HTTPError as error:
-                problem = http.describe_error(error)
-            except ValueError:
-                problem = "response is not JSON"
-            else:
-                problem = "" if isinstance(response_data, dict) and response_data else "no data"
+            response_data, problem = await self._fetch(normalized_url)
             if problem:
                 return CheckResult(
                     Status.CRITICAL,

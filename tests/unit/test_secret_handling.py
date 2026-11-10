@@ -166,8 +166,9 @@ def test_unreadable_environment_secret_file_is_a_usage_error(
 ) -> None:
     monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET", raising=False)
     monkeypatch.setenv("CHECK_OAUTH2_CLIENT_SECRET_FILE", str(tmp_path / "missing"))
+    plugin, args = CheckOAuth2Token(), _token_args()
     with pytest.raises(SystemExit) as exited:
-        CheckOAuth2Token().parse_args(_token_args())
+        plugin.parse_args(args)
     assert exited.value.code == 3
     assert "cannot read the --client-secret file" in capsys.readouterr().out
 

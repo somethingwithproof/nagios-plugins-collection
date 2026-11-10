@@ -110,8 +110,9 @@ async def test_url_userinfo_is_basic_auth_bound_to_its_origin(
     assert "Authorization" not in second.headers
     http_backend.requests.clear()
     http_backend.reply(_redirect("http://api.example/"))
+    settings = http.HttpSettings()
     with pytest.raises(http.InsecureRedirect):
-        await _get(http.HttpSettings(), "https://monitor:pa55@api.example/", use_async=use_async)
+        await _get(settings, "https://monitor:pa55@api.example/", use_async=use_async)
 
 
 def test_redirect_limit_is_enforced(http_backend: FakeHttpBackend) -> None:
@@ -287,8 +288,9 @@ def _parser() -> NagiosArgumentParser:
 def test_contradictory_options_are_usage_errors(
     args: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
+    parser = _parser()
     with pytest.raises(SystemExit) as exited:
-        _parser().parse_args(args)
+        parser.parse_args(args)
     assert exited.value.code == 3
     assert capsys.readouterr().out.startswith("UNKNOWN - check_example: ")
 
