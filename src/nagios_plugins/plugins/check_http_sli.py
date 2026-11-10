@@ -11,11 +11,15 @@ import statistics
 
 import httpx
 
-from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, PerfData, Status, threshold_check
+from nagios_plugins.base import (
+    AsyncNagiosPlugin,
+    CheckResult,
+    PerfData,
+    Status,
+    most_severe,
+    threshold_check,
+)
 from nagios_plugins.services import http
-
-# Most severe first when combining the latency and error-rate verdicts.
-_SEVERITY = {Status.OK: 0, Status.UNKNOWN: 1, Status.WARNING: 2, Status.CRITICAL: 3}
 
 
 class CheckHttpSli(AsyncNagiosPlugin):
@@ -90,7 +94,7 @@ class CheckHttpSli(AsyncNagiosPlugin):
             statuses.append(Status.CRITICAL)
         else:
             statuses.append(threshold_check(p95, args.latency_warning, args.latency_critical))
-        status = max(statuses, key=_SEVERITY.__getitem__)
+        status = most_severe(*statuses)
         latency = f"{p95:.1f}ms" if latencies else "n/a"
         msg = f"SLI p95={latency} error_rate={error_rate:.2%}"
         metrics = {

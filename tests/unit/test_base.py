@@ -297,3 +297,12 @@ class TestThresholdCheck:
         """Test with no thresholds."""
         assert threshold_check(50) == Status.OK
         assert threshold_check(50, warning=None, critical=None) == Status.OK
+
+
+def test_most_severe_follows_nagios_precedence() -> None:
+    from nagios_plugins.base import most_severe
+
+    assert most_severe() is Status.OK
+    assert most_severe(Status.OK, Status.UNKNOWN) is Status.UNKNOWN
+    assert most_severe(Status.UNKNOWN, Status.WARNING) is Status.WARNING
+    assert most_severe(Status.WARNING, Status.CRITICAL, Status.OK) is Status.CRITICAL

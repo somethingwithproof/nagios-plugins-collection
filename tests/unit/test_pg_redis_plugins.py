@@ -21,13 +21,20 @@ def test_pg_replication_thresholds() -> None:
         assert code == Status.CRITICAL.value
 
 
-def _redis(used: int, maxmemory: int, *args: str, evicted: int = 0) -> tuple[int, MagicMock]:
+def _redis(
+    used: int,
+    maxmemory: int,
+    *args: str,
+    evicted: int = 0,
+    blocked: int = 0,
+    hitratio: float = 0.6,
+) -> tuple[int, MagicMock]:
     stats = {
         "used_memory": used,
         "maxmemory": maxmemory,
         "evicted_keys": evicted,
-        "blocked_clients": 0,
-        "hitratio": 0.6,
+        "blocked_clients": blocked,
+        "hitratio": hitratio,
     }
     with patch(
         "nagios_plugins.plugins.check_redis_saturation.get_stats", return_value=stats
@@ -72,3 +79,49 @@ def test_pg_without_standby_is_critical(capsys: pytest.CaptureFixture[str]) -> N
         code = CheckPostgresReplicationLag().run(["--dsn", "postgres://", "-w", "5", "-c", "10"])
     assert code == Status.CRITICAL.value
     assert capsys.readouterr().out.startswith("CRITICAL - No standby connected")
+
+
+def test_redis_blocked_clients_and_hit_ratio_are_not_checked_by_default() -> None:
+    """Without their own ranges these stay perfdata only, as since 3.0."""
+    assert _redis(100, 1000, "-w", "80", blocked=500, hitratio=0.01)[0] == Status.OK.value
+
+
+@pytest.mark.parametrize(
+    "args,blocked,hitratio,expected",
+    [
+        (["--blocked-warning", "5", "--blocked-critical", "20"], 5, 0.9, Status.OK),
+        (["--blocked-warning", "5", "--blocked-critical", "20"], 6, 0.9, Status.WARNING),
+        (["--blocked-warning", "5", "--blocked-critical", "20"], 21, 0.9, Status.CRITICAL),
+        (["--hitratio-warning", "0.8:", "--hitratio-critical", "0.5:"], 0, 0.8, Status.OK),
+        (["--hitratio-warning", "0.8:", "--hitratio-critical", "0.5:"], 0, 0.7, Status.WARNING),
+        (["--hitratio-warning", "0.8:", "--hitratio-critical", "0.5:"], 0, 0.4, Status.CRITICAL),
+        # The most severe measurement wins, memory included.
+        (
+            ["-w", "80", "--hitratio-warning", "0.8:", "--blocked-critical", "1"],
+            2,
+            0.7,
+            Status.CRITICAL,
+        ),
+    ],
+)
+def test_redis_blocked_clients_and_hit_ratio_ranges(
+    args: list[str], blocked: int, hitratio: float, expected: Status
+) -> None:
+    assert _redis(100, 1000, *args, blocked=blocked, hitratio=hitratio)[0] == expected.value
+
+
+def test_redis_secondary_ranges_apply_without_maxmemory() -> None:
+    assert _redis(100, 0, "--blocked-critical", "1", blocked=3)[0] == Status.CRITICAL.value
+
+
+def test_redis_secondary_ranges_appear_in_perfdata(capsys: pytest.CaptureFixture[str]) -> None:
+    _redis(100, 1000, "--blocked-warning", "5", "--hitratio-critical", "0.5:")
+    perfdata = capsys.readouterr().out.split("|", 1)[1]
+    assert "blocked_clients=0;5;;0 " in perfdata
+    assert "hitratio=0.6;;0.5:;0;1" in perfdata
+
+
+def test_redis_malformed_secondary_range_is_a_usage_error() -> None:
+    with pytest.raises(SystemExit) as exited:
+        _redis(100, 1000, "--hitratio-warning", "high")
+    assert exited.value.code == Status.UNKNOWN.value
