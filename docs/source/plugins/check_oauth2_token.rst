@@ -18,8 +18,8 @@ Installed command options
 
    usage: check_oauth2_token [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
                              [--json] --token-url TOKEN_URL --client-id CLIENT_ID
-                             --client-secret CLIENT_SECRET [--scope SCOPE]
-                             [--ca-file CA_FILE]
+                             [--client-secret CLIENT_SECRET | --client-secret-file PATH]
+                             [--scope SCOPE] [--ca-file CA_FILE]
 
    Obtain an OAuth2 token and report time-to-expiry; validate scopes if provided.
 
@@ -36,5 +36,10 @@ Installed command options
      --token-url TOKEN_URL
      --client-id CLIENT_ID
      --client-secret CLIENT_SECRET
+                           OAuth2 client secret (visible in the process list;
+                           prefer --client-secret-file or
+                           $CHECK_OAUTH2_CLIENT_SECRET)
+     --client-secret-file PATH
+                           Read OAuth2 client secret from PATH
      --scope SCOPE
      --ca-file CA_FILE     PEM CA bundle; defaults to system trust
