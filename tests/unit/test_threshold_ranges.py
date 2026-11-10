@@ -4,17 +4,29 @@
 
 from __future__ import annotations
 
+import argparse
+import re
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from unittest.mock import patch
 
+import httpx
 import pytest
 
-from nagios_plugins.base import NagiosPlugin, Status
+from nagios_plugins.base import (
+    NagiosPlugin,
+    PerfData,
+    Status,
+    ThresholdRange,
+    format_perfdata,
+    nagios_range,
+)
 from nagios_plugins.plugins.check_backup_freshness import CheckBackupFreshness
 from nagios_plugins.plugins.check_cloud_budget import CheckCloudBudget
+from nagios_plugins.plugins.check_http_sli import CheckHttpSli
 from nagios_plugins.plugins.check_postgres_replication_lag import CheckPostgresReplicationLag
 from nagios_plugins.plugins.check_queue_depth import CheckQueueDepth
+from tests.fakes import serve_http
 
 
 @contextmanager
@@ -86,3 +98,48 @@ def test_thresholds_are_nagios_ranges(
     with backend(value):
         code = plugin().run([*args, *thresholds])
     assert code == expected.value
+
+
+@pytest.mark.parametrize("text", ["@", "@ ", " @"])
+def test_a_bare_at_sign_is_not_a_range(text: str) -> None:
+    with pytest.raises(ValueError, match="'@' needs a range"):
+        ThresholdRange.from_string(text)
+    with pytest.raises(argparse.ArgumentTypeError):
+        nagios_range(text)
+
+
+@pytest.mark.parametrize(
+    "text,canonical",
+    [
+        ("10", "10"),
+        (":10", "~:10"),
+        ("1e1", "10"),
+        ("1_000:", "1000:"),
+        (" 5:7 ", "5:7"),
+        ("@0:2.50", "@2.5"),
+        ("@:", "@~:"),
+        ("~:", ""),
+    ],
+)
+def test_ranges_are_normalized_for_options_and_perfdata(text: str, canonical: str) -> None:
+    assert nagios_range(text) == canonical
+    assert format_perfdata({"m": PerfData(1, warning=text, critical=text)}) == (
+        f"m=1;{canonical};{canonical}".rstrip(";")
+    )
+
+
+def test_perfdata_rejects_a_malformed_threshold() -> None:
+    with pytest.raises(ValueError):
+        PerfData(1, warning="@")
+
+
+def test_sli_rejects_a_malformed_range_while_parsing() -> None:
+    with pytest.raises(SystemExit) as exited:
+        CheckHttpSli().parse_args(["--url", "https://a.example/", "--error-rate-critical", "@"])
+    assert exited.value.code == 3
+
+
+def test_canonical_threshold_reaches_perfdata(capsys: pytest.CaptureFixture[str]) -> None:
+    with serve_http(lambda request: httpx.Response(200)):
+        CheckHttpSli().run(["--url", "https://a.example/", "--samples", "1", "-w", ":1e4"])
+    assert re.search(r" p95_ms=[\d.]+;~:10000 ", capsys.readouterr().out)
