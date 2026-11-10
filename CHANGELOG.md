@@ -7,6 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- `check_http_sli` thresholds are split by measurement. `-w`/`-c` compared one
+  number with both the error rate (a 0-1 fraction) and p95 latency (ms), so a
+  value meant for one was meaningless for the other. `--latency-warning` and
+  `--latency-critical` take p95 latency ranges in milliseconds, and `-w`/`-c`
+  remain as their aliases, which keeps existing latency-style definitions such
+  as `-w 300 -c 1000` working. The new `--error-rate-warning` and
+  `--error-rate-critical` take ranges for the failed-request fraction (for
+  example `--error-rate-critical 0.05`). A definition that passed an error-rate
+  fraction to `-w`/`-c` must move it to the new options. All values use Nagios
+  ranges, so a p95 exactly equal to the threshold is no longer an alert.
+  Perfdata carries each threshold, and the message reads `p95=n/a` instead of
+  `inf` when every probe fails.
 - Helm: the CronJob sets `concurrencyPolicy: Forbid`, `backoffLimit: 0`,
   `activeDeadlineSeconds: 300` and `ttlSecondsAfterFinished`, so a WARNING,
   CRITICAL or UNKNOWN exit is no longer retried up to six times per run (all

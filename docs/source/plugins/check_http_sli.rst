@@ -18,9 +18,15 @@ Installed command options
 
    usage: check_http_sli [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
                          [--json] --url URL [--samples SAMPLES]
-                         [--ca-file CA_FILE]
+                         [--latency-warning RANGE] [--latency-critical RANGE]
+                         [--error-rate-warning RANGE]
+                         [--error-rate-critical RANGE] [--ca-file CA_FILE]
 
    Probe one or more URLs concurrently and report p50/p95/p99 and error-rate.
+
+       Latency and error rate have separate Nagios ranges. -w/-c are aliases for
+       --latency-warning/--latency-critical (p95 in milliseconds).
+
 
    options:
      -h, --help            show this help message and exit
@@ -34,4 +40,14 @@ Installed command options
      --json                Output results in JSON format
      --url URL             URL to probe (repeatable)
      --samples SAMPLES     Samples per URL
+     --latency-warning RANGE
+                           p95 latency range in ms for WARNING (alias: -w)
+     --latency-critical RANGE
+                           p95 latency range in ms for CRITICAL (alias: -c)
+     --error-rate-warning RANGE
+                           Range for the fraction of failed requests (0-1) for
+                           WARNING
+     --error-rate-critical RANGE
+                           Range for the fraction of failed requests (0-1) for
+                           CRITICAL
      --ca-file CA_FILE     PEM CA bundle; defaults to system trust

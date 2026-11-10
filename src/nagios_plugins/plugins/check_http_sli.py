@@ -11,12 +11,19 @@ import statistics
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
 from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
+
+# Most severe first when combining the latency and error-rate verdicts.
+_SEVERITY = {Status.OK: 0, Status.UNKNOWN: 1, Status.WARNING: 2, Status.CRITICAL: 3}
 
 
 class CheckHttpSli(NagiosPlugin):
-    """Probe one or more URLs concurrently and report p50/p95/p99 and error-rate."""
+    """Probe one or more URLs concurrently and report p50/p95/p99 and error-rate.
+
+    Latency and error rate have separate Nagios ranges. -w/-c are aliases for
+    --latency-warning/--latency-critical (p95 in milliseconds).
+    """
 
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
@@ -25,7 +32,39 @@ class CheckHttpSli(NagiosPlugin):
             "--url", action="append", required=True, help="URL to probe (repeatable)"
         )
         self.parser.add_argument("--samples", type=int, default=3, help="Samples per URL")
+        self.parser.add_argument(
+            "--latency-warning",
+            metavar="RANGE",
+            help="p95 latency range in ms for WARNING (alias: -w)",
+        )
+        self.parser.add_argument(
+            "--latency-critical",
+            metavar="RANGE",
+            help="p95 latency range in ms for CRITICAL (alias: -c)",
+        )
+        self.parser.add_argument(
+            "--error-rate-warning",
+            metavar="RANGE",
+            help="Range for the fraction of failed requests (0-1) for WARNING",
+        )
+        self.parser.add_argument(
+            "--error-rate-critical",
+            metavar="RANGE",
+            help="Range for the fraction of failed requests (0-1) for CRITICAL",
+        )
         add_tls_arguments(self.parser)
+
+    def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
+        """Resolve -w/-c into the latency thresholds they alias."""
+        parsed = super().parse_args(args)
+        for alias, option in (("warning", "latency_warning"), ("critical", "latency_critical")):
+            if getattr(parsed, alias) is None:
+                continue
+            if getattr(parsed, option) is not None:
+                flag = option.replace("_", "-")
+                self.parser.error(f"-{alias[0]} is an alias of --{flag}; pass only one")
+            setattr(parsed, option, getattr(parsed, alias))
+        return parsed
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
@@ -51,21 +90,27 @@ class CheckHttpSli(NagiosPlugin):
             return CheckResult(Status.UNKNOWN, "No probes executed")
         error_rate = errors / total
         p50, p95, p99 = self._percentiles(latencies)
-        status = Status.CRITICAL if errors == total else Status.OK
-        if (
-            errors == total
-            or args.critical
-            and (error_rate >= float(args.critical) or p95 >= float(args.critical))
-        ):
-            status = Status.CRITICAL
-        elif args.warning and (error_rate >= float(args.warning) or p95 >= float(args.warning)):
-            status = Status.WARNING
-        msg = f"SLI p95={p95:.1f}ms error_rate={error_rate:.2%}"
+        statuses = [threshold_check(error_rate, args.error_rate_warning, args.error_rate_critical)]
+        if errors == total:
+            statuses.append(Status.CRITICAL)
+        else:
+            statuses.append(threshold_check(p95, args.latency_warning, args.latency_critical))
+        status = max(statuses, key=_SEVERITY.__getitem__)
+        latency = f"{p95:.1f}ms" if latencies else "n/a"
+        msg = f"SLI p95={latency} error_rate={error_rate:.2%}"
         metrics = {
             "p50_ms": round(p50, 1),
-            "p95_ms": round(p95, 1),
+            "p95_ms": PerfData(
+                round(p95, 1), warning=args.latency_warning, critical=args.latency_critical
+            ),
             "p99_ms": round(p99, 1),
-            "error_rate": round(error_rate, 4),
+            "error_rate": PerfData(
+                round(error_rate, 4),
+                warning=args.error_rate_warning,
+                critical=args.error_rate_critical,
+                minimum=0,
+                maximum=1,
+            ),
         }
         return CheckResult(status, msg, metrics=metrics)
 
