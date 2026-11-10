@@ -28,7 +28,7 @@ import httpx
 from rich.console import Console
 from rich.logging import RichHandler
 
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, PerfData, Status, format_number
 
 # Configure logging
 logging.basicConfig(
@@ -106,7 +106,11 @@ class HadoopClusterChecker:
         )
         if mem_component:
             mem_message = mem_component.get("message", "").replace("k", "")
-            metrics["mem"] = mem_message
+            # Publish memory as perfdata only when it is numeric (Hadoop reports kB).
+            try:
+                metrics["mem"] = PerfData(float(mem_message), uom="KB")
+            except ValueError:
+                metrics["mem_text"] = mem_message
 
         return metrics, components_status, stale_components
 
@@ -153,10 +157,12 @@ class HadoopClusterChecker:
                 )
 
             # All checks passed
+            memory = metrics.get("mem_text") or (
+                format_number(metrics["mem"].value) if "mem" in metrics else None
+            )
             return CheckResult(
                 Status.OK,
-                "Hadoop cluster is healthy"
-                + (f", memory: {metrics['mem']}" if "mem" in metrics else ""),
+                "Hadoop cluster is healthy" + (f", memory: {memory}" if memory else ""),
                 metrics=metrics,
             )
 

@@ -25,20 +25,30 @@ All plugins in the collection share a common set of command-line options:
 Threshold Formats
 -----------------
 
-Thresholds follow the standard Nagios plugin threshold format:
+Plugins that accept ranges use the `Nagios Plugin Guidelines
+<https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT>`_ format,
+``[@]start:end``. Both endpoints are part of the range. A value outside the range
+raises the alert; with the ``@`` prefix a value inside the range does.
 
-- Simple threshold: ``VALUE``
-- Range: ``START:END``
-- Inclusive range: ``@START:END``
-- Minimum value: ``VALUE:``
-- Maximum value: ``:VALUE``
+- ``10``: same as ``0:10``; alert when the value is below 0 or above 10
+- ``10:``: alert when the value is below 10
+- ``~:10``: alert when the value is above 10 (no lower bound)
+- ``10:20``: alert when the value is below 10 or above 20
+- ``@10:20``: alert when the value is 10 or more and 20 or less
+
+``:10`` (empty start) is accepted for compatibility and means the same as ``~:10``.
+Critical is evaluated before warning, so a value that matches both is CRITICAL.
+A malformed range, or a start greater than its end, returns UNKNOWN.
 
 Examples:
 
-- ``-w 80 -c 90``: Warning if >= 80, critical if >= 90
-- ``-w 80: -c 90:``: Warning if < 80, critical if < 90
+- ``-w 80 -c 90``: Warning if above 80, critical if above 90 (both if below 0)
+- ``-w 80: -c 90:``: Warning if below 80, critical if below 90
 - ``-w 10:80 -c 5:90``: Warning if outside 10-80, critical if outside 5-90
 - ``-w @10:80 -c @5:90``: Warning if inside 10-80, critical if inside 5-90
+
+Each plugin's ``--help`` states whether its ``-w``/``-c`` take ranges or a
+plain number of a documented unit.
 
 Basic Usage Examples
 --------------------
@@ -103,19 +113,25 @@ By default, all plugins produce output in the standard Nagios plugin format:
 
 .. code-block:: text
 
-    STATUS - Message | metric1=value1 metric2=value2
+    STATUS - Message | 'label'=value[UOM];[warn];[crit];[min];[max] ...
+    optional long output lines
 
 Where:
 
 - ``STATUS`` is one of: OK, WARNING, CRITICAL, UNKNOWN
-- ``Message`` is a human-readable description of the check result
-- The part after the pipe (``|``) contains performance data metrics
+- ``Message`` is a human-readable description of the check result. It is always
+  a single line; line breaks become spaces and ``|`` becomes ``/``
+- The part after the pipe (``|``) contains performance data. Values are plain
+  numbers with an optional guideline unit (``s``, ``ms``, ``us``, ``%``, ``B``,
+  ``KB``, ``MB``, ``GB``, ``TB``, ``c``); labels containing spaces, ``=`` or
+  ``'`` are single-quoted with ``'`` doubled. Text values stay in the message
+  and the JSON output and are not published as perfdata.
 
 Example output:
 
 .. code-block:: text
 
-    OK - Hadoop cluster is healthy | nodes=10 memory_used=85% cpu_used=60%
+    OK - Hadoop cluster is healthy | status=1 component_hdfs_status=1 mem=1048576KB
 
 JSON Output Format
 ~~~~~~~~~~~~~~~~~~

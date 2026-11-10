@@ -7,6 +7,23 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- Thresholds follow the Nagios Plugin Guidelines range format in one shared
+  parser: `@a:b` now alerts when `a <= value <= b` (endpoints were excluded),
+  `~:10` is accepted, a bare `10` means `0:10` so negative values alert, and a
+  value inside a critical `@` range is CRITICAL even when the warning range is
+  narrower. Malformed ranges, including a start above its end, return UNKNOWN.
+  `check_prometheus_query` now uses these ranges instead of a plain upper bound
+  that silently ignored malformed thresholds.
+- Performance data uses one formatter: `'label'=value[UOM];warn;crit;min;max`.
+  Labels with spaces, `=` or `'` are quoted, and non-numeric or non-finite
+  values (for example CloudWatch `unit=Percent`, component `status=ok`, Hadoop
+  memory text, `p95_ms=inf`) are no longer emitted as perfdata. CloudWatch
+  values carry their unit as a UOM (for example `value=45.5%;70;90`) and Hadoop
+  memory is `mem=<n>KB`. The status message is always one line, with `|`
+  replaced by `/`. JSON output keeps plain metric values and writes `null`
+  instead of the invalid `Infinity`.
+- `check_monghealth` uses the shared result type, so its JSON output now
+  includes `timestamp` and `details` like the other plugins.
 - Make `uv.lock` the single dependency lock. Development tools moved from the
   `dev` and `security` extras to PEP 735 dependency groups; install them with
   `uv sync`. The runtime extras, including `prom` and `es`, are unchanged.

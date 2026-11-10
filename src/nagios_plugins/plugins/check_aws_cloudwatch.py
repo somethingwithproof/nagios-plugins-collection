@@ -20,8 +20,21 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
+from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
 from nagios_plugins.services.aws_cloudwatch import get_metric_statistics
+
+# CloudWatch units with a Nagios perfdata equivalent; others are published unitless.
+_CLOUDWATCH_UOM = {
+    "Percent": "%",
+    "Seconds": "s",
+    "Milliseconds": "ms",
+    "Microseconds": "us",
+    "Bytes": "B",
+    "Kilobytes": "KB",
+    "Megabytes": "MB",
+    "Gigabytes": "GB",
+    "Terabytes": "TB",
+}
 
 
 class CheckAwsCloudwatch(NagiosPlugin):
@@ -127,9 +140,15 @@ class CheckAwsCloudwatch(NagiosPlugin):
                 f"({dimension_str}, {args.statistic}, {args.period}s)"
             )
 
-            # Build performance data
+            # Build performance data; the CloudWatch unit name stays in the message
+            # and JSON output because perfdata values must be numeric.
             metrics = {
-                "value": round(value, 2),
+                "value": PerfData(
+                    round(value, 2),
+                    uom=_CLOUDWATCH_UOM.get(str(unit), ""),
+                    warning=args.warning,
+                    critical=args.critical,
+                ),
                 "unit": unit,
             }
 

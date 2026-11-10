@@ -24,13 +24,13 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
 import httpx
 from rich.console import Console
 from rich.logging import RichHandler
+
+from nagios_plugins.base import CheckResult, Status
 
 # Configure logging
 logging.basicConfig(
@@ -40,51 +40,6 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True)],
 )
 logger = logging.getLogger("check_monghealth")
-
-
-# Define constants for status codes
-class Status(Enum):
-    """Nagios status codes."""
-
-    OK = 0
-    WARNING = 1
-    CRITICAL = 2
-    UNKNOWN = 3
-
-    def __str__(self) -> str:
-        """Return the string representation of the status."""
-        return self.name
-
-
-@dataclass
-class CheckResult:
-    """Data class to store check results."""
-
-    status: Status
-    message: str
-    metrics: dict[str, Any] = field(default_factory=dict)
-    details: str | None = None
-
-    def __str__(self) -> str:
-        """Return the string representation of the check result."""
-        output = f"{self.status} - {self.message}"
-        if self.metrics:
-            metrics_str = " ".join(f"{key}={value}" for key, value in self.metrics.items())
-            output += f" | {metrics_str}"
-        if self.details:
-            output += f"\n{self.details}"
-        return output
-
-    def to_json(self) -> str:
-        """Convert the check result to a JSON string."""
-        result_dict = {
-            "status": self.status.name,
-            "message": self.message,
-            "metrics": self.metrics,
-        }
-        if self.details:
-            result_dict["details"] = self.details
-        return json.dumps(result_dict, indent=2)
 
 
 class MongoHealthChecker:

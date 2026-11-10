@@ -10,10 +10,12 @@ behavior and enterprise-grade features.
 import argparse
 import json
 import logging
+import math
 import sys
 import time
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
@@ -56,6 +58,92 @@ class Status(Enum):
         return self.name
 
 
+# Units of measurement accepted by the Nagios Plugin Guidelines.
+PERFDATA_UOMS = frozenset({"", "s", "ms", "us", "%", "B", "KB", "MB", "GB", "TB", "c"})
+
+
+def format_number(value: float) -> str:
+    """Format a finite number in plain positional notation, as perfdata requires."""
+    if isinstance(value, bool):
+        return str(int(value))
+    if isinstance(value, int):
+        return str(value)
+    if value.is_integer():
+        return str(int(value))
+    return format(Decimal(repr(value)), "f")
+
+
+def _is_number(value: Any) -> bool:
+    """Return whether a metric value can be published as perfdata."""
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def single_line(text: str) -> str:
+    """Collapse line breaks and remove the perfdata separator from status text."""
+    return " ".join(text.replace("|", "/").splitlines())
+
+
+@dataclass(frozen=True)
+class PerfData:
+    """One performance-data value with its optional unit, thresholds and bounds.
+
+    ``warning`` and ``critical`` are Nagios range strings, as passed to ``-w``/``-c``.
+    """
+
+    value: float
+    uom: str = ""
+    warning: str | None = None
+    critical: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+
+    def __post_init__(self) -> None:
+        """Reject units outside the Nagios Plugin Guidelines."""
+        if self.uom not in PERFDATA_UOMS:
+            raise ValueError(f"Invalid perfdata unit: {self.uom!r}")
+
+
+def format_perfdata_label(label: str) -> str:
+    """Quote a perfdata label when it contains spaces, ``=`` or quotes."""
+    label = single_line(label)
+    if any(char in label for char in " ='"):
+        return "'" + label.replace("'", "''") + "'"
+    return label
+
+
+def format_perfdata(metrics: dict[str, Any]) -> str:
+    """Render metrics as ``'label'=value[UOM];warn;crit;min;max`` items.
+
+    Values that are not finite numbers (strings, ``None``, ``inf``/``nan``) are
+    omitted: the guidelines only allow numbers, so they belong in the message.
+    """
+    items = []
+    for label, metric in metrics.items():
+        perf = metric if isinstance(metric, PerfData) else PerfData(metric)
+        if not _is_number(perf.value):
+            continue
+        fields = [
+            perf.warning or "",
+            perf.critical or "",
+            "" if perf.minimum is None else format_number(perf.minimum),
+            "" if perf.maximum is None else format_number(perf.maximum),
+        ]
+        while fields and not fields[-1]:
+            fields.pop()
+        value = format_number(perf.value) + perf.uom
+        items.append(f"{format_perfdata_label(label)}={';'.join([value, *fields])}")
+    return " ".join(items)
+
+
+def _json_metric(metric: Any) -> Any:
+    """Keep JSON metrics as plain values and replace non-finite numbers with null."""
+    if isinstance(metric, PerfData):
+        metric = metric.value
+    if isinstance(metric, float) and not math.isfinite(metric):
+        return None
+    return metric
+
+
 @dataclass
 class CheckResult:
     """Data class to store check results."""
@@ -67,13 +155,17 @@ class CheckResult:
     timestamp: float = field(default_factory=time.time)
 
     def __str__(self) -> str:
-        """Return the string representation of the check result."""
-        output = f"{self.status} - {self.message}"
-        if self.metrics:
-            metrics_str = " ".join(f"{key}={value}" for key, value in self.metrics.items())
-            output += f" | {metrics_str}"
+        """Return the status line, perfdata and optional long output.
+
+        The first line is always ``STATUS - message[ | perfdata]``; ``details``
+        follow as long output with any ``|`` removed so they cannot start perfdata.
+        """
+        output = f"{self.status} - {single_line(self.message)}"
+        perfdata = format_perfdata(self.metrics)
+        if perfdata:
+            output += f" | {perfdata}"
         if self.details:
-            output += f"\n{self.details}"
+            output += "\n" + self.details.replace("|", "/")
         return output
 
     def to_json(self) -> str:
@@ -84,6 +176,7 @@ class CheckResult:
         """
         result_dict = asdict(self)
         result_dict["status"] = self.status.name
+        result_dict["metrics"] = {key: _json_metric(value) for key, value in self.metrics.items()}
         result_dict["timestamp"] = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(self.timestamp)
         )
@@ -228,7 +321,18 @@ class NagiosPlugin(ABC):
 
 
 class ThresholdRange:
-    """Class to represent a threshold range for Nagios checks."""
+    """A threshold range as defined by the Nagios Plugin Guidelines.
+
+    ``[@]start:end`` alerts when the value is outside ``start..end`` (both
+    endpoints inclusive), or inside it when prefixed with ``@``:
+
+    - ``10`` is ``0:10``: alert when the value is below 0 or above 10.
+    - ``10:`` alerts below 10; ``~:10`` alerts above 10.
+    - ``10:20`` alerts outside 10..20; ``@10:20`` alerts when 10 <= value <= 20.
+
+    An empty start (``:10``) is accepted for compatibility and, like ``~``, means
+    no lower bound. ``None`` bounds are unbounded.
+    """
 
     def __init__(
         self,
@@ -239,9 +343,9 @@ class ThresholdRange:
         """Initialize a threshold range.
 
         Args:
-            min_value: The minimum value of the range.
-            max_value: The maximum value of the range.
-            inclusive: Whether the range is inclusive (inside is bad).
+            min_value: The lower bound, or None for negative infinity.
+            max_value: The upper bound, or None for positive infinity.
+            inclusive: Whether to alert inside the range (``@``) instead of outside.
         """
         self.min_value = min_value
         self.max_value = max_value
@@ -260,75 +364,54 @@ class ThresholdRange:
         Raises:
             ValueError: If the threshold string is invalid.
         """
-        if not threshold:
+        text = threshold.strip()
+        if not text:
             return cls()
 
-        inclusive = threshold.startswith("@")
+        inclusive = text.startswith("@")
         if inclusive:
-            threshold = threshold[1:]
+            text = text[1:]
 
-        if ":" not in threshold:
-            # Simple threshold
-            try:
-                value = float(threshold)
-                return cls(None, value, inclusive)
-            except ValueError as exc:
-                raise ValueError(f"Invalid threshold value: {threshold}") from exc
-        parts = threshold.split(":")
-        if len(parts) != 2:
-            raise ValueError(f"Invalid threshold format: {threshold}")
-        return cls(cls._bound(parts[0], "minimum"), cls._bound(parts[1], "maximum"), inclusive)
+        start, separator, end = text.partition(":")
+        if not separator:
+            start, end = "0", text
+        min_value = None if start in ("", "~") else cls._bound(start, "minimum", threshold)
+        max_value = None if end == "" else cls._bound(end, "maximum", threshold)
+        if min_value is not None and max_value is not None and min_value > max_value:
+            raise ValueError(f"Invalid threshold range, start exceeds end: {threshold}")
+        return cls(min_value, max_value, inclusive)
 
     @staticmethod
-    def _bound(value: str, label: str) -> float | None:
-        """Parse one optional bound and identify malformed input precisely."""
-        if not value:
-            return None
+    def _bound(value: str, label: str, threshold: str) -> float:
+        """Parse one finite bound and identify malformed input precisely."""
         try:
-            return float(value)
+            bound = float(value)
         except ValueError as exc:
-            raise ValueError(f"Invalid {label} threshold: {value}") from exc
+            raise ValueError(f"Invalid {label} threshold in {threshold!r}: {value}") from exc
+        if not math.isfinite(bound):
+            raise ValueError(f"Invalid {label} threshold in {threshold!r}: {value}")
+        return bound
+
+    def contains(self, value: float) -> bool:
+        """Return whether ``start <= value <= end``."""
+        above_min = self.min_value is None or value >= self.min_value
+        below_max = self.max_value is None or value <= self.max_value
+        return above_min and below_max
 
     def check(self, value: float) -> bool:
-        """Check if a value is within the threshold range.
-
-        Args:
-            value: The value to check.
-
-        Returns:
-            True if the value is OK (within range for normal, outside for inclusive),
-            False otherwise.
-        """
-        if self.inclusive:
-            # Inside the range is bad (inverted logic)
-            if self.min_value is not None and self.max_value is not None:
-                return not (self.min_value < value < self.max_value)
-            elif self.min_value is not None:
-                return value <= self.min_value
-            elif self.max_value is not None:
-                return value >= self.max_value
-            return True
-        else:
-            # Outside the range is bad
-            if self.min_value is not None and self.max_value is not None:
-                return self.min_value <= value <= self.max_value
-            elif self.min_value is not None:
-                return value >= self.min_value
-            elif self.max_value is not None:
-                return value <= self.max_value
-            return True
+        """Return True when the value does not raise an alert for this range."""
+        return not self.contains(value) if self.inclusive else self.contains(value)
 
     def __str__(self) -> str:
-        """Return the string representation of the threshold range."""
+        """Return the range in Nagios syntax, suitable for perfdata thresholds."""
         prefix = "@" if self.inclusive else ""
-
-        if self.min_value is not None and self.max_value is not None:
-            return f"{prefix}{self.min_value}:{self.max_value}"
-        elif self.min_value is not None:
-            return f"{prefix}{self.min_value}:"
-        elif self.max_value is not None:
-            return f"{prefix}:{self.max_value}"
-        return ""
+        if self.min_value is None and self.max_value is None and not self.inclusive:
+            return ""
+        start = "~" if self.min_value is None else format_number(self.min_value)
+        end = "" if self.max_value is None else format_number(self.max_value)
+        if start == "0" and end:
+            return f"{prefix}{end}"
+        return f"{prefix}{start}:{end}"
 
 
 def threshold_check(
@@ -336,41 +419,26 @@ def threshold_check(
     warning: str | None = None,
     critical: str | None = None,
 ) -> Status:
-    """Check a value against warning and critical thresholds.
+    """Check a value against Nagios warning and critical ranges.
+
+    Critical is evaluated first, so a value that alerts for both ranges is
+    CRITICAL. A NaN value cannot be compared and is UNKNOWN.
 
     Args:
         value: The value to check.
-        warning: The warning threshold. Can be a simple number or a range.
-        critical: The critical threshold. Can be a simple number or a range.
+        warning: The warning range (see :class:`ThresholdRange`).
+        critical: The critical range (see :class:`ThresholdRange`).
 
     Returns:
         The status based on the thresholds.
+
+    Raises:
+        ValueError: If a threshold is malformed.
     """
-    # Parse thresholds
     warn_range = ThresholdRange.from_string(warning) if warning else None
     crit_range = ThresholdRange.from_string(critical) if critical else None
-
-    # Special handling when both ranges are inverted and the critical range
-    # fully covers the warning range.  In this situation only values that fall
-    # inside the (smaller) warning range should escalate to CRITICAL.  Values
-    # that are only in the wider critical range are considered OK.
-    if (
-        crit_range
-        and warn_range
-        and crit_range.inclusive
-        and warn_range.inclusive
-        and crit_range.min_value is not None
-        and crit_range.max_value is not None
-        and warn_range.min_value is not None
-        and warn_range.max_value is not None
-        and crit_range.min_value <= warn_range.min_value
-        and crit_range.max_value >= warn_range.max_value
-    ):
-        if warn_range.min_value < value < warn_range.max_value:
-            return Status.CRITICAL
-        return Status.OK
-
-    # Check critical first, then warning
+    if math.isnan(value):
+        return Status.UNKNOWN
     if crit_range and not crit_range.check(value):
         return Status.CRITICAL
     if warn_range and not warn_range.check(value):
