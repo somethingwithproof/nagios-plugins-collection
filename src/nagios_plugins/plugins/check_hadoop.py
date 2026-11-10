@@ -20,20 +20,12 @@ Returns:
 import argparse
 import json
 import logging
-import sys
 from datetime import datetime
 from typing import Any
 
 import httpx
 
-from nagios_plugins.base import (
-    CheckResult,
-    NagiosArgumentParser,
-    PerfData,
-    Status,
-    format_number,
-    run_async_check,
-)
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, PerfData, Status, format_number
 
 logger = logging.getLogger("check_hadoop")
 
@@ -186,60 +178,36 @@ class HadoopClusterChecker:
             )
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
+class CheckHadoop(AsyncNagiosPlugin):
+    """Check Hadoop cluster health."""
 
-    Returns:
-        Parsed arguments
-    """
-    parser = NagiosArgumentParser(
-        description="Check Hadoop cluster health",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--url",
-        required=True,
-        help="URL to the Hadoop cluster status API",
-    )
-    parser.add_argument(
-        "--max-update-minutes",
-        type=int,
-        help="Maximum allowed minutes since last component update",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="HTTP request timeout in seconds",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
+    has_thresholds = False
 
-    return parser.parse_args()
+    def __init__(self) -> None:
+        """Register the status API and update-freshness arguments."""
+        super().__init__()
+        self.parser.add_argument(
+            "--url", required=True, help="URL to the Hadoop cluster status API"
+        )
+        self.parser.add_argument(
+            "--max-update-minutes",
+            type=int,
+            help="Maximum allowed minutes since last component update",
+        )
 
-
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Check the configured Hadoop cluster."""
-    return await HadoopClusterChecker(
-        url=args.url,
-        max_update_minutes=args.max_update_minutes,
-        timeout=args.timeout,
-    ).check_cluster()
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Check the configured Hadoop cluster."""
+        return await HadoopClusterChecker(
+            url=args.url,
+            max_update_minutes=args.max_update_minutes,
+            timeout=args.timeout,
+        ).check_cluster()
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckHadoop().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

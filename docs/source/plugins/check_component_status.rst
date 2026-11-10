@@ -16,24 +16,24 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_component_status [-h] --url URL --components COMPONENTS
-                                 [COMPONENTS ...] [--warning WARNING]
-                                 [--critical CRITICAL] [--timeout TIMEOUT]
-                                 [--json] [--verbose]
+   usage: check_component_status [-h] [-v] [-t TIMEOUT] [-w WARNING]
+                                 [-c CRITICAL] [--json] --url URL --components
+                                 COMPONENTS [COMPONENTS ...]
 
-   Check component status via JSON API
+   Check component status and update freshness via a JSON API.
 
    options:
      -h, --help            show this help message and exit
-     --url URL             URL of the API endpoint (without protocol) (default:
-                           None)
-     --components COMPONENTS [COMPONENTS ...]
-                           List of component names to check (default: None)
-     --warning WARNING     Warning threshold in minutes for stale updates
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 10)
+     -w WARNING, --warning WARNING
+                           Warning threshold in minutes for stale updates
                            (default: 10)
-     --critical CRITICAL   Critical threshold in minutes for stale updates
-                           (default: 2x warning) (default: None)
-     --timeout TIMEOUT     Request timeout in seconds (default: 10)
-     --json                Output in JSON format (default: False)
-     --verbose             Increase verbosity (can be used multiple times)
-                           (default: 0)
+     -c CRITICAL, --critical CRITICAL
+                           Critical threshold in minutes for stale updates
+                           (default: 2x warning)
+     --json                Output results in JSON format
+     --url URL             URL of the API endpoint (without protocol)
+     --components COMPONENTS [COMPONENTS ...]
+                           List of component names to check

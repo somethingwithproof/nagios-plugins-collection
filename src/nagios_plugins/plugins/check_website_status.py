@@ -20,7 +20,7 @@ from typing import Any
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
 
 # Module level logger so tests can patch it
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class WebsiteStatusChecker:
         raise RuntimeError("Website retry loop terminated unexpectedly")
 
 
-class CheckWebsiteStatus(NagiosPlugin):
+class CheckWebsiteStatus(AsyncNagiosPlugin):
     """Check website content, status and response time in seconds."""
 
     def __init__(self) -> None:
@@ -147,7 +147,7 @@ class CheckWebsiteStatus(NagiosPlugin):
         self.parser.add_argument("--retries", type=int, default=0)
         self.parser.add_argument("--retry-delay", type=float, default=1.0)
 
-    def check(self, args: argparse.Namespace) -> CheckResult:
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         checker = WebsiteStatusChecker(
             url=args.url,
@@ -160,7 +160,7 @@ class CheckWebsiteStatus(NagiosPlugin):
             retry_delay=args.retry_delay,
             verbose=bool(args.verbose),
         )
-        return asyncio.run(checker.check_website())
+        return await checker.check_website()
 
 
 def main() -> int:

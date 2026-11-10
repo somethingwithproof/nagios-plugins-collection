@@ -21,9 +21,8 @@ import argparse
 import asyncio
 import json
 import logging
-import sys
 
-from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
 from nagios_plugins.utils import check_http_endpoint_async
 
 logger = logging.getLogger("check_mongodb_health")
@@ -101,7 +100,7 @@ class MongoHealthChecker:
             if not engine_alive:
                 return CheckResult(
                     Status.CRITICAL,
-                    "CRITICAL - MongoDB engine is not alive!",
+                    "MongoDB engine is not alive!",
                     metrics=metrics,
                 )
 
@@ -121,7 +120,7 @@ class MongoHealthChecker:
                 failing_list = ", ".join(failing_checks)
                 return CheckResult(
                     Status.CRITICAL,
-                    f"CRITICAL - MongoDB checks failing: {failing_list}",
+                    f"MongoDB checks failing: {failing_list}",
                     metrics=metrics,
                     details=json.dumps(response_data, indent=2),
                 )
@@ -129,7 +128,7 @@ class MongoHealthChecker:
             # All checks passed
             return CheckResult(
                 Status.OK,
-                f"OK - MongoDB engine alive and all {len(required_checks)} checks passing",
+                f"MongoDB engine alive and all {len(required_checks)} checks passing",
                 metrics=metrics,
                 details=json.dumps(response_data, indent=2),
             )
@@ -148,62 +147,33 @@ class MongoHealthChecker:
             )
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
+class CheckMongodbHealth(AsyncNagiosPlugin):
+    """Check MongoDB health status."""
 
-    Returns:
-        Parsed arguments
-    """
-    parser = NagiosArgumentParser(
-        description="Check MongoDB health status",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
+    default_timeout = 10
+    has_thresholds = False
 
-    # Required arguments
-    parser.add_argument(
-        "--url",
-        required=True,
-        help="URL of the MongoDB health endpoint",
-    )
+    def __init__(self) -> None:
+        """Register the health endpoint and mode arguments."""
+        super().__init__()
+        self.parser.add_argument("--url", required=True, help="URL of the MongoDB health endpoint")
+        self.parser.add_argument(
+            "--mode",
+            type=int,
+            default=1,
+            choices=[1, 2, 3],
+            help="Check mode: 1=Migrations+Search, 2=Search+API, 3=Migrations+Search (default: 1)",
+        )
 
-    # Optional arguments
-    parser.add_argument(
-        "--mode",
-        type=int,
-        default=1,
-        choices=[1, 2, 3],
-        help="Check mode: 1=Migrations+Search, 2=Search+API, 3=Migrations+Search",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=10,
-        help="Request timeout in seconds",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
-
-    return parser.parse_args()
-
-
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Check the configured MongoDB health endpoint."""
-    return await MongoHealthChecker(url=args.url, mode=args.mode, timeout=args.timeout).check()
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Check the configured MongoDB health endpoint."""
+        return await MongoHealthChecker(url=args.url, mode=args.mode, timeout=args.timeout).check()
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckMongodbHealth().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -16,20 +16,19 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_ro_mounts [-h] [--host HOST] [--ssh-user SSH_USER]
-                          [--ssh-port SSH_PORT] [--exclude EXCLUDE]
-                          [--timeout TIMEOUT] [--json] [--verbose]
+   usage: check_ro_mounts [-h] [-v] [-t TIMEOUT] [--json] [--host HOST]
+                          [--ssh-user SSH_USER] [--ssh-port SSH_PORT]
+                          [--exclude EXCLUDE]
 
-   Check for read-only mounts
+   Check for read-only mounts.
 
    options:
-     -h, --help           show this help message and exit
-     --host HOST          Remote host to check (None for local) (default: None)
-     --ssh-user SSH_USER  SSH username (default: None)
-     --ssh-port SSH_PORT  SSH port (default: 22)
-     --exclude EXCLUDE    Comma-separated list of mount points to exclude
-                          (default: None)
-     --timeout TIMEOUT    Command timeout in seconds (default: 30)
-     --json               Output in JSON format (default: False)
-     --verbose            Increase verbosity (can be used multiple times)
-                          (default: 0)
+     -h, --help            show this help message and exit
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 30)
+     --json                Output results in JSON format
+     --host HOST           Remote host to check over SSH (default: local)
+     --ssh-user SSH_USER   SSH username
+     --ssh-port SSH_PORT   SSH port (default: 22)
+     --exclude EXCLUDE     Comma-separated list of mount points to exclude

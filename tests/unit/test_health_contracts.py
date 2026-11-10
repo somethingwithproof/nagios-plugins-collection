@@ -128,3 +128,41 @@ async def test_legacy_mongodb_components(payload: dict, expected: Status) -> Non
             [("search", True)]
         )
     assert result.status.value == expected.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("state", "age"), [("error", 0), ("ok", 15), ("ok", 0)])
+async def test_component_status_line_has_one_status_prefix(state: str, age: int) -> None:
+    updated = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=age)
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, json={"status": state, "updated": updated.isoformat()}
+            )
+        )
+    )
+    with patch("httpx.AsyncClient", return_value=client):
+        result = await ComponentStatusChecker("https://monitor.example", ["database"]).check()
+    line = str(result).splitlines()[0]
+    assert line.startswith(f"{result.status} - ")
+    assert not line.startswith(f"{result.status} - {result.status}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"alive": False},
+        {"alive": True, "search_reachable": False},
+        {"alive": True, "search_reachable": True, "site_api_reachable": True},
+    ],
+)
+async def test_mongodb_status_line_has_one_status_prefix(payload: dict) -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    )
+    with patch("httpx.AsyncClient", return_value=client):
+        result = await MongoHealthChecker("https://monitor.example/health", mode=2).check()
+    line = str(result).splitlines()[0]
+    assert not line.startswith(f"{result.status} - {result.status}")
+    assert line.count(" - ") == 1

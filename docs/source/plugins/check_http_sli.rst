@@ -24,9 +24,8 @@ Installed command options
 
    Probe one or more URLs concurrently and report p50/p95/p99 and error-rate.
 
-       Latency and error rate have separate Nagios ranges. -w/-c are aliases for
-       --latency-warning/--latency-critical (p95 in milliseconds).
-
+   Latency and error rate have separate Nagios ranges. -w/-c are aliases for
+   --latency-warning/--latency-critical (p95 in milliseconds).
 
    options:
      -h, --help            show this help message and exit

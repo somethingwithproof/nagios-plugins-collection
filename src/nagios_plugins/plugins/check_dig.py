@@ -25,10 +25,9 @@ import argparse
 import asyncio
 import logging
 import shlex
-import sys
 import time
 
-from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status, threshold_check
 from nagios_plugins.utils import CommandResult
 
 logger = logging.getLogger("check_dig")
@@ -49,8 +48,8 @@ class SSHDNSChecker:
         expected_address: str | None = None,
         timeout: int = 30,
         retries: int = 1,
-        warning_threshold: float | None = None,
-        critical_threshold: float | None = None,
+        warning_threshold: str | float | None = None,
+        critical_threshold: str | float | None = None,
     ):
         """Initialize the SSH DNS checker.
 
@@ -65,8 +64,8 @@ class SSHDNSChecker:
             expected_address: Expected result from the DNS query
             timeout: Command timeout in seconds
             retries: Number of retries on failure
-            warning_threshold: Warning threshold in seconds
-            critical_threshold: Critical threshold in seconds
+            warning_threshold: Warning range for the query time in seconds
+            critical_threshold: Critical range for the query time in seconds
         """
         self.ssh_host = ssh_host
         self.query_address = query_address
@@ -78,8 +77,8 @@ class SSHDNSChecker:
         self.expected_address = expected_address
         self.timeout = timeout
         self.retries = retries
-        self.warning_threshold = warning_threshold
-        self.critical_threshold = critical_threshold
+        self.warning_threshold = None if warning_threshold is None else str(warning_threshold)
+        self.critical_threshold = None if critical_threshold is None else str(critical_threshold)
 
     def _build_ssh_command(self, dig_command: str) -> list[str]:
         """Build the SSH command to execute.
@@ -141,15 +140,12 @@ class SSHDNSChecker:
                 details=f"Response: {response}",
             )
 
-        # Check thresholds
-        status = Status.OK
+        # A plain number N is the range 0:N, so it alerts when the query takes longer than N.
+        status = threshold_check(duration, self.warning_threshold, self.critical_threshold)
         message = f"DNS response received in {duration:.2f}s"
-
-        if self.critical_threshold and duration > self.critical_threshold:
-            status = Status.CRITICAL
+        if status == Status.CRITICAL:
             message = f"Query took {duration:.2f}s (critical: {self.critical_threshold}s)"
-        elif self.warning_threshold and duration > self.warning_threshold:
-            status = Status.WARNING
+        elif status == Status.WARNING:
             message = f"Query took {duration:.2f}s (warning threshold: {self.warning_threshold}s)"
 
         # Create metrics
@@ -258,114 +254,51 @@ async def execute_command_async(command: list[str], shell: bool = False) -> Comm
             await process.wait()
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
+class CheckDig(AsyncNagiosPlugin):
+    """Check DNS via SSH using dig.
 
-    Returns:
-        Parsed arguments
+    -w/-c are Nagios ranges for the query time in seconds.
     """
-    parser = NagiosArgumentParser(
-        description="Check DNS via SSH using dig",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--host",
-        required=True,
-        help="SSH host to connect to",
-    )
-    parser.add_argument(
-        "--query",
-        required=True,
-        help="DNS name to query",
-    )
-    parser.add_argument(
-        "--ssh-user",
-        help="SSH username",
-    )
-    parser.add_argument(
-        "--ssh-port",
-        type=int,
-        default=22,
-        help="SSH port",
-    )
-    parser.add_argument(
-        "--dns-port",
-        type=int,
-        default=53,
-        help="DNS port",
-    )
-    parser.add_argument(
-        "--record-type",
-        default="A",
-        help="DNS record type (A, AAAA, MX, etc.)",
-    )
-    parser.add_argument(
-        "--dig-arguments",
-        help="Additional dig command arguments",
-    )
-    parser.add_argument(
-        "--expected",
-        help="Expected result from the DNS query",
-    )
-    parser.add_argument(
-        "--warning",
-        type=float,
-        help="Warning threshold in seconds",
-    )
-    parser.add_argument(
-        "--critical",
-        type=float,
-        help="Critical threshold in seconds",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        help="Command timeout in seconds",
-    )
-    parser.add_argument(
-        "--retries",
-        type=int,
-        default=1,
-        help="Number of retries on failure",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
 
-    return parser.parse_args()
+    def __init__(self) -> None:
+        """Register the SSH target, query and retry arguments."""
+        super().__init__()
+        self.parser.add_argument("--host", required=True, help="SSH host to connect to")
+        self.parser.add_argument("--query", required=True, help="DNS name to query")
+        self.parser.add_argument("--ssh-user", help="SSH username")
+        self.parser.add_argument("--ssh-port", type=int, default=22, help="SSH port (default: 22)")
+        self.parser.add_argument("--dns-port", type=int, default=53, help="DNS port (default: 53)")
+        self.parser.add_argument(
+            "--record-type", default="A", help="DNS record type (A, AAAA, MX, etc.; default: A)"
+        )
+        self.parser.add_argument("--dig-arguments", help="Additional dig command arguments")
+        self.parser.add_argument("--expected", help="Expected result from the DNS query")
+        self.parser.add_argument(
+            "--retries", type=int, default=1, help="Number of attempts (default: 1)"
+        )
 
-
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Query DNS over SSH with the configured options."""
-    return await SSHDNSChecker(
-        ssh_host=args.host,
-        query_address=args.query,
-        ssh_user=args.ssh_user,
-        ssh_port=args.ssh_port,
-        dns_port=args.dns_port,
-        record_type=args.record_type,
-        dig_arguments=args.dig_arguments,
-        expected_address=args.expected,
-        timeout=args.timeout,
-        retries=args.retries,
-        warning_threshold=args.warning,
-        critical_threshold=args.critical,
-    ).check_dns()
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Query DNS over SSH with the configured options."""
+        return await SSHDNSChecker(
+            ssh_host=args.host,
+            query_address=args.query,
+            ssh_user=args.ssh_user,
+            ssh_port=args.ssh_port,
+            dns_port=args.dns_port,
+            record_type=args.record_type,
+            dig_arguments=args.dig_arguments,
+            expected_address=args.expected,
+            timeout=args.timeout,
+            retries=args.retries,
+            warning_threshold=args.warning,
+            critical_threshold=args.critical,
+        ).check_dns()
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckDig().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

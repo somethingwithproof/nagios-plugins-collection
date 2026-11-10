@@ -23,12 +23,11 @@ Returns:
 import argparse
 import json
 import logging
-import sys
 from typing import Any
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
+from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
 
 logger = logging.getLogger("check_monghealth")
 
@@ -144,67 +143,6 @@ class MongoHealthChecker:
         )
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments.
-
-    Returns:
-        Parsed arguments
-    """
-    parser = NagiosArgumentParser(
-        description="Check MongoDB health",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    parser.add_argument(
-        "--host",
-        required=True,
-        help="MongoDB host",
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=27017,
-        help="MongoDB port",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=5,
-        help="Connection timeout in seconds",
-    )
-    parser.add_argument(
-        "--username",
-        help="MongoDB username",
-    )
-    parser.add_secret_argument(
-        "--password", env="CHECK_MONGHEALTH_PASSWORD", help="MongoDB password"
-    )
-    parser.add_argument(
-        "--ssl",
-        action="store_true",
-        help="Use SSL",
-    )
-    parser.add_argument(
-        "--mode",
-        type=int,
-        choices=[1, 2, 3],
-        default=1,
-        help="Check mode (1: basic, 2: extended, 3: full)",
-    )
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output in JSON format",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="count",
-        default=0,
-        help="Increase verbosity (can be used multiple times)",
-    )
-
-    return parser.parse_args()
-
-
 # Components that must report true for each --mode.
 CHECK_MODES = {
     1: [("mongrations_current", True), ("search_reachable", True)],
@@ -217,23 +155,49 @@ CHECK_MODES = {
 }
 
 
-async def _check(args: argparse.Namespace) -> CheckResult:
-    """Check the MongoDB status API for the components of the selected mode."""
-    checker = MongoHealthChecker(
-        host=args.host,
-        port=args.port,
-        timeout=args.timeout,
-        username=args.username,
-        password=args.password,
-        ssl=args.ssl,
-    )
-    return await checker.check_components(CHECK_MODES[args.mode])
+class CheckMonghealth(AsyncNagiosPlugin):
+    """Check MongoDB health."""
+
+    default_timeout = 5
+    has_thresholds = False
+
+    def __init__(self) -> None:
+        """Register the status API connection and mode arguments."""
+        super().__init__()
+        self.parser.add_argument("--host", required=True, help="MongoDB host")
+        self.parser.add_argument(
+            "--port", type=int, default=27017, help="MongoDB port (default: 27017)"
+        )
+        self.parser.add_argument("--username", help="MongoDB username")
+        self.parser.add_secret_argument(
+            "--password", env="CHECK_MONGHEALTH_PASSWORD", help="MongoDB password"
+        )
+        self.parser.add_argument("--ssl", action="store_true", help="Use SSL")
+        self.parser.add_argument(
+            "--mode",
+            type=int,
+            choices=[1, 2, 3],
+            default=1,
+            help="Check mode (1: basic, 2: extended, 3: full; default: 1)",
+        )
+
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Check the MongoDB status API for the components of the selected mode."""
+        checker = MongoHealthChecker(
+            host=args.host,
+            port=args.port,
+            timeout=args.timeout,
+            username=args.username,
+            password=args.password,
+            ssl=args.ssl,
+        )
+        return await checker.check_components(CHECK_MODES[args.mode])
 
 
 def main() -> int:
     """Run the installed command and return its Nagios status code."""
-    return run_async_check(parse_args(), _check)
+    return CheckMonghealth().run()
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

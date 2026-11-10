@@ -16,26 +16,25 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_monghealth [-h] --host HOST [--port PORT] [--timeout TIMEOUT]
-                           [--username USERNAME]
+   usage: check_monghealth [-h] [-v] [-t TIMEOUT] [--json] --host HOST
+                           [--port PORT] [--username USERNAME]
                            [--password PASSWORD | --password-file PATH] [--ssl]
-                           [--mode {1,2,3}] [--json] [--verbose]
+                           [--mode {1,2,3}]
 
-   Check MongoDB health
+   Check MongoDB health.
 
    options:
      -h, --help            show this help message and exit
-     --host HOST           MongoDB host (default: None)
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 5)
+     --json                Output results in JSON format
+     --host HOST           MongoDB host
      --port PORT           MongoDB port (default: 27017)
-     --timeout TIMEOUT     Connection timeout in seconds (default: 5)
-     --username USERNAME   MongoDB username (default: None)
+     --username USERNAME   MongoDB username
      --password PASSWORD   MongoDB password (visible in the process list; prefer
                            --password-file or $CHECK_MONGHEALTH_PASSWORD)
-                           (default: None)
-     --password-file PATH  Read MongoDB password from PATH (default: None)
-     --ssl                 Use SSL (default: False)
-     --mode {1,2,3}        Check mode (1: basic, 2: extended, 3: full) (default:
+     --password-file PATH  Read MongoDB password from PATH
+     --ssl                 Use SSL
+     --mode {1,2,3}        Check mode (1: basic, 2: extended, 3: full; default:
                            1)
-     --json                Output in JSON format (default: False)
-     --verbose             Increase verbosity (can be used multiple times)
-                           (default: 0)

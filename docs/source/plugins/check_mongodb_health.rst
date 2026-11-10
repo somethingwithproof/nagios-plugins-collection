@@ -16,17 +16,17 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_mongodb_health [-h] --url URL [--mode {1,2,3}]
-                               [--timeout TIMEOUT] [--json] [--verbose]
+   usage: check_mongodb_health [-h] [-v] [-t TIMEOUT] [--json] --url URL
+                               [--mode {1,2,3}]
 
-   Check MongoDB health status
+   Check MongoDB health status.
 
    options:
-     -h, --help         show this help message and exit
-     --url URL          URL of the MongoDB health endpoint (default: None)
-     --mode {1,2,3}     Check mode: 1=Migrations+Search, 2=Search+API,
-                        3=Migrations+Search (default: 1)
-     --timeout TIMEOUT  Request timeout in seconds (default: 10)
-     --json             Output in JSON format (default: False)
-     --verbose          Increase verbosity (can be used multiple times) (default:
-                        0)
+     -h, --help            show this help message and exit
+     -v, --verbose         Increase verbosity (can be used multiple times)
+     -t TIMEOUT, --timeout TIMEOUT
+                           Timeout in seconds (default: 10)
+     --json                Output results in JSON format
+     --url URL             URL of the MongoDB health endpoint
+     --mode {1,2,3}        Check mode: 1=Migrations+Search, 2=Search+API,
+                           3=Migrations+Search (default: 1)

@@ -9,6 +9,7 @@ behavior and enterprise-grade features.
 
 import argparse
 import asyncio
+import inspect
 import json
 import logging
 import math
@@ -16,12 +17,11 @@ import os
 import sys
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Coroutine
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any, ClassVar, NoReturn
 
 from nagios_plugins.redaction import redact
 
@@ -283,34 +283,20 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         return parsed, extras
 
 
-def run_async_check(
-    args: argparse.Namespace,
-    check: Callable[[argparse.Namespace], Coroutine[Any, Any, CheckResult]],
-) -> int:
-    """Run a standalone plugin's async check and emit its result.
-
-    Shared by the plugins that predate :class:`NagiosPlugin`: configures
-    logging, turns any unhandled exception into UNKNOWN and honors ``--json``.
-    """
-    configure_logging(getattr(args, "verbose", 0))
-    try:
-        result = asyncio.run(check(args))
-    except Exception as exc:  # pylint: disable=broad-except
-        logging.getLogger(__name__).exception("Unhandled exception")
-        result = CheckResult(Status.UNKNOWN, f"Unhandled exception: {exc}")
-    return emit(result, getattr(args, "json", False))
-
-
 class NagiosPlugin(ABC):
     """Base class for all Nagios plugins.
 
-    This class provides common functionality for all Nagios plugins, including:
-    - Argument parsing
-    - Logging
-    - Status handling
-    - Performance data
-    - Output formatting
+    Subclasses register their own options on ``self.parser`` and implement
+    :meth:`check`. The base class supplies ``-v``, ``-t``, ``--json`` and, unless
+    :attr:`has_thresholds` is false, ``-w``/``-c`` Nagios ranges; it configures
+    stderr logging after parsing, turns unhandled exceptions into UNKNOWN and
+    writes the single result to stdout.
     """
+
+    #: Default for ``-t/--timeout`` in seconds.
+    default_timeout: ClassVar[int] = 30
+    #: Whether ``-w``/``-c`` take Nagios ranges; plugins without thresholds set False.
+    has_thresholds: ClassVar[bool] = True
 
     def __init__(self) -> None:
         """Initialize the plugin."""
@@ -318,14 +304,24 @@ class NagiosPlugin(ABC):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.start_time = time.time()
 
+    @classmethod
+    def command_name(cls) -> str | None:
+        """Return the installed command name, which is the plugin's module name.
+
+        ``None`` (argparse falls back to ``argv[0]``) when the module runs as a script.
+        """
+        module = cls.__module__.rpartition(".")[2]
+        return None if module == "__main__" else module
+
     def _create_argument_parser(self) -> NagiosArgumentParser:
-        """Create the argument parser for the plugin.
+        """Create the argument parser with the options every plugin shares.
 
         Returns:
             The argument parser.
         """
         parser = NagiosArgumentParser(
-            description=self.__doc__,
+            prog=self.command_name(),
+            description=inspect.getdoc(type(self)),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
         parser.add_argument(
@@ -339,25 +335,30 @@ class NagiosPlugin(ABC):
             "-t",
             "--timeout",
             type=int,
-            default=30,
-            help="Timeout in seconds (default: 30)",
+            default=self.default_timeout,
+            help=f"Timeout in seconds (default: {self.default_timeout})",
         )
-        parser.add_argument(
-            "-w",
-            "--warning",
-            help="Warning threshold (plugin-specific)",
-        )
-        parser.add_argument(
-            "-c",
-            "--critical",
-            help="Critical threshold (plugin-specific)",
-        )
+        if self.has_thresholds:
+            self.add_threshold_arguments(parser)
         parser.add_argument(
             "--json",
             action="store_true",
             help="Output results in JSON format",
         )
         return parser
+
+    def add_threshold_arguments(self, parser: NagiosArgumentParser) -> None:
+        """Register ``-w``/``-c`` as Nagios ranges.
+
+        Override to give the thresholds another meaning, as a plugin whose
+        established options take plain numbers does.
+        """
+        parser.add_argument(
+            "-w", "--warning", type=nagios_range, help="Warning threshold (plugin-specific)"
+        )
+        parser.add_argument(
+            "-c", "--critical", type=nagios_range, help="Critical threshold (plugin-specific)"
+        )
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         """Parse command-line arguments.
@@ -403,6 +404,29 @@ class NagiosPlugin(ABC):
             result = CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
         self.logger.debug("Plugin execution time: %.3f seconds", time.time() - self.start_time)
         return emit(result, parsed_args.json)
+
+
+class AsyncNagiosPlugin(NagiosPlugin):
+    """Base class for plugins whose check is a coroutine.
+
+    The base class owns the event loop, so subclasses implement only
+    :meth:`check_async`.
+    """
+
+    def check(self, args: argparse.Namespace) -> CheckResult:
+        """Run :meth:`check_async` to completion in a new event loop."""
+        return asyncio.run(self.check_async(args))
+
+    @abstractmethod
+    async def check_async(self, args: argparse.Namespace) -> CheckResult:
+        """Perform the check.
+
+        Args:
+            args: The parsed command-line arguments.
+
+        Returns:
+            The check result.
+        """
 
 
 class ThresholdRange:
@@ -497,6 +521,22 @@ class ThresholdRange:
         if start == "0" and end:
             return f"{prefix}{end}"
         return f"{prefix}{start}:{end}"
+
+
+def nagios_range(value: str) -> str:
+    """Accept a well-formed Nagios range for an option and return it unchanged.
+
+    A malformed threshold is a configuration error, so it is rejected while
+    parsing (exit 3) instead of surfacing after the check has run.
+
+    Raises:
+        argparse.ArgumentTypeError: If ``value`` is not a valid range.
+    """
+    try:
+        ThresholdRange.from_string(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"invalid Nagios range {value!r}: {error}") from None
+    return value
 
 
 def threshold_check(

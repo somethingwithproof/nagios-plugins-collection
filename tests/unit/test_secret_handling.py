@@ -174,8 +174,7 @@ def test_postgres_dsn_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_monghealth_password_from_file(tmp_path: Path) -> None:
     secret_file = tmp_path / "password"
     secret_file.write_text(SECRET, encoding="utf-8")
-    with patch(
-        "sys.argv", ["check_monghealth", "--host", "db", "--password-file", str(secret_file)]
-    ):
-        args = check_monghealth.parse_args()
+    args = check_monghealth.CheckMonghealth().parse_args(
+        ["--host", "db", "--password-file", str(secret_file)]
+    )
     assert args.password == SECRET
