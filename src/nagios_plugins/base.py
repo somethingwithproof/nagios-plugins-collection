@@ -437,8 +437,12 @@ class NagiosPlugin(ABC):
         Override to give the thresholds another meaning, as a plugin whose
         established options take plain numbers does.
         """
-        parser.add_argument("-w", "--warning", help="Warning threshold (plugin-specific)")
-        parser.add_argument("-c", "--critical", help="Critical threshold (plugin-specific)")
+        parser.add_argument(
+            "-w", "--warning", type=nagios_range, help="Warning threshold (plugin-specific)"
+        )
+        parser.add_argument(
+            "-c", "--critical", type=nagios_range, help="Critical threshold (plugin-specific)"
+        )
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
         """Parse command-line arguments.
@@ -632,6 +636,22 @@ class ThresholdRange:
         if start == "0" and end:
             return f"{prefix}{end}"
         return f"{prefix}{start}:{end}"
+
+
+def nagios_range(value: str) -> str:
+    """Accept a well-formed Nagios range for an option and return it unchanged.
+
+    A malformed threshold is a configuration error, so it is rejected while
+    parsing (exit 3) instead of surfacing after the check has run.
+
+    Raises:
+        argparse.ArgumentTypeError: If ``value`` is not a valid range.
+    """
+    try:
+        ThresholdRange.from_string(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"invalid Nagios range {value!r}: {error}") from None
+    return value
 
 
 def threshold_check(

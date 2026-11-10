@@ -54,12 +54,24 @@ SPDX-License-Identifier: Apache-2.0
   `check_component_status` and `check_mongodb_health` status lines are gone.
   `check_component_status` also accepts `-w`/`-c` for its minute thresholds.
   `check_dig -w`/`-c` take Nagios ranges for the query time in seconds; a plain
-  number keeps its meaning (alert above it). Checks without thresholds
+  number keeps its meaning (alert above it). A malformed `-w`/`-c` range is now a
+  usage error (exit 3) for every command whose thresholds are ranges, reported
+  before the check contacts anything; previously `check_dig` retried and
+  reported CRITICAL, and other commands reported UNKNOWN after running. Checks without thresholds
   (`check_mongodb_health`, `check_monghealth`, `check_hadoop`, `check_jobs`,
   `check_ro_mounts`) reject `-w`/`-c` as a usage error. `--help` prints the
   description without source indentation. The unused
   `nagios_plugins.base.run_async_check` helper is removed; derive from
   `AsyncNagiosPlugin` instead.
+- The installation guide's Kubernetes section pointed to Helm and Nomad
+  examples in the README that did not exist. It now has complete examples: a
+  Helm values file that reads a secret from a Kubernetes Secret, the opt-in
+  node-monitoring RBAC values, and a Nomad job run with a pinned image and a
+  secret rendered from a Nomad Variable. The README links to them.
+- `rich` is no longer a runtime dependency. No plugin has imported it since
+  logging moved to plain stderr records, so a base install and the native
+  packages no longer pull it in. Install it separately if other code relied on
+  it arriving with this package.
 - `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
   certificate as CRITICAL with the verification reason instead of UNKNOWN,
   and accepts `--ca-file` for private CAs like the HTTP checks.
