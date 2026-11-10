@@ -169,8 +169,9 @@ def test_commands_without_thresholds_reject_warning(capsys: pytest.CaptureFixtur
     """-w would be silently ignored by a check that has no thresholds, so it is a usage error."""
     from nagios_plugins.plugins.check_ro_mounts import CheckRoMounts
 
+    plugin = CheckRoMounts()
     with pytest.raises(SystemExit) as exited:
-        CheckRoMounts().parse_args(["--warning", "1"])
+        plugin.parse_args(["--warning", "1"])
     assert exited.value.code == 3
     assert capsys.readouterr().out.startswith("UNKNOWN - check_ro_mounts: ")
 
