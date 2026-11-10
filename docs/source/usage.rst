@@ -48,7 +48,13 @@ Examples:
 - ``-w @10:80 -c @5:90``: Warning if inside 10-80, critical if inside 5-90
 
 Each plugin's ``--help`` states whether its ``-w``/``-c`` take ranges or a
-plain number of a documented unit.
+plain number of a documented unit. Three commands keep plain numbers and reject
+range forms as a usage error:
+
+- ``check_tls_expiry``: days; alert when the days remaining are at or below
+  the value, as ``check_http -C`` does
+- ``check_website_status``: seconds; alert when the response takes longer
+- ``check_component_status``: whole minutes since the last update; alert above
 
 Basic Usage Examples
 --------------------

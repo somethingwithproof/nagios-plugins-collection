@@ -114,6 +114,16 @@ review each one against your Nagios or Icinga configuration before upgrading.
   example `check_queue_depth -w 100` is now OK at a depth of exactly 100. Use
   `-w 99` to keep alerting at 100 for integer measurements. Range forms such
   as `@10:20` and `5:` now work instead of reporting UNKNOWN.
+- `check_tls_expiry` and `check_website_status` keep plain-number `-w`/`-c`
+  instead of Nagios ranges. `check_tls_expiry` alerts when the days remaining
+  are at or below the value (the `check_http -C` convention) and
+  `check_website_status` when the response takes longer than the value in
+  seconds. A range form such as `30:` or `@0:30`, a fractional number of days
+  and a negative or non-finite number of seconds are usage errors (exit 3);
+  previously a range crashed the check. `check_tls_expiry -c 0` now alerts on
+  the expiry day. Perfdata carries the thresholds as equivalent ranges, for
+  example `days_remaining=12;@~:30;@~:7` and `duration=0.4;1;2` (the default
+  1 and 2 seconds are always published).
 - `check_http_sli` thresholds are split by measurement. `-w`/`-c` compared one
   number with both the error rate (a 0-1 fraction) and p95 latency (ms), so a
   value meant for one was meaningless for the other. `--latency-warning` and

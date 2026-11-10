@@ -16,10 +16,14 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_tls_expiry [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
-                           [--json] --host HOST [--port PORT] [--ca-file PATH]
+   usage: check_tls_expiry [-h] [-v] [-t TIMEOUT] [-w DAYS] [-c DAYS] [--json]
+                           --host HOST [--port PORT] [--ca-file PATH]
 
    Check TLS certificate expiry and basic chain details.
+
+   -w/-c are whole days, not Nagios ranges: the check alerts when the days
+   remaining are at or below them, as check_http -C does. Perfdata carries
+   them as the equivalent range (for example @~:30).
 
    options:
      -h, --help            show this help message and exit
@@ -27,10 +31,12 @@ Installed command options
      -t TIMEOUT, --timeout TIMEOUT
                            Timeout in seconds for the whole run (default: 30);
                            the plugin exits UNKNOWN 1 second after it
-     -w WARNING, --warning WARNING
-                           Warning threshold (plugin-specific)
-     -c CRITICAL, --critical CRITICAL
-                           Critical threshold (plugin-specific)
+     -w DAYS, --warning DAYS
+                           WARNING when the certificate expires in DAYS days or
+                           fewer (not a range)
+     -c DAYS, --critical DAYS
+                           CRITICAL when the certificate expires in DAYS days or
+                           fewer (not a range)
      --json                Output results in JSON format
      --host HOST           Hostname to check
      --port PORT           Port to connect to
