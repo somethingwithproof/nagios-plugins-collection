@@ -7,6 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- Helm: the CronJob sets `concurrencyPolicy: Forbid`, `backoffLimit: 0`,
+  `activeDeadlineSeconds: 300` and `ttlSecondsAfterFinished`, so a WARNING,
+  CRITICAL or UNKNOWN exit is no longer retried up to six times per run (all
+  configurable under `job` and the top-level history limits). `env` entries
+  accept `valueFrom` (for example `secretKeyRef`) as well as literal values.
+  `image.tag` now defaults to the chart appVersion (`2.0.1`); the previous
+  default `2.0.0` was never published as an image.
+- Nomad: the job sets `command`, since the image has no ENTRYPOINT and
+  `args` alone were executed as the program, pins the image through an `image`
+  variable (default `...:2.0.1`, accepts an `@sha256` digest) instead of
+  `latest`, and disables restarts and rescheduling so a non-OK result is not
+  rerun.
 - Usage errors (unknown or missing arguments, invalid values) exit 3 (UNKNOWN)
   with an `UNKNOWN - <command>: <error>` status line instead of argparse's exit
   2, which Nagios reads as CRITICAL. `--help` still exits 0.

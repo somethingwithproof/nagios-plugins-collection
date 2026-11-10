@@ -2,13 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 image:
   repository: ghcr.io/somethingwithproof/nagios-plugins-collection
-  tag: "2.0.0"
+  tag: ""  # defaults to the chart appVersion; set a release tag or use repository@sha256 pinning
   pullPolicy: IfNotPresent
 
 schedule: "*/10 * * * *"  # every 10 minutes
+# Skip a run instead of overlapping a check that is still running.
+concurrencyPolicy: Forbid
+successfulJobsHistoryLimit: 3
+failedJobsHistoryLimit: 3
+
+job:
+  # Plugins exit 1-3 for WARNING/CRITICAL/UNKNOWN; retrying would rerun the
+  # check up to six times per schedule, so a failed run is final.
+  backoffLimit: 0
+  # Upper bound for one run, including image pull; keep above the plugin --timeout.
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
 
 command: ["check_website_status", "--url=https://example.com", "--pattern=Example"]
 
+# Each entry takes a literal value or a valueFrom source, for example:
+#   - name: CHECK_OAUTH2_CLIENT_SECRET
+#     valueFrom:
+#       secretKeyRef: {name: oauth-monitor, key: client-secret}
 env: []
 args: []
 resources:

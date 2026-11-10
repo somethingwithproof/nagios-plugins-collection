@@ -39,3 +39,46 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].args
           value:
             - --pattern=Example
+
+  - it: does not retry or overlap check runs
+    asserts:
+      - equal:
+          path: spec.concurrencyPolicy
+          value: Forbid
+      - equal:
+          path: spec.jobTemplate.spec.backoffLimit
+          value: 0
+      - equal:
+          path: spec.jobTemplate.spec.activeDeadlineSeconds
+          value: 300
+      - equal:
+          path: spec.jobTemplate.spec.ttlSecondsAfterFinished
+          value: 86400
+
+  - it: defaults the image tag to the chart appVersion
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1
+
+  - it: renders literal env values and secretKeyRef sources
+    set:
+      env:
+        - name: PYTHONUNBUFFERED
+          value: 1
+        - name: CHECK_OAUTH2_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-monitor
+              key: client-secret
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].env
+          value:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: CHECK_OAUTH2_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth-monitor
+                  key: client-secret
