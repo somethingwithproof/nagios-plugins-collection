@@ -37,6 +37,43 @@ async def test_mount_status(output: str, expected: Status, count: int) -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "exclude,mount_point,reported",
+    [
+        (["/data", ""], "/srv", True),  # an empty entry from "--exclude /data," excludes nothing
+        (["/data"], "/data/archive", False),
+        (["/data/"], "/data", False),
+        ([], "/runner", True),  # the default /run exclude must not cover /runner
+        ([], "/run/user/1000", False),
+    ],
+)
+async def test_mount_excludes_match_whole_path_components(
+    exclude: list[str], mount_point: str, reported: bool
+) -> None:
+    output = f"/dev/x on {mount_point} type ext4 (ro,relatime)"
+    with patch(
+        "nagios_plugins.plugins.check_ro_mounts.execute_command", return_value=(0, output, "")
+    ):
+        result = await MountStatusChecker(exclude_mounts=exclude).check_mounts()
+    assert result.metrics["ro_mounts_count"] == int(reported)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mount_point,expected", [("/var/log", Status.CRITICAL), ("/variant", Status.WARNING)]
+)
+async def test_var_severity_matches_whole_path_components(
+    mount_point: str, expected: Status
+) -> None:
+    output = f"/dev/x on {mount_point} type ext4 (ro,relatime)"
+    with patch(
+        "nagios_plugins.plugins.check_ro_mounts.execute_command", return_value=(0, output, "")
+    ):
+        result = await MountStatusChecker().check_mounts()
+    assert result.status == expected
+
+
+@pytest.mark.asyncio
 async def test_mount_command_failure_is_unknown() -> None:
     with patch(
         "nagios_plugins.plugins.check_ro_mounts.execute_command",

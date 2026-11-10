@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import datetime as dt
 
+from nagios_plugins.services import aws
+
 
 def get_metric_statistics(
     namespace: str,
@@ -35,16 +37,7 @@ def get_metric_statistics(
     Raises:
         RuntimeError: If boto3 is not installed or no data is available
     """
-    try:
-        import boto3  # type: ignore
-    except Exception as e:  # pragma: no cover
-        raise RuntimeError("boto3 extra not installed") from e
-
-    cloudwatch = boto3.client(
-        "cloudwatch",
-        region_name=region,
-        config=boto3.session.Config(connect_timeout=timeout, read_timeout=timeout),
-    )  # type: ignore
+    cloudwatch = aws.client("cloudwatch", region=region, timeout=timeout)
 
     end_time = dt.datetime.now(dt.UTC)
     start_time = end_time - dt.timedelta(minutes=minutes_back)

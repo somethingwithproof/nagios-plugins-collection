@@ -9,13 +9,17 @@ import argparse
 import datetime as dt
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.services import aws
 
 
-def _month_range_utc() -> tuple[str, str]:
-    """Return UTC start and end dates for the requested calendar month."""
-    now = dt.datetime.now(dt.UTC)
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    return start.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")
+def _month_range_utc(now: dt.datetime | None = None) -> tuple[str, str]:
+    """Return the Cost Explorer period for month-to-date spend, including today.
+
+    Cost Explorer treats End as exclusive and rejects End == Start, so End is
+    tomorrow; on the first of the month the period is that single day.
+    """
+    today = (now or dt.datetime.now(dt.UTC)).date()
+    return today.replace(day=1).isoformat(), (today + dt.timedelta(days=1)).isoformat()
 
 
 class CheckCloudBudget(NagiosPlugin):
@@ -32,18 +36,21 @@ class CheckCloudBudget(NagiosPlugin):
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         try:
-            import boto3  # type: ignore
-        except Exception:  # pragma: no cover
-            return CheckResult(Status.UNKNOWN, "boto3 not installed; install [aws]")
+            ce = aws.client("ce", region=args.region, timeout=args.timeout)
+        except RuntimeError as e:  # pragma: no cover
+            return CheckResult(Status.UNKNOWN, f"{e}; install [aws]")
         start, end = _month_range_utc()
-        ce = boto3.client("ce", region_name=args.region)  # type: ignore
         resp = ce.get_cost_and_usage(
             TimePeriod={"Start": start, "End": end},
             Granularity="MONTHLY",
             Metrics=["UnblendedCost"],
         )
         results = resp.get("ResultsByTime", [])
-        amount = float(results[0]["Total"]["UnblendedCost"]["Amount"]) if results else 0.0
+        if not results:
+            return CheckResult(
+                Status.UNKNOWN, f"Cost Explorer returned no costs for {start}..{end}"
+            )
+        amount = float(results[0]["Total"]["UnblendedCost"]["Amount"])
         percent = (amount / args.budget * 100) if args.budget > 0 else 0.0
         status = Status.OK
         if args.critical and percent >= float(args.critical):

@@ -31,6 +31,15 @@ from nagios_plugins.utils import execute_command
 logger = logging.getLogger("check_ro_mounts")
 
 
+def is_within(path: str, root: str) -> bool:
+    """Return whether ``path`` is ``root`` or below it, by whole path components.
+
+    ``/run`` covers ``/run/user`` but not ``/runner``.
+    """
+    root = root.rstrip("/") or "/"
+    return root == "/" or path == root or path.startswith(root + "/")
+
+
 class MountStatusChecker:
     """Mount status checker."""
 
@@ -54,7 +63,8 @@ class MountStatusChecker:
         self.host = host
         self.ssh_user = ssh_user
         self.ssh_port = ssh_port
-        self.exclude_mounts = set(exclude_mounts or [])
+        # Empty entries (for example from a trailing comma) would exclude everything.
+        self.exclude_mounts = {m for m in (exclude_mounts or []) if m}
         self.timeout = timeout
 
         # Add default excludes if not explicitly excluded (system and special filesystems)
@@ -115,7 +125,7 @@ class MountStatusChecker:
                     continue
 
                 # Skip excluded mount points
-                if any(mount_point.startswith(excl) for excl in self.exclude_mounts):
+                if any(is_within(mount_point, excl) for excl in self.exclude_mounts):
                     continue
 
                 mounts.append(
@@ -170,7 +180,7 @@ class MountStatusChecker:
 
             for mount in ro_mounts:
                 # Critical if root fs or /var
-                if mount["mount_point"] == "/" or mount["mount_point"].startswith("/var"):
+                if mount["mount_point"] == "/" or is_within(mount["mount_point"], "/var"):
                     critical_mounts.append(mount)
                 else:
                     warning_mounts.append(mount)

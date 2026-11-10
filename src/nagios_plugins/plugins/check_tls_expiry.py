@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import argparse
+import ssl
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.services.http_tls import add_tls_arguments
 from nagios_plugins.services.tls import days_remaining, fetch_server_cert
 
 
@@ -19,10 +21,22 @@ class CheckTlsExpiry(NagiosPlugin):
         super().__init__()
         self.parser.add_argument("--host", required=True, help="Hostname to check")
         self.parser.add_argument("--port", type=int, default=443, help="Port to connect to")
+        add_tls_arguments(self.parser)
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
-        info = fetch_server_cert(args.host, args.port, timeout=args.timeout)
+        try:
+            info = fetch_server_cert(
+                args.host, args.port, timeout=args.timeout, ca_file=args.ca_file
+            )
+        except ssl.SSLCertVerificationError as e:
+            # An expired, untrusted or mismatched certificate is the failure this check
+            # exists to catch, so it is CRITICAL rather than an UNKNOWN handshake error.
+            return CheckResult(
+                Status.CRITICAL,
+                f"TLS certificate for {args.host}:{args.port} failed verification: "
+                f"{e.verify_message or e.reason}",
+            )
         remaining = days_remaining(info)
         status = Status.OK
         if args.critical and remaining <= int(args.critical):

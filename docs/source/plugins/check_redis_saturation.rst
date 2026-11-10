@@ -20,7 +20,13 @@ Installed command options
                                  [-c CRITICAL] [--json]
                                  [--url URL | --url-file PATH]
 
-   Monitor Redis memory use, evictions and cache hits.
+   Monitor Redis memory saturation, evictions and cache hits.
+
+       -w/-c are Nagios ranges for used_memory as a percentage of maxmemory, a
+       gauge that recovers when memory is freed. evicted_keys is a monotonic
+       counter since restart, so it is published as perfdata (UOM c) for the
+       graphing system to turn into a rate rather than compared with a threshold.
+
 
    options:
      -h, --help            show this help message and exit

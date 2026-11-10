@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for TLS expiry plugin."""
 
+import ssl
 from unittest.mock import patch
 
 import pytest
@@ -44,3 +45,27 @@ def test_crit_when_below_critical(plugin: CheckTlsExpiry) -> None:
     ):
         exit_code = plugin.run(["--host", "example.com", "--warning", "21", "--critical", "7"])
         assert exit_code == Status.CRITICAL.value
+
+
+def test_failed_verification_is_critical(
+    plugin: CheckTlsExpiry, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An expired or untrusted certificate fails the handshake; that is CRITICAL."""
+    error = ssl.SSLCertVerificationError(1, "certificate verify failed")
+    error.verify_message = "certificate has expired"
+    with patch("nagios_plugins.plugins.check_tls_expiry.fetch_server_cert", side_effect=error):
+        exit_code = plugin.run(["--host", "expired.example", "--warning", "21", "--critical", "7"])
+    assert exit_code == Status.CRITICAL.value
+    assert "certificate has expired" in capsys.readouterr().out
+
+
+def test_ca_file_is_passed_to_verification(plugin: CheckTlsExpiry) -> None:
+    cert = TlsCertInfo(not_after=None, issuer="i", subject="s", san_count=1)  # type: ignore[arg-type]
+    with (
+        patch(
+            "nagios_plugins.plugins.check_tls_expiry.fetch_server_cert", return_value=cert
+        ) as fetch,
+        patch("nagios_plugins.plugins.check_tls_expiry.days_remaining", return_value=30),
+    ):
+        plugin.run(["--host", "internal.example", "--ca-file", "/etc/pki/ca.pem"])
+    assert fetch.call_args.kwargs["ca_file"] == "/etc/pki/ca.pem"

@@ -21,9 +21,16 @@ class TlsCertInfo:
     san_count: int
 
 
-def fetch_server_cert(host: str, port: int = 443, timeout: int = 10) -> TlsCertInfo:
-    """Fetch certificate details after trust and hostname verification."""
-    context = ssl.create_default_context()
+def fetch_server_cert(
+    host: str, port: int = 443, timeout: int = 10, ca_file: str | None = None
+) -> TlsCertInfo:
+    """Fetch certificate details after trust and hostname verification.
+
+    Raises:
+        ssl.SSLCertVerificationError: If the certificate is expired, untrusted or
+            does not match ``host``.
+    """
+    context = ssl.create_default_context(cafile=ca_file)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     with context.wrap_socket(
         socket.create_connection((host, port), timeout=timeout), server_hostname=host

@@ -17,7 +17,7 @@ Installed command options
 .. code-block:: text
 
    usage: check_tls_expiry [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
-                           [--json] --host HOST [--port PORT]
+                           [--json] --host HOST [--port PORT] [--ca-file CA_FILE]
 
    Check TLS certificate expiry and basic chain details.
 
@@ -33,3 +33,4 @@ Installed command options
      --json                Output results in JSON format
      --host HOST           Hostname to check
      --port PORT           Port to connect to
+     --ca-file CA_FILE     PEM CA bundle; defaults to system trust
