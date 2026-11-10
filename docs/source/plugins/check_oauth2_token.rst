@@ -25,6 +25,10 @@ Installed command options
 
    Obtain an OAuth2 token and report time-to-expiry; validate scopes if provided.
 
+   -w/-c are Nagios ranges for expires_in in seconds. A short lifetime is the
+   usual concern, so give a lower bound: -w 300: alerts when the token is
+   issued for less than 300 seconds (a plain 300 would alert above it).
+
    options:
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
@@ -32,9 +36,11 @@ Installed command options
                            Timeout in seconds for the whole run (default: 30);
                            the plugin exits UNKNOWN 1 second after it
      -w WARNING, --warning WARNING
-                           Warning threshold (plugin-specific)
+                           Warning threshold (Nagios range for expires_in in
+                           seconds, for example 300:)
      -c CRITICAL, --critical CRITICAL
-                           Critical threshold (plugin-specific)
+                           Critical threshold (Nagios range for expires_in in
+                           seconds, for example 300:)
      --json                Output results in JSON format
      --token-url TOKEN_URL
      --client-id CLIENT_ID
