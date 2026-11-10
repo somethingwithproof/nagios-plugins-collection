@@ -7,6 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- The installation guide's Kubernetes section pointed to Helm and Nomad
+  examples in the README that did not exist. It now has complete examples: a
+  Helm values file that reads a secret from a Kubernetes Secret, the opt-in
+  node-monitoring RBAC values, and a Nomad job run with a pinned image and a
+  secret rendered from a Nomad Variable. The README links to them.
 - `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
   certificate as CRITICAL with the verification reason instead of UNKNOWN,
   and accepts `--ca-file` for private CAs like the HTTP checks.
