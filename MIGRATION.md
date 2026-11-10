@@ -161,7 +161,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or
   `CHECK_POSTGRES_DSN`, `check_redis_saturation --url-file` or
   `CHECK_REDIS_URL`, and `check_monghealth --password-file` or
-  `CHECK_MONGHEALTH_PASSWORD`. The existing options keep working.
+  `CHECK_MONGHEALTH_PASSWORD`. The existing options keep working. A secret
+  file must be a regular UTF-8 file of at most 64 KiB, or the run is a usage
+  error (exit 3), and it is read within `--timeout`. Pipes are refused, so
+  shell process substitution (`--password-file <(...)`) no longer works; pass
+  the secret in the environment variable instead.
 - Usage errors (unknown or missing arguments, invalid values) exit 3 (UNKNOWN)
   with an `UNKNOWN - <command>: <error>` status line instead of argparse's exit
   2, which Nagios reads as CRITICAL. `--help` still exits 0.

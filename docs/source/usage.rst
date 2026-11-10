@@ -281,7 +281,11 @@ Options that carry a secret also accept a file or an environment variable:
      - ``CHECK_MONGHEALTH_PASSWORD``
 
 The command-line option wins over the file, and the file over the environment
-variable. Line breaks around a file's content are ignored. Plugin output, JSON
+variable. Line breaks around a file's content are ignored. A secret file must
+be a regular file of UTF-8 text no larger than 64 KiB; anything else, such as a
+FIFO, a directory or binary content, is a usage error (exit 3). Secret files are
+read within ``--timeout``, so a stuck mount ends the run with the timeout
+result. Plugin output, JSON
 output and log records mask URL credentials (``scheme://***@host``), secret
 parameters such as ``token=***`` or ``password=***`` and bearer tokens.
 
