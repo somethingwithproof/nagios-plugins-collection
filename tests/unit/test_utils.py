@@ -8,12 +8,9 @@ import subprocess
 import time
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
-from nagios_plugins.base import Status
 from nagios_plugins.utils import (
-    check_http_endpoint,
     check_tcp_port,
     execute_command,
     format_bytes,
@@ -130,81 +127,6 @@ class TestCheckTcpPort:
             assert success is False
             assert error is not None
             assert "Connection to slow_host:80 timed out" in error
-
-
-class TestCheckHttpEndpoint:
-    """Tests for the check_http_endpoint function."""
-
-    def test_successful_request(self) -> None:
-        """Test a successful HTTP request."""
-        with patch("httpx.Client") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.text = "OK"
-            mock_response.json.return_value = {"status": "ok"}
-            mock_client.return_value.__enter__.return_value.request.return_value = mock_response
-
-            status, message, data = check_http_endpoint("http://example.com")
-
-            assert status == Status.OK
-            assert "HTTP 200" in message
-            assert "http://example.com" in message
-            assert data == {"status": "ok"}
-
-    def test_unexpected_status_code(self) -> None:
-        """Test an HTTP request with an unexpected status code."""
-        with patch("httpx.Client") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 404
-            mock_client.return_value.__enter__.return_value.request.return_value = mock_response
-
-            status, message, data = check_http_endpoint("http://example.com")
-
-            assert status == Status.CRITICAL
-            assert "HTTP 404 - Expected 200" in message
-            assert data is None
-
-    def test_content_check_failure(self) -> None:
-        """Test an HTTP request with content that doesn't match the expected pattern."""
-        with patch("httpx.Client") as mock_client:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.text = "Not what we expected"
-            mock_client.return_value.__enter__.return_value.request.return_value = mock_response
-
-            status, message, data = check_http_endpoint(
-                "http://example.com", expected_content="Expected pattern"
-            )
-
-            assert status == Status.CRITICAL
-            assert "Content check failed" in message
-            assert data is None
-
-    def test_timeout(self) -> None:
-        """Test an HTTP request that times out."""
-        with patch("httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.request.side_effect = (
-                httpx.TimeoutException("Request timed out")
-            )
-
-            status, message, data = check_http_endpoint("http://example.com")
-
-            assert status == Status.CRITICAL
-            assert "Connection timed out" in message
-            assert data is None
-
-    def test_request_error(self) -> None:
-        """Test an HTTP request that raises a RequestError."""
-        with patch("httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.request.side_effect = (
-                httpx.RequestError("Request failed")
-            )
-
-            status, message, data = check_http_endpoint("http://example.com")
-
-            assert status == Status.CRITICAL
-            assert "Request error: Request failed" in message
-            assert data is None
 
 
 class TestParseSizeString:

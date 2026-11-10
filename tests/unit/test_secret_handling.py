@@ -7,16 +7,18 @@ import json
 import logging
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs
 
 import httpx
 import pytest
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status, configure_logging
-from nagios_plugins.plugins import check_monghealth
+from nagios_plugins.plugins import check_jobs, check_monghealth
 from nagios_plugins.plugins.check_oauth2_token import CheckOAuth2Token
 from nagios_plugins.plugins.check_postgres_replication_lag import CheckPostgresReplicationLag
 from nagios_plugins.plugins.check_prometheus_query import CheckPrometheusQuery
 from nagios_plugins.redaction import redact
+from tests.fakes import FakeHttpBackend, serve_http
 
 SECRET = "s3cr3t-value"
 
@@ -71,14 +73,7 @@ def test_logged_tracebacks_are_redacted(capsys: pytest.CaptureFixture[str]) -> N
 def test_http_error_with_userinfo_url_is_redacted(capsys: pytest.CaptureFixture[str]) -> None:
     """httpx puts the full request URL, including userinfo, in exception text."""
     url = f"https://monitor:{SECRET}@prom.example"
-    request = httpx.Request("GET", f"{url}/api/v1/query")
-    error = httpx.HTTPStatusError(
-        f"Client error '401 Unauthorized' for url '{request.url}'",
-        request=request,
-        response=httpx.Response(401, request=request),
-    )
-    with patch("httpx.Client") as client:
-        client.return_value.__enter__.return_value.get.side_effect = error
+    with serve_http(lambda request: httpx.Response(401)):
         code = CheckPrometheusQuery().run(["--server", url, "--query", "up"])
     out = capsys.readouterr().out
     assert code == Status.CRITICAL.value
@@ -102,15 +97,12 @@ def _token_args(*extra: str) -> list[str]:
 
 
 def _posted_secret(*args: str) -> str:
-    with patch("httpx.Client") as client:
-        response = client.return_value.__enter__.return_value.post.return_value
-        response.json.return_value = {"access_token": "t", "expires_in": 60}
+    backend = FakeHttpBackend()
+    backend.reply(httpx.Response(200, json={"access_token": "t", "expires_in": 60}))
+    with serve_http(backend):
         assert CheckOAuth2Token().run(list(args)) == Status.OK.value
-        return str(
-            client.return_value.__enter__.return_value.post.call_args.kwargs["data"][
-                "client_secret"
-            ]
-        )
+    (secret,) = parse_qs(backend.requests[0].content.decode())["client_secret"]
+    return secret
 
 
 def test_client_secret_from_argv_still_works() -> None:
@@ -137,11 +129,81 @@ def test_missing_required_secret_is_a_usage_error(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET", raising=False)
+    monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET_FILE", raising=False)
     plugin, args = CheckOAuth2Token(), _token_args()
     with pytest.raises(SystemExit) as exited:
         plugin.run(args)
     assert exited.value.code == 3
-    assert "$CHECK_OAUTH2_CLIENT_SECRET is required" in capsys.readouterr().out
+    assert (
+        "$CHECK_OAUTH2_CLIENT_SECRET or $CHECK_OAUTH2_CLIENT_SECRET_FILE is required"
+        in capsys.readouterr().out
+    )
+
+
+def test_client_secret_from_file_named_in_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The ``*_FILE`` convention used for mounted container secrets."""
+    secret_file = tmp_path / "secret"
+    secret_file.write_text(SECRET + "\n", encoding="utf-8")
+    monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv("CHECK_OAUTH2_CLIENT_SECRET_FILE", str(secret_file))
+    assert _posted_secret(*_token_args()) == SECRET
+
+
+def test_environment_value_takes_precedence_over_environment_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secret_file = tmp_path / "secret"
+    secret_file.write_text("from-file", encoding="utf-8")
+    monkeypatch.setenv("CHECK_OAUTH2_CLIENT_SECRET", "from-env")
+    monkeypatch.setenv("CHECK_OAUTH2_CLIENT_SECRET_FILE", str(secret_file))
+    assert _posted_secret(*_token_args()) == "from-env"
+
+
+def test_unreadable_environment_secret_file_is_a_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("CHECK_OAUTH2_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv("CHECK_OAUTH2_CLIENT_SECRET_FILE", str(tmp_path / "missing"))
+    plugin, args = CheckOAuth2Token(), _token_args()
+    with pytest.raises(SystemExit) as exited:
+        plugin.parse_args(args)
+    assert exited.value.code == 3
+    assert "cannot read the --client-secret file" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "flag,env,header,expected",
+    [
+        ("--bearer-token", "CHECK_JOBS_BEARER_TOKEN", "Authorization", f"Bearer {SECRET}"),
+        ("--api-key", "CHECK_JOBS_API_KEY", "X-API-Key", SECRET),
+    ],
+)
+def test_every_credential_flag_reads_secret_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    flag: str,
+    env: str,
+    header: str,
+    expected: str,
+) -> None:
+    """Each shared credential flag accepts its -file option and ``*_FILE`` variable."""
+    secret_file = tmp_path / "secret"
+    secret_file.write_text(SECRET, encoding="utf-8")
+    base = ["--url", "https://jobs.example/api"]
+    for args, environ in (
+        ([f"{flag}-file", str(secret_file)], {}),
+        ([], {env: SECRET}),
+        ([], {f"{env}_FILE": str(secret_file)}),
+    ):
+        backend = FakeHttpBackend()
+        backend.reply(httpx.Response(200, json={"jobs": []}))
+        with monkeypatch.context() as scoped, serve_http(backend):
+            for name, value in environ.items():
+                scoped.setenv(name, value)
+            check_jobs.CheckJobs().run([*base, *args])
+        assert backend.requests[0].headers[header] == expected
 
 
 def test_unreadable_secret_file_is_a_usage_error(tmp_path: Path) -> None:
@@ -175,6 +237,6 @@ def test_monghealth_password_from_file(tmp_path: Path) -> None:
     secret_file = tmp_path / "password"
     secret_file.write_text(SECRET, encoding="utf-8")
     args = check_monghealth.CheckMonghealth().parse_args(
-        ["--host", "db", "--password-file", str(secret_file)]
+        ["--host", "db", "--username", "monitor", "--password-file", str(secret_file)]
     )
     assert args.password == SECRET

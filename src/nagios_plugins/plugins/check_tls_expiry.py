@@ -9,7 +9,7 @@ import argparse
 import ssl
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, Status
-from nagios_plugins.services.http_tls import add_tls_arguments
+from nagios_plugins.services.http import add_tls_arguments
 from nagios_plugins.services.tls import days_remaining, fetch_server_cert
 
 
@@ -21,7 +21,8 @@ class CheckTlsExpiry(NagiosPlugin):
         super().__init__()
         self.parser.add_argument("--host", required=True, help="Hostname to check")
         self.parser.add_argument("--port", type=int, default=443, help="Port to connect to")
-        add_tls_arguments(self.parser)
+        # Verification is what this check measures, so it cannot be turned off.
+        add_tls_arguments(self.parser, insecure=False, client_cert=False)
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""

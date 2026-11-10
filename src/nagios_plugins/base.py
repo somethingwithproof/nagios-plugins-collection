@@ -17,6 +17,7 @@ import os
 import sys
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
@@ -234,6 +235,51 @@ def positive_seconds(text: str) -> int:
     return seconds
 
 
+@dataclass(frozen=True)
+class SecretOption:
+    """A credential option and the places its value may come from.
+
+    Sources in precedence order: ``FLAG VALUE``, ``FLAG-file PATH``, the ``env``
+    variable, then a path in the ``<env>_FILE`` variable (the convention
+    container platforms use for mounted secrets).
+    """
+
+    dest: str
+    flag: str
+    env: str
+    required: bool = False
+
+    @property
+    def file_flag(self) -> str:
+        """The option that names a file holding the secret."""
+        return f"{self.flag}-file"
+
+    @property
+    def file_env(self) -> str:
+        """The environment variable that names a file holding the secret."""
+        return f"{self.env}_FILE"
+
+    def resolve(self, parsed: argparse.Namespace) -> str | None:
+        """Return the secret from the first source that supplies one.
+
+        Raises:
+            OSError: If a named file cannot be read; ``filename`` identifies it.
+        """
+        value = getattr(parsed, self.dest, None)
+        path = getattr(parsed, f"{self.dest}_file", None)
+        if not value and path:
+            value = _read_secret(path)
+        value = value or os.environ.get(self.env)
+        if not value and os.environ.get(self.file_env):
+            value = _read_secret(os.environ[self.file_env])
+        return value or None
+
+
+def _read_secret(path: str) -> str:
+    """Read a secret file, dropping the line break editors and ``echo`` append."""
+    return Path(path).read_text(encoding="utf-8").strip("\r\n")
+
+
 class NagiosArgumentParser(argparse.ArgumentParser):
     """Argument parser whose usage errors exit UNKNOWN (3), not argparse's 2.
 
@@ -242,9 +288,10 @@ class NagiosArgumentParser(argparse.ArgumentParser):
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Create the parser with no secret options registered."""
+        """Create the parser with no secret options or validators registered."""
         super().__init__(*args, **kwargs)
-        self._secrets: list[tuple[str, str, str, bool]] = []
+        self._secrets: list[SecretOption] = []
+        self._validators: list[Callable[[argparse.Namespace], str | None]] = []
 
     def error(self, message: str) -> NoReturn:
         """Print an UNKNOWN status line and usage, then exit 3."""
@@ -253,45 +300,67 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         self.exit(Status.UNKNOWN.value)
 
     def add_secret_argument(
-        self, flag: str, *, env: str, help: str, required: bool = False
+        self,
+        flag: str,
+        *,
+        env: str,
+        help: str,
+        required: bool = False,
+        container: argparse._ActionsContainer | None = None,
     ) -> None:
-        """Accept a secret from ``FLAG``, ``FLAG-file PATH`` or the ``env`` variable.
+        """Accept a secret from ``FLAG``, ``FLAG-file PATH``, ``$ENV`` or ``$ENV_FILE``.
 
         Command-line values are visible to other local users in the process
         list, so the file and environment forms are preferred; the plain flag
-        keeps existing command definitions working. Precedence is flag, then
-        file, then environment. Surrounding line breaks are stripped from files.
+        keeps existing command definitions working. See :class:`SecretOption`
+        for the precedence.
+
+        Args:
+            flag: The option, for example ``--password``.
+            env: The environment variable that may hold the secret.
+            help: What the secret is, used in both options' help.
+            required: Whether a missing secret is a usage error.
+            container: An argument group to list the options under in ``--help``.
         """
-        dest = flag.lstrip("-").replace("-", "_")
-        group = self.add_mutually_exclusive_group()
+        secret = SecretOption(flag.lstrip("-").replace("-", "_"), flag, env, required)
+        group = (container or self).add_mutually_exclusive_group()
         group.add_argument(
             flag,
-            dest=dest,
+            dest=secret.dest,
             help=f"{help} (visible in the process list; prefer {flag}-file or ${env})",
         )
         group.add_argument(
-            f"{flag}-file", dest=f"{dest}_file", metavar="PATH", help=f"Read {help} from PATH"
+            secret.file_flag,
+            dest=f"{secret.dest}_file",
+            metavar="PATH",
+            help=f"Read {help} from PATH (or the file named by ${secret.file_env})",
         )
-        self._secrets.append((dest, flag, env, required))
+        self._secrets.append(secret)
+
+    def add_validator(self, validator: Callable[[argparse.Namespace], str | None]) -> None:
+        """Check parsed options together; a returned message is a usage error."""
+        self._validators.append(validator)
 
     # typeshed declares parse_known_args as overloads keyed on the namespace
     # type; one implementation covering every overload cannot restate them.
     def parse_known_args(  # type: ignore[override]
         self, args: Any = None, namespace: Any = None
     ) -> tuple[argparse.Namespace, list[str]]:
-        """Parse arguments, then resolve secret options from files or the environment."""
+        """Parse arguments, resolve secrets, then run the cross-option validators."""
         parsed, extras = super().parse_known_args(args, namespace)
-        for dest, flag, env, required in self._secrets:
-            path = getattr(parsed, f"{dest}_file", None)
-            if not getattr(parsed, dest, None) and path:
-                try:
-                    setattr(parsed, dest, Path(path).read_text(encoding="utf-8").strip("\r\n"))
-                except OSError as exc:
-                    self.error(f"cannot read {flag}-file {path}: {exc.strerror}")
-            if not getattr(parsed, dest, None):
-                setattr(parsed, dest, os.environ.get(env) or None)
-            if required and not getattr(parsed, dest):
-                self.error(f"one of {flag}, {flag}-file or ${env} is required")
+        for secret in self._secrets:
+            try:
+                setattr(parsed, secret.dest, secret.resolve(parsed))
+            except OSError as exc:
+                self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
+            if secret.required and not getattr(parsed, secret.dest):
+                self.error(
+                    f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "
+                    f"${secret.file_env} is required"
+                )
+        for validator in self._validators:
+            if problem := validator(parsed):
+                self.error(problem)
         return parsed, extras
 
 

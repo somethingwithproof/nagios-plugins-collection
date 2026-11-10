@@ -18,8 +18,14 @@ Installed command options
 
    usage: check_log_errors [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
                            [--json] --endpoint ENDPOINT --index INDEX
-                           [--minutes MINUTES] [--query QUERY]
-                           [--ca-file CA_FILE]
+                           [--minutes MINUTES] [--query QUERY] [--ca-file PATH]
+                           [--insecure] [--client-cert PATH] [--client-key PATH]
+                           [--retries RETRIES] [--retry-delay SECONDS]
+                           [--username USERNAME]
+                           [--password PASSWORD | --password-file PATH]
+                           [--bearer-token BEARER_TOKEN | --bearer-token-file PATH]
+                           [--api-key API_KEY | --api-key-file PATH]
+                           [--api-key-header NAME]
 
    Search ES/OS for error logs in the last N minutes and threshold count/rate.
 
@@ -38,4 +44,43 @@ Installed command options
      --index INDEX         Index or alias
      --minutes MINUTES
      --query QUERY
-     --ca-file CA_FILE     PEM CA bundle; defaults to system trust
+
+   TLS:
+     --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store
+                           or $SSL_CERT_FILE)
+     --insecure            Do not verify TLS certificates or hostnames (for
+                           testing; prefer --ca-file)
+     --client-cert PATH    PEM client certificate for mutual TLS
+     --client-key PATH     PEM private key for --client-cert (when not in the
+                           same file)
+
+   HTTP retries:
+     --retries RETRIES     Retries for transient failures within --timeout
+                           (default: 2)
+     --retry-delay SECONDS
+                           First retry pause, doubled for each retry (default:
+                           0.5)
+
+   HTTP authentication:
+     --username USERNAME   User name for HTTP basic authentication
+     --password PASSWORD   password for HTTP basic authentication (visible in the
+                           process list; prefer --password-file or
+                           $CHECK_LOG_ERRORS_PASSWORD)
+     --password-file PATH  Read password for HTTP basic authentication from PATH
+                           (or the file named by $CHECK_LOG_ERRORS_PASSWORD_FILE)
+     --bearer-token BEARER_TOKEN
+                           bearer token sent in the Authorization header (visible
+                           in the process list; prefer --bearer-token-file or
+                           $CHECK_LOG_ERRORS_BEARER_TOKEN)
+     --bearer-token-file PATH
+                           Read bearer token sent in the Authorization header
+                           from PATH (or the file named by
+                           $CHECK_LOG_ERRORS_BEARER_TOKEN_FILE)
+     --api-key API_KEY     API key sent in the --api-key-header header (visible
+                           in the process list; prefer --api-key-file or
+                           $CHECK_LOG_ERRORS_API_KEY)
+     --api-key-file PATH   Read API key sent in the --api-key-header header from
+                           PATH (or the file named by
+                           $CHECK_LOG_ERRORS_API_KEY_FILE)
+     --api-key-header NAME
+                           Header that carries --api-key (default: X-API-Key)

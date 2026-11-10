@@ -175,6 +175,58 @@ that is unavailable, or the process cannot be interrupted, a watchdog thread
 writes the result and exits one second later. ``--timeout`` must be a whole
 number of seconds of at least 1.
 
+HTTP Options
+------------
+
+Every check that talks HTTP (``check_component_status``, ``check_hadoop``,
+``check_http_sli``, ``check_jobs``, ``check_log_errors``,
+``check_mongodb_health``, ``check_monghealth``, ``check_oauth2_token``,
+``check_prometheus_query`` and ``check_website_status``) uses one client with
+the same options and behavior:
+
+TLS
+   Certificates and hostnames are verified against the bundled Mozilla CA
+   store (``certifi``), or the bundle in ``SSL_CERT_FILE``. ``--ca-file PATH`` trusts a private CA
+   instead. ``--client-cert PATH`` (and ``--client-key PATH`` when the key is in
+   a separate file) presents a client certificate for mutual TLS.
+   ``--insecure`` turns verification off and logs a warning on every run; it
+   cannot be combined with ``--ca-file``. ``check_tls_expiry`` accepts
+   ``--ca-file`` but not ``--insecure``, because verification is what it checks.
+
+Credentials
+   ``--username`` with ``--password`` sends HTTP basic authentication,
+   ``--bearer-token`` an ``Authorization: Bearer`` header and ``--api-key`` the
+   header named by ``--api-key-header`` (``X-API-Key`` by default). Each secret
+   is read from, in order, the flag, ``--NAME-file PATH``, the environment
+   variable ``CHECK_<COMMAND>_<NAME>`` (for example
+   ``CHECK_PROMETHEUS_QUERY_BEARER_TOKEN``) or a file named by the same variable
+   with ``_FILE`` appended, the convention for mounted container secrets.
+   Values on the command line are visible to other local users, so prefer the
+   file or environment forms. User information in a URL
+   (``https://user:pass@host``) is basic authentication when no other is
+   configured. Credentials are sent only to the scheme, host and
+   port of the URL the check requests: a redirect to another origin is followed
+   without them, and a redirect from HTTPS to plain HTTP is refused (CRITICAL)
+   when credentials are configured. ``check_oauth2_token`` keeps its own
+   ``--client-secret``.
+
+Retries
+   ``--retries N`` (2 by default; 0 for ``check_website_status``) repeats a
+   request that failed transiently, pausing ``--retry-delay`` seconds and
+   doubling the pause each time, up to 5 seconds. A connection that was never
+   established is retried for any method; a 502, 503 or 504 response, or an
+   error after the request was sent, is retried only for idempotent methods
+   (``GET``, ``HEAD``, ``OPTIONS``, ``PUT``, ``DELETE``), so a search ``POST`` is
+   never sent twice. Retries and each attempt's timeout fit inside
+   ``--timeout``. ``check_http_sli`` never retries: every sample is a
+   measurement.
+
+Proxies and identification
+   ``HTTP_PROXY``, ``HTTPS_PROXY``, ``ALL_PROXY`` and ``NO_PROXY`` are honored.
+   Requests carry ``User-Agent: nagios-plugins-collection/VERSION (COMMAND)``.
+   Error messages show request URLs without credentials, query string or
+   fragment.
+
 Return Codes
 ------------
 

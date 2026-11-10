@@ -24,6 +24,7 @@ import logging
 import httpx
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
+from nagios_plugins.services import http
 
 logger = logging.getLogger("check_jobs")
 
@@ -35,15 +36,19 @@ class JobStatusChecker:
         self,
         url: str,
         timeout: int = 30,
+        settings: http.HttpSettings | None = None,
     ):
         """Initialize the job status checker.
 
         Args:
             url: URL to the jobs status API
             timeout: HTTP request timeout in seconds
+            settings: Shared HTTP options (TLS, authentication, retries); defaults
+                to verified TLS with no authentication or retries
         """
         self.url = url
         self.timeout = timeout
+        self.settings = settings or http.HttpSettings(timeout=timeout)
 
     async def check_jobs(self) -> CheckResult:
         """Check the job statuses.
@@ -53,7 +58,7 @@ class JobStatusChecker:
         """
         try:
             # Make request to the jobs API
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with http.async_client(self.settings) as client:
                 response = await client.get(self.url)
                 response.raise_for_status()
 
@@ -116,7 +121,7 @@ class JobStatusChecker:
             logger.exception("HTTP request failed")
             return CheckResult(
                 Status.UNKNOWN,
-                f"Failed to connect to jobs API: {str(e)}",
+                f"Failed to connect to jobs API: {http.describe_error(e)}",
                 metrics={"root_status": 0},
             )
         except json.JSONDecodeError as e:
@@ -144,10 +149,13 @@ class CheckJobs(AsyncNagiosPlugin):
         """Register the jobs status API argument."""
         super().__init__()
         self.parser.add_argument("--url", required=True, help="URL to the jobs status API")
+        http.add_http_arguments(self.parser, env_prefix="CHECK_JOBS")
 
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Check the configured jobs endpoint."""
-        return await JobStatusChecker(url=args.url, timeout=args.timeout).check_jobs()
+        return await JobStatusChecker(
+            url=args.url, timeout=args.timeout, settings=http.HttpSettings.from_args(args)
+        ).check_jobs()
 
 
 def main() -> int:
