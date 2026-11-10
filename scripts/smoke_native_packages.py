@@ -16,7 +16,7 @@ import pathlib
 import subprocess
 import sys
 sys.path.insert(0, '/usr/lib/nagios-plugins-collection')
-for name in ('httpx', 'rich', 'boto3', 'dns.resolver', 'kubernetes', 'redis', 'psycopg'):
+for name in ('httpx', 'boto3', 'dns.resolver', 'kubernetes', 'redis', 'psycopg'):
     importlib.import_module(name)
 commands = sorted(pathlib.Path('/usr/lib/nagios/plugins').glob('check_*'))
 assert len(commands) == 21, commands

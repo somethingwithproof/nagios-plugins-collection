@@ -34,9 +34,6 @@ from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union, Any
 
 import httpx
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 ```
 
 ### 2. Indentation and Line Length
