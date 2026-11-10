@@ -7,6 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- `rich` is no longer a runtime dependency. No plugin has imported it since
+  logging moved to plain stderr records, so a base install and the native
+  packages no longer pull it in. Install it separately if other code relied on
+  it arriving with this package.
 - `check_tls_expiry` reports an expired, untrusted or hostname-mismatched
   certificate as CRITICAL with the verification reason instead of UNKNOWN,
   and accepts `--ca-file` for private CAs like the HTTP checks.
