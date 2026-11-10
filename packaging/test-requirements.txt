@@ -2209,9 +2209,9 @@ python-dateutil==2.9.0.post0 \
     # via
     #   botocore
     #   kubernetes
-python-discovery==1.9.0 \
-    --hash=sha256:88beb57e51b919c30f303b053ec41359298ca349192035b0a802c76347ae96d7 \
-    --hash=sha256:fb65edfff3541b7ceb3a39be334a0f69f4cb5148287a053e1874748742fda93b
+python-discovery==1.9.1 \
+    --hash=sha256:83e3c0024b93e256809dc9cd053537a37df6d3badc3b68aa03006a224336b21f \
+    --hash=sha256:a78322b3b70c5d61dddc2f37ca1beffa9a5ce01cedf3526444e01bfc94f50b35
     # via
     #   tox
     #   virtualenv
