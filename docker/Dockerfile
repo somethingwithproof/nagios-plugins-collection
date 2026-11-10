@@ -35,11 +35,18 @@ CMD ["pytest", "-q"]
 FROM python:3.14-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
-# Install runtime deps only from the built wheel
+# Apply Debian security updates the base image has not picked up yet.
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    rm -rf /var/lib/apt/lists/*
+# Install runtime deps only from the built wheel, then remove pip: nothing at
+# runtime needs it, and its vendored packages are otherwise scanned as part of
+# the image.
 COPY --from=builder /wheels /tmp/wheels
 RUN python -m pip install --no-index --find-links=/tmp/wheels --only-binary=:all: \
         --require-hashes -r /tmp/wheels/requirements.txt && \
     python -m pip install --only-binary=:all: --no-index --no-deps /tmp/wheels/nagios_plugins_collection-*.whl && \
+    python -m pip uninstall --yes pip && \
     rm -rf /tmp/wheels && \
     groupadd --system --gid 10001 nagios && \
     useradd --system --uid 10001 --gid nagios --home-dir /app --shell /usr/sbin/nologin nagios
