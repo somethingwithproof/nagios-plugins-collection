@@ -160,7 +160,13 @@ review each one against your Nagios or Icinga configuration before upgrading.
   records, including exception text from HTTP clients that embeds the request
   URL: URL userinfo becomes `scheme://***@host`, and parameters such as
   `token`, `password`, `client_secret` and `api_key`, as well as bearer tokens,
-  become `***`.
+  become `***`. Every resolved secret option, HTTP credential and password in a
+  URL option is also masked as a literal wherever it appears, including its
+  URL-encoded forms and quoted fragments (libpq echoes part of a malformed
+  DSN), as are `key: value` and JSON `"key": "value"` credentials,
+  `Authorization` and cookie headers and AWS access keys.
+  `check_prometheus_query` reports the API's `errorType` and `error` instead
+  of the whole response body.
 - Secrets can be supplied without putting them on the command line, where the
   process list exposes them: `check_oauth2_token --client-secret-file` or
   `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or

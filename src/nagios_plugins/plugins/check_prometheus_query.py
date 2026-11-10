@@ -33,7 +33,9 @@ class CheckPrometheusQuery(NagiosPlugin):
             r.raise_for_status()
             data = r.json()
             if data.get("status") != "success":
-                return CheckResult(Status.UNKNOWN, f"Prometheus error: {data}")
+                # Report the API's error fields, not the whole body.
+                error = f"{data.get('errorType', 'error')}: {data.get('error', 'no detail')}"
+                return CheckResult(Status.UNKNOWN, f"Prometheus error: {error}")
             value = _first_sample(data.get("data", {}))
             if value is None:
                 return CheckResult(Status.UNKNOWN, f"PromQL {args.query} returned no samples")

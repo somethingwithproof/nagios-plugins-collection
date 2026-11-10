@@ -40,6 +40,7 @@ import httpx
 from nagios_plugins import __version__
 from nagios_plugins.base import NagiosArgumentParser
 from nagios_plugins.deadline import remaining_time
+from nagios_plugins.redaction import register_secret
 
 logger = logging.getLogger(__name__)
 
@@ -333,6 +334,11 @@ class HttpSettings:
     api_key: str | None = None
     api_key_header: str = "X-API-Key"
     user_agent: str = f"nagios-plugins-collection/{__version__}"
+
+    def __post_init__(self) -> None:
+        """Mask the credentials in all output, however the settings were built."""
+        for secret in (self.password, self.bearer_token, self.api_key):
+            register_secret(secret)
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> HttpSettings:
