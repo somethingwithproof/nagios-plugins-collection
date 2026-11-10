@@ -13,6 +13,9 @@ GitHub release packages
 Download the wheel, source archive or native package and ``SHA256SUMS`` from
 the same GitHub release. Verify the files before installing:
 
+.. Release-please bumps versions between these markers; see release-please-config.json.
+.. x-release-please-start-version
+
 .. code-block:: bash
 
    sha256sum --check --ignore-missing SHA256SUMS
@@ -21,6 +24,8 @@ the same GitHub release. Verify the files before installing:
    # On Rocky Linux 9:
    sudo dnf install ./nagios-plugins-collection_2.0.1_x86_64.rpm
    /usr/lib/nagios/plugins/check_website_status --help
+
+.. x-release-please-end
 
 Require the artifact you selected to report ``OK`` in the checksum output.
 
@@ -38,7 +43,7 @@ Install into an isolated environment rather than modifying system Python:
 .. code-block:: bash
 
    mise exec python@3.12 -- python -m venv .venv
-   .venv/bin/python -m pip install ./nagios_plugins_collection-2.0.1-py3-none-any.whl
+   .venv/bin/python -m pip install ./nagios_plugins_collection-*-py3-none-any.whl
    .venv/bin/check_website_status --help
 
 For source development, clone the public repository and install the locked
@@ -90,6 +95,8 @@ client secret from a Kubernetes Secret instead of the command line:
        valueFrom:
          secretKeyRef: {name: oauth-monitor, key: client-secret}
 
+.. x-release-please-start-version
+
 .. code-block:: bash
 
    gh release download v2.0.1 --repo somethingwithproof/nagios-plugins-collection \
@@ -100,6 +107,8 @@ client secret from a Kubernetes Secret instead of the command line:
    # Run once now and read the status line:
    kubectl create job oauth-monitor-now --from=cronjob/oauth-monitor-nagios-plugins-collection
    kubectl logs job/oauth-monitor-now
+
+.. x-release-please-end
 
 ``image.tag`` defaults to the chart's ``appVersion``; set
 ``image.repository`` to ``ghcr.io/somethingwithproof/nagios-plugins-collection@sha256``
@@ -118,9 +127,13 @@ Node monitoring needs the API token and the opt-in, list-only ClusterRole:
    rbac:
      create: true
 
+.. x-release-please-start-version
+
 .. code-block:: bash
 
    helm install node-monitor ./nagios-plugins-collection-2.0.1.tgz -f nodes-values.yaml
+
+.. x-release-please-end
 
 Nomad
 ^^^^^
@@ -129,11 +142,15 @@ Nomad
 with restarts and rescheduling disabled. Edit the task's ``command`` and
 ``args`` for the check to run, then submit it with a pinned image:
 
+.. x-release-please-start-version
+
 .. code-block:: bash
 
    nomad job run \
      -var image=ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1 \
      deploy/nomad/nagios-plugins-collection.nomad.hcl
+
+.. x-release-please-end
 
 To pass a secret, store it as a Nomad Variable readable by the job and render
 it into the task environment with a ``template`` block inside ``task "plugin"``:

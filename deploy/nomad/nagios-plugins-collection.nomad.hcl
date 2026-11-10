@@ -3,7 +3,7 @@
 variable "image" {
   description = "Plugin image; pin a release tag or an @sha256 digest, never latest"
   type        = string
-  default     = "ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1"
+  default     = "ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1" # x-release-please-version
 }
 
 job "nagios-plugins-collection" {

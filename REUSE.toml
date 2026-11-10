@@ -7,3 +7,9 @@ path = [".github/renovate.json", "LICENSE", "docker/mocks/wiremock/mappings/es_c
 precedence = "closest"
 SPDX-FileCopyrightText = "2025 Thomas Vincent"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [".release-please-manifest.json", "release-please-config.json"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Thomas Vincent"
+SPDX-License-Identifier = "Apache-2.0"

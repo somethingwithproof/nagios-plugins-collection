@@ -86,26 +86,36 @@ You can then run the hooks against all files or specific paths:
 Commit Message Guidelines
 -------------------------
 
-We follow the Conventional Commits specification for commit messages:
+Pull requests are squash-merged, so the pull request title becomes the commit
+subject on main, and Release Please derives the next version and the changelog
+from those subjects. Titles must follow `Conventional Commits
+<https://www.conventionalcommits.org/en/v1.0.0/>`_; the ``Semantic PR title``
+check enforces this and re-runs when the title is edited:
 
 .. code-block:: text
 
-    <type>[optional scope]: <description>
+    <type>[optional scope][!]: <description>
 
     [optional body]
 
     [optional footer(s)]
 
-Types:
+Types, and where they appear in the changelog:
 
-- **feat**: A new feature
-- **fix**: A bug fix
-- **docs**: Documentation only changes
-- **style**: Changes that do not affect the meaning of the code (white-space, formatting, etc.)
-- **refactor**: A code change that neither fixes a bug nor adds a feature
-- **perf**: A code change that improves performance
-- **test**: Adding missing tests or correcting existing tests
-- **chore**: Changes to the build process or auxiliary tools and libraries
+- **feat**: a new command, option or capability (Features; a minor release)
+- **fix**: a bug fix (Bug Fixes; a patch release)
+- **perf**: a performance improvement (Performance)
+- **revert**: reverts an earlier change (Reverts)
+- **build**: packaging, dependencies or the container image (Build and Packaging)
+- **docs**: documentation only (Documentation)
+- **refactor**, **test**, **ci**, **style**, **chore**: no user-visible change
+  (not listed)
+
+Mark a breaking change with ``!`` after the type or scope, for example
+``feat(check_http_sli)!: split latency and error-rate thresholds``, and explain
+the upgrade step in a ``BREAKING CHANGE:`` paragraph at the end of the pull
+request description (it becomes the squash commit body). Add the details to
+``MIGRATION.md`` under the next major version.
 
 Examples:
 
@@ -117,16 +127,54 @@ Examples:
 
     docs: update installation instructions
 
-    test(check_monghealth): add tests for replica set checks
+    refactor!: run every command on the NagiosPlugin base
+
+Versioning and deprecation policy
+---------------------------------
+
+Releases follow `Semantic Versioning 2.0.0 <https://semver.org/spec/v2.0.0.html>`_.
+The public interface is what monitoring configurations and integrations depend
+on:
+
+- console script names and the plugin directory layout of the native packages;
+- option names, short flags, defaults, accepted values and the environment
+  variables that supply secrets;
+- exit codes and the status each condition reports (OK, WARNING, CRITICAL,
+  UNKNOWN), including how thresholds are interpreted;
+- the status line and performance data format: labels, units, the
+  ``warn;crit;min;max`` fields and their meaning;
+- ``--json`` field names, types and values;
+- Helm chart values and the Nomad job variables;
+- the documented Python API (``nagios_plugins.base``, ``nagios_plugins.deadline``
+  and ``nagios_plugins.services.http``).
+
+A **major** release removes or renames any of these, changes what an existing,
+valid command definition reports (a different status, exit code, perfdata
+label or JSON field for the same input), or turns previously accepted input into
+a usage error. A **minor** release adds commands, options, perfdata labels or
+JSON fields without changing existing ones, or deprecates something. A
+**patch** release fixes behavior that contradicted the documentation without
+changing the result for configurations that worked as documented.
+
+Deprecated options keep working, and warn on stderr (never on stdout, which
+Nagios parses), for at least one minor release before a major release removes
+them. A deprecation is announced in the changelog with its replacement, and the
+removal is listed in ``MIGRATION.md``. Compatibility aliases that change
+nothing, such as ``--verify-ssl``, may stay hidden from ``--help`` indefinitely.
 
 Release Process
 ---------------
 
-1. Update ``pyproject.toml`` and both Helm chart version fields together.
-2. Update the changelog and merge the reviewed change into main.
-3. Push the matching SemVer tag; the Release workflow verifies CI, native
-   packages, container signatures and GitHub artifacts before publication.
-4. PyPI and TestPyPI publication is a separate manual workflow using the
+1. Merge Conventional Commit pull requests into main. Release Please keeps a
+   ``chore: release X.Y.Z`` pull request open that bumps the version in
+   ``pyproject.toml``, ``uv.lock``, the Helm chart, the Nomad job, the chart
+   test and the installation guide, and adds the changelog section.
+2. A maintainer reviews that pull request (including the computed version) and
+   merges it when the release is due. Release Please then tags ``vX.Y.Z``,
+   creates the GitHub release with its notes and calls the Release workflow,
+   which verifies CI, native packages, container signatures and GitHub
+   artifacts before publishing them.
+3. PyPI and TestPyPI publication is a separate manual workflow using the
    already-published, checksum-verified and provenance-verified Python assets.
 
 See :doc:`releasing` for the complete release contract.
