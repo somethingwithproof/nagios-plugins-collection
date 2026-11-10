@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/v17.6.0/schemas/config.json",
+  "release-type": "python",
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": false,
+  "bump-patch-for-minor-pre-major": false,
+  "pull-request-title-pattern": "chore${scope}: release ${version}",
+  "changelog-sections": [
+    {"type": "feat", "section": "Features"},
+    {"type": "fix", "section": "Bug Fixes"},
+    {"type": "perf", "section": "Performance"},
+    {"type": "revert", "section": "Reverts"},
+    {"type": "build", "section": "Build and Packaging"},
+    {"type": "docs", "section": "Documentation"},
+    {"type": "refactor", "section": "Code Refactoring", "hidden": true},
+    {"type": "test", "section": "Tests", "hidden": true},
+    {"type": "ci", "section": "Continuous Integration", "hidden": true},
+    {"type": "style", "section": "Styles", "hidden": true},
+    {"type": "chore", "section": "Miscellaneous", "hidden": true}
+  ],
+  "packages": {
+    ".": {
+      "package-name": "nagios-plugins-collection",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='nagios-plugins-collection')].version"
+        },
+        "charts/nagios-plugins-collection/Chart.yaml",
+        "charts/nagios-plugins-collection/tests/cronjob_test.yaml",
+        "deploy/nomad/nagios-plugins-collection.nomad.hcl",
+        "docs/source/installation.rst"
+      ]
+    }
+  }
+}

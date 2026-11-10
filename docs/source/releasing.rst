@@ -7,10 +7,28 @@ Releases and migration
 .. image:: _static/release-flow.svg
    :alt: Validate source, run CI, install packages, publish release artifacts
 
-The project version in ``pyproject.toml`` and both Helm version fields must
-agree. Use complete SemVer, with a ``v`` prefix on Git tags. The Release workflow
-accepts a matching tag or a manual version on main. It checks that an existing
-tag identifies the checked-out commit and that the source belongs to main.
+``pyproject.toml`` holds the version. Release Please
+(``.github/workflows/release-please.yml``, configured by
+``release-please-config.json``) computes the next SemVer version from the
+Conventional Commit titles merged since the last release, and its release pull
+request bumps every other copy: ``uv.lock``, both Helm version fields, the chart
+test, the Nomad job's default image and the installation guide. The container
+image's ``org.opencontainers.image.version`` label and the documentation's
+version are read from ``pyproject.toml`` at build time. A test fails when the
+source version appears in a tracked file that Release Please does not update.
+
+Merging the release pull request tags ``vX.Y.Z`` on that commit, creates the
+GitHub release with the generated notes and calls the Release workflow with the
+version. The Release workflow can also be run by hand on main for an existing
+version; it checks that the version is complete SemVer matching the source,
+that an existing tag identifies the checked-out commit and that the source
+belongs to main. Pushing a tag by hand does not publish.
+
+The release pull request is opened with ``GITHUB_TOKEN`` unless the
+``RELEASE_PLEASE_TOKEN`` secret holds a fine-grained token or GitHub App token
+with contents and pull-request write access. GitHub does not start workflows
+for pull requests opened with ``GITHUB_TOKEN``, so without that secret, close
+and reopen the release pull request to run CI before merging it.
 
 Publication reuses full CI, including native package builds and installation
 on Ubuntu 24.04 and Rocky Linux 9. GitHub assets include the wheel, source
@@ -27,6 +45,13 @@ is the default and may validate a review branch. Uploads require main and
 select the PyPI or TestPyPI environment;
 it publishes those verified assets without rebuilding them. The repository's
 configured environment credentials supply upload authentication.
+
+Version 3.0 changes
+-------------------
+
+The public repository's ``MIGRATION.md`` lists the 3.0 changes to options,
+exit codes, thresholds and output, and the steps to upgrade command
+definitions.
 
 Version 2.0 changes
 -------------------

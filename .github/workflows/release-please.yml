@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Thomas Vincent
+# SPDX-License-Identifier: Apache-2.0
+---
+# Keeps a release PR open that bumps the SemVer version (from pyproject.toml
+# and the release-please-config.json extra-files) and the changelog from the
+# Conventional Commit titles merged to main. Merging that PR tags the release
+# and runs the Release workflow; nothing is published before that.
+name: Release Please
+on:
+  push:
+    branches: [main]
+permissions: {}
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+jobs:
+  release-please:
+    name: Update the release PR or tag a merged one
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write  # release branch, tag and GitHub release
+      pull-requests: write  # open and label the release PR
+      issues: write  # create the autorelease labels on first use
+    outputs:
+      release-created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          # GITHUB_TOKEN works, but pull requests it opens do not start CI.
+          # A fine-grained token or GitHub App token in RELEASE_PLEASE_TOKEN
+          # (contents and pull requests: write) lets the release PR run CI.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+  publish:
+    name: Publish the tagged release
+    needs: release-please
+    if: needs.release-please.outputs.release-created == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.release-please.outputs.version }}
+      release-exists: true
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
