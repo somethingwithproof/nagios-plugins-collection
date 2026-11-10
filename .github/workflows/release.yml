@@ -4,7 +4,8 @@
 name: Release
 # Release Please calls this workflow after it tags a merged release PR; a tag
 # pushed by hand does not publish. workflow_dispatch republishes an existing
-# version from main.
+# version from main, or with dry-run builds, attests and verifies the source
+# version's artifacts on any branch without publishing anything.
 on:
   workflow_call:
     inputs:
@@ -23,6 +24,11 @@ on:
         description: Complete SemVer matching the project source version
         required: true
         type: string
+      dry-run:
+        description: Build, attest and verify provenance only; publish no release or image tag
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -56,11 +62,17 @@ jobs:
         id: version
         env:
           REQUESTED_VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry-run == true }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/main
           version="$REQUESTED_VERSION"
           uv run --no-sync python scripts/release_artifacts.py validate --version "$version"
+          # A dry run publishes nothing, so it may test a review branch.
+          if [[ "$DRY_RUN" == true ]]; then
+            exit 0
+          fi
+          # Provenance records this ref; verify_release_provenance.py expects it.
+          test "$GITHUB_REF" = refs/heads/main
           if git rev-parse "refs/tags/v$version" >/dev/null 2>&1; then
             test "$(git rev-parse "refs/tags/v$version^{commit}")" = "$(git rev-parse HEAD)"
           fi
@@ -69,7 +81,8 @@ jobs:
     needs: version
     uses: ./.github/workflows/ci.yml
     with:
-      release-version: ${{ needs.version.outputs.version }}
+      # Without a release version CI neither tags nor promotes the image.
+      release-version: ${{ inputs.dry-run != true && needs.version.outputs.version || '' }}
     permissions:
       contents: read
       packages: write
@@ -95,7 +108,22 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: release/*
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event.repository.private == false
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/verify_release_provenance.py
+          sparse-checkout-cone-mode: false
+          path: source
+      - name: Verify the attestations as the Python publishing workflow will
+        if: github.event.repository.private == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 source/scripts/verify_release_provenance.py
+          --source-ref "$GITHUB_REF" --source-commit "$GITHUB_SHA" release/*
       - name: Publish GitHub release
+        if: inputs.dry-run != true
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: v${{ needs.version.outputs.version }}
