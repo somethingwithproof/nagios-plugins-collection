@@ -17,7 +17,8 @@ Installed command options
 .. code-block:: text
 
    usage: check_redis_saturation [-h] [-v] [-t TIMEOUT] [-w WARNING]
-                                 [-c CRITICAL] [--json] --url URL
+                                 [-c CRITICAL] [--json]
+                                 [--url URL | --url-file PATH]
 
    Monitor Redis memory use, evictions and cache hits.
 
@@ -31,4 +32,8 @@ Installed command options
      -c CRITICAL, --critical CRITICAL
                            Critical threshold (plugin-specific)
      --json                Output results in JSON format
-     --url URL             Redis URL e.g. redis://host:6379/0
+     --url URL             Redis URL e.g. redis://:password@host:6379/0 (visible
+                           in the process list; prefer --url-file or
+                           $CHECK_REDIS_URL)
+     --url-file PATH       Read Redis URL e.g. redis://:password@host:6379/0 from
+                           PATH

@@ -17,7 +17,9 @@ class CheckPostgresReplicationLag(NagiosPlugin):
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
         super().__init__()
-        self.parser.add_argument("--dsn", required=True, help="PostgreSQL DSN for primary")
+        self.parser.add_secret_argument(
+            "--dsn", env="CHECK_POSTGRES_DSN", help="PostgreSQL DSN for primary", required=True
+        )
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""

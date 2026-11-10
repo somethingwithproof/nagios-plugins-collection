@@ -19,6 +19,17 @@ SPDX-License-Identifier: Apache-2.0
   variable (default `...:2.0.1`, accepts an `@sha256` digest) instead of
   `latest`, and disables restarts and rescheduling so a non-OK result is not
   rerun.
+- Credentials are masked in the status line, long output, JSON output and log
+  records, including exception text from HTTP clients that embeds the request
+  URL: URL userinfo becomes `scheme://***@host`, and parameters such as
+  `token`, `password`, `client_secret` and `api_key`, as well as bearer tokens,
+  become `***`.
+- Secrets can be supplied without putting them on the command line, where the
+  process list exposes them: `check_oauth2_token --client-secret-file` or
+  `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or
+  `CHECK_POSTGRES_DSN`, `check_redis_saturation --url-file` or
+  `CHECK_REDIS_URL`, and `check_monghealth --password-file` or
+  `CHECK_MONGHEALTH_PASSWORD`. The existing options keep working.
 - Usage errors (unknown or missing arguments, invalid values) exit 3 (UNKNOWN)
   with an `UNKNOWN - <command>: <error>` status line instead of argparse's exit
   2, which Nagios reads as CRITICAL. `--help` still exits 0.

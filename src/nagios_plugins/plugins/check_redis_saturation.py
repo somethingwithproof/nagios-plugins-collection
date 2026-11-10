@@ -17,7 +17,12 @@ class CheckRedisSaturation(NagiosPlugin):
     def __init__(self) -> None:
         """Register the monitoring endpoint and alert arguments."""
         super().__init__()
-        self.parser.add_argument("--url", required=True, help="Redis URL e.g. redis://host:6379/0")
+        self.parser.add_secret_argument(
+            "--url",
+            env="CHECK_REDIS_URL",
+            help="Redis URL e.g. redis://:password@host:6379/0",
+            required=True,
+        )
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""

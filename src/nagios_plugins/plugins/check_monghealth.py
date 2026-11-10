@@ -175,9 +175,8 @@ def parse_args() -> argparse.Namespace:
         "--username",
         help="MongoDB username",
     )
-    parser.add_argument(
-        "--password",
-        help="MongoDB password",
+    parser.add_secret_argument(
+        "--password", env="CHECK_MONGHEALTH_PASSWORD", help="MongoDB password"
     )
     parser.add_argument(
         "--ssl",

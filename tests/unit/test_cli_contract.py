@@ -83,3 +83,14 @@ def test_unhandled_exception_in_standalone_check_is_unknown(
     assert code == 3
     assert captured.out == "UNKNOWN - Unhandled exception: boom\n"
     assert "Traceback" in captured.err
+
+
+@pytest.mark.parametrize(
+    "verbosity,level",
+    [(0, logging.WARNING), (1, logging.INFO), (2, logging.DEBUG), (5, logging.DEBUG)],
+)
+def test_verbosity_selects_log_level(verbosity: int, level: int) -> None:
+    from nagios_plugins.base import configure_logging
+
+    configure_logging(verbosity)
+    assert logging.getLogger().level == level

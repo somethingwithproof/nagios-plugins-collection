@@ -21,7 +21,12 @@ class CheckOAuth2Token(NagiosPlugin):
         super().__init__()
         self.parser.add_argument("--token-url", required=True)
         self.parser.add_argument("--client-id", required=True)
-        self.parser.add_argument("--client-secret", required=True)
+        self.parser.add_secret_argument(
+            "--client-secret",
+            env="CHECK_OAUTH2_CLIENT_SECRET",
+            help="OAuth2 client secret",
+            required=True,
+        )
         self.parser.add_argument("--scope", action="append", default=[])
         add_tls_arguments(self.parser)
 

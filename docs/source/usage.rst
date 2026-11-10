@@ -177,6 +177,36 @@ Asynchronous Execution
 
 Many plugins now support asynchronous execution for improved performance in high-load environments. This is particularly useful when monitoring multiple endpoints or services simultaneously.
 
+Secrets
+~~~~~~~
+
+Command-line arguments are visible to other local users in the process list.
+Options that carry a secret also accept a file or an environment variable:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Option
+     - File option
+     - Environment variable
+   * - ``check_oauth2_token --client-secret``
+     - ``--client-secret-file``
+     - ``CHECK_OAUTH2_CLIENT_SECRET``
+   * - ``check_postgres_replication_lag --dsn``
+     - ``--dsn-file``
+     - ``CHECK_POSTGRES_DSN``
+   * - ``check_redis_saturation --url``
+     - ``--url-file``
+     - ``CHECK_REDIS_URL``
+   * - ``check_monghealth --password``
+     - ``--password-file``
+     - ``CHECK_MONGHEALTH_PASSWORD``
+
+The command-line option wins over the file, and the file over the environment
+variable. Line breaks around a file's content are ignored. Plugin output, JSON
+output and log records mask URL credentials (``scheme://***@host``), secret
+parameters such as ``token=***`` or ``password=***`` and bearer tokens.
+
 Diagnostics
 ~~~~~~~~~~~
 

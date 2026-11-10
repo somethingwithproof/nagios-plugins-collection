@@ -17,7 +17,8 @@ Installed command options
 .. code-block:: text
 
    usage: check_postgres_replication_lag [-h] [-v] [-t TIMEOUT] [-w WARNING]
-                                         [-c CRITICAL] [--json] --dsn DSN
+                                         [-c CRITICAL] [--json]
+                                         [--dsn DSN | --dsn-file PATH]
 
    Monitor PostgreSQL replication lag in seconds.
 
@@ -31,4 +32,6 @@ Installed command options
      -c CRITICAL, --critical CRITICAL
                            Critical threshold (plugin-specific)
      --json                Output results in JSON format
-     --dsn DSN             PostgreSQL DSN for primary
+     --dsn DSN             PostgreSQL DSN for primary (visible in the process
+                           list; prefer --dsn-file or $CHECK_POSTGRES_DSN)
+     --dsn-file PATH       Read PostgreSQL DSN for primary from PATH
