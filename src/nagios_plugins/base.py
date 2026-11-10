@@ -26,6 +26,8 @@ from typing import Any, NoReturn
 from nagios_plugins.redaction import redact
 
 _LOG_HANDLER_NAME = "nagios_plugins.stderr"
+# Root log level by -v count: none, -v, -vv (or more).
+_LOG_LEVELS = (logging.WARNING, logging.INFO, logging.DEBUG)
 
 
 class Status(Enum):
@@ -217,9 +219,7 @@ def configure_logging(verbosity: int = 0) -> None:
     handler.set_name(_LOG_HANDLER_NAME)
     handler.setFormatter(_RedactingFormatter("%(levelname)s %(name)s: %(message)s"))
     root.addHandler(handler)
-    root.setLevel(
-        logging.DEBUG if verbosity >= 2 else logging.INFO if verbosity == 1 else logging.WARNING
-    )
+    root.setLevel(_LOG_LEVELS[min(max(verbosity, 0), 2)])
 
 
 class NagiosArgumentParser(argparse.ArgumentParser):
