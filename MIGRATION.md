@@ -90,8 +90,20 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `evicted_keys`, a counter that only grows until restart, so a single
   eviction latched WARNING; `-c` was compared with `blocked_clients`, and fixed
   hit-ratio cutoffs (0.8/0.5) applied whenever a threshold was set. Evictions,
-  blocked clients and hit ratio are now perfdata only (`evicted_keys` as a
-  `c` counter for rate graphs). `--timeout` is now honored.
+  blocked clients and hit ratio are perfdata by default (`evicted_keys` as a
+  `c` counter for rate graphs); to alert on the others, give them their own
+  ranges with `--blocked-warning`/`--blocked-critical` and
+  `--hitratio-warning`/`--hitratio-critical`. To keep the old hit-ratio
+  cutoffs, use `--hitratio-warning 0.8: --hitratio-critical 0.5:`. The result
+  is the most severe of the configured measurements. `--timeout` is now
+  honored.
+- `check_log_errors`, `check_postgres_replication_lag`, `check_queue_depth`,
+  `check_backup_freshness` and `check_cloud_budget` take Nagios ranges for
+  `-w`/`-c` like the other checks. A plain number `N` still alerts above `N`,
+  but a value equal to `N` no longer alerts (they compared with `>=`): for
+  example `check_queue_depth -w 100` is now OK at a depth of exactly 100. Use
+  `-w 99` to keep alerting at 100 for integer measurements. Range forms such
+  as `@10:20` and `5:` now work instead of reporting UNKNOWN.
 - `check_http_sli` thresholds are split by measurement. `-w`/`-c` compared one
   number with both the error rate (a 0-1 fraction) and p95 latency (ms), so a
   value meant for one was meaningless for the other. `--latency-warning` and
