@@ -199,7 +199,23 @@ def test_registered_secrets_with_brackets_are_masked_whole(secret: str) -> None:
     [
         "cannot read the --client-secret file /run/secrets/secret: not UTF-8 text",
         "GET https://vault.example/v1/token: 404",
+        "open /etc/password: permission denied",
+        "GET /v1/token/x: 404 and /a/secret.d/key: missing",
+        "connect to secret.example:443 refused",
     ],
 )
 def test_path_components_named_like_keys_are_not_parameters(text: str) -> None:
     assert redact(text) == text
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("spring.datasource.password=s3cret x", "spring.datasource.password=*** x"),
+        ("db.password: s3cret", "db.password: ***"),
+        ('a.b.c.api_key="s3cret"', 'a.b.c.api_key="***"'),
+        ('{"db.password": "s3cret"}', '{"db.password": "***"}'),
+    ],
+)
+def test_dotted_configuration_keys_are_masked(text: str, expected: str) -> None:
+    assert redact(text) == expected

@@ -51,11 +51,13 @@ _KEY = rf"(?:[a-z0-9_-]{{0,40}}?(?:{_NAMES})|key)"
 
 # token=..., password: '...', "client_secret": "..." in query strings, form
 # bodies, libpq key=value strings, headers and JSON or Python reprs.
-# A key after "/" or "." is a path or host component (".../secret: not found"),
-# not a parameter. Only a quoted key (JSON or a Python repr) ends an unquoted
-# value at "}", "]" or ")"; elsewhere those may be part of the secret.
+# Dotted configuration keys (spring.datasource.password=...) count, but a key
+# right after "/" is a path component (/run/secrets/secret: not found), not a
+# parameter. Only a quoted key (JSON or a Python repr) ends an unquoted value
+# at "}", "]" or ")"; elsewhere those may be part of the secret.
 _SECRET_PARAMETER = re.compile(
-    rf"(?i)(?<![\w./-])(?P<key>(?P<q>[\"'])?{_KEY}(?(q)(?P=q)))(?![\w-])"
+    rf"(?i)(?<![\w./-])(?P<key>(?P<q>[\"'])?(?:[a-z0-9_-]{{1,80}}\.){{0,8}}{_KEY}(?(q)(?P=q)))"
+    r"(?![\w-])"
     r"(?P<sep>\s{0,8}[=:]\s{0,8})"
     r"(?P<value>'[^']{0,4096}'|\"[^\"]{0,4096}\""
     r"|(?(q)[^\s&;,'\"}\])]{1,4096}|[^\s&;,'\"]{1,4096}))"
