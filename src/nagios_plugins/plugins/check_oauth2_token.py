@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from typing import Any
 
 import httpx
 
@@ -69,19 +70,9 @@ class CheckOAuth2Token(NagiosPlugin):
             scopes = set((data.get("scope") or "").split())
             missing = [s for s in args.scope if s not in scopes]
             metrics: dict[str, int | PerfData] = {"scope_count": len(scopes)}
-            thresholds = args.warning is not None or args.critical is not None
-            # expires_in is optional (RFC 6749 section 5.1); never report a missing one as 0.
-            if data.get("expires_in") is None:
-                msg = "Token ok expires_in=unknown"
-                # A lifetime threshold cannot be judged without a lifetime.
-                lifetime = Status.UNKNOWN if thresholds else Status.OK
-            else:
-                expires_in = int(data["expires_in"])
-                metrics["expires_in"] = PerfData(
-                    expires_in, warning=args.warning, critical=args.critical
-                )
-                msg = f"Token ok expires_in={expires_in}s"
-                lifetime = threshold_check(expires_in, args.warning, args.critical)
+            lifetime, msg, expiry = self._lifetime(data.get("expires_in"), args)
+            if expiry is not None:
+                metrics["expires_in"] = expiry
             scope = Status.WARNING if missing else Status.OK
             if missing:
                 msg += f" missing_scopes={','.join(missing)}"
@@ -90,6 +81,28 @@ class CheckOAuth2Token(NagiosPlugin):
             return CheckResult(Status.CRITICAL, f"HTTP error: {http.describe_error(e)}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
+
+    @staticmethod
+    def _lifetime(expires_in: Any, args: argparse.Namespace) -> tuple[Status, str, PerfData | None]:
+        """Judge ``expires_in`` against -w/-c: status, message and perfdata.
+
+        expires_in is optional (RFC 6749 section 5.1); a missing one is never
+        reported as 0, and with thresholds it is UNKNOWN, since a lifetime
+        threshold cannot be judged without a lifetime.
+        """
+        if expires_in is None:
+            thresholds = args.warning is not None or args.critical is not None
+            return (
+                (Status.UNKNOWN if thresholds else Status.OK),
+                "Token ok expires_in=unknown",
+                None,
+            )
+        seconds = int(expires_in)
+        return (
+            threshold_check(seconds, args.warning, args.critical),
+            f"Token ok expires_in={seconds}s",
+            PerfData(seconds, warning=args.warning, critical=args.critical),
+        )
 
 
 def main() -> int:
