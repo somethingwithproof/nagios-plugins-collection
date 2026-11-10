@@ -76,12 +76,13 @@ def test_dry_run_publishes_no_image_tag() -> None:
 def test_verify_command_binds_workflow_ref_and_commit(tmp_path: Path) -> None:
     wheel = tmp_path / "pkg.whl"
     command = provenance.verify_command(wheel, "o/r", "refs/heads/main", COMMIT)
-    assert command[:4] == ["gh", "attestation", "verify", str(wheel)]
-    options = dict(zip(command[4::2], command[5::2], strict=False))
+    assert command[:3] == ["gh", "attestation", "verify"]
+    assert command[-2:] == ["--", str(wheel.resolve())]
+    options = dict(zip(command[3:-3:2], command[4:-3:2], strict=True))
     assert options["--signer-workflow"] == "o/r/.github/workflows/release.yml"
     assert options["--source-ref"] == "refs/heads/main"
     assert options["--source-digest"] == COMMIT
-    assert command[-1] == "--deny-self-hosted-runners"
+    assert command[-3] == "--deny-self-hosted-runners"
 
 
 def test_main_verifies_every_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -92,7 +93,9 @@ def test_main_verifies_every_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     ok: subprocess.CompletedProcess[bytes] = subprocess.CompletedProcess([], 0)
     with patch.object(provenance.subprocess, "run", return_value=ok) as run:
         assert provenance.main(["--source-commit", COMMIT, *map(str, files)]) == 0
-    assert [call.args[0][3] for call in run.call_args_list] == [str(path) for path in files]
+    assert [call.args[0][-1] for call in run.call_args_list] == [
+        str(path.resolve()) for path in files
+    ]
     assert all("refs/heads/main" in call.args[0] for call in run.call_args_list)
 
 
@@ -122,4 +125,31 @@ def test_main_rejects_missing_files(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
     with patch.object(provenance.subprocess, "run") as run, pytest.raises(SystemExit):
         provenance.main(["--source-commit", COMMIT, str(tmp_path / "missing.whl")])
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "option,value",
+    [("--source-ref", "--help"), ("--source-ref", "main"), ("--source-ref", "refs/heads/a b")],
+)
+def test_main_rejects_malformed_refs(
+    option: str, value: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "a.whl"
+    path.write_bytes(b"x")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    with patch.object(provenance.subprocess, "run") as run, pytest.raises(SystemExit):
+        provenance.main([f"{option}={value}", "--source-commit", COMMIT, str(path)])
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize("repository", ["", "o", "--repo=x/y", "o/r/extra"])
+def test_main_requires_a_repository(
+    repository: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "a.whl"
+    path.write_bytes(b"x")
+    monkeypatch.setenv("GITHUB_REPOSITORY", repository)
+    with patch.object(provenance.subprocess, "run") as run, pytest.raises(SystemExit):
+        provenance.main(["--source-commit", COMMIT, str(path)])
     run.assert_not_called()

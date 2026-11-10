@@ -32,15 +32,19 @@ RELEASE_WORKFLOW = ".github/workflows/release.yml"
 #: The ref the Release workflow refuses to run on anything but.
 RELEASE_REF = "refs/heads/main"
 _COMMIT = re.compile(r"[0-9a-f]{40}")
+_REPOSITORY = re.compile(r"[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}")
+_REF = re.compile(r"refs/(?:heads|tags)/[A-Za-z0-9._/-]{1,200}")
 
 
 def verify_command(path: Path, repository: str, source_ref: str, commit: str) -> list[str]:
-    """Return the ``gh attestation verify`` command for one release file."""
+    """Return the ``gh attestation verify`` command for one release file.
+
+    The file is an absolute path after ``--``, so gh can never read it as an option.
+    """
     return [
         "gh",
         "attestation",
         "verify",
-        str(path),
         "--repo",
         repository,
         "--signer-workflow",
@@ -50,6 +54,8 @@ def verify_command(path: Path, repository: str, source_ref: str, commit: str) ->
         "--source-digest",
         commit,
         "--deny-self-hosted-runners",
+        "--",
+        str(path.resolve()),
     ]
 
 
@@ -68,8 +74,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not _COMMIT.fullmatch(args.source_commit):
         parser.error(f"--source-commit must be a full 40-character SHA: {args.source_commit!r}")
+    if not _REF.fullmatch(args.source_ref):
+        parser.error(f"--source-ref must be a branch or tag ref: {args.source_ref!r}")
     repository = os.environ.get("GITHUB_REPOSITORY", "")
-    if not repository:
+    if not _REPOSITORY.fullmatch(repository):
         parser.error("GITHUB_REPOSITORY must name the repository (owner/name)")
     for path in args.files:
         if not path.is_file():
