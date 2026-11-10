@@ -69,19 +69,19 @@ Pre-commit Hooks
 ----------------
 
 This project uses `pre-commit <https://pre-commit.com>`_ to run linters and
-formatters before each commit.  After installing the development dependencies,
-enable the hooks with:
+formatters before each commit.  After ``uv sync`` installs the development
+dependencies, enable the hooks with:
 
 .. code-block:: bash
 
-   pre-commit install
+   uv run pre-commit install
 
 You can then run the hooks against all files or specific paths:
 
 .. code-block:: bash
 
-   pre-commit run --all-files
-   pre-commit run --files path/to/file.py docs/source/file.rst
+   uv run pre-commit run --all-files
+   uv run pre-commit run --files path/to/file.py docs/source/file.rst
 
 Commit Message Guidelines
 -------------------------

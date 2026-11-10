@@ -15,20 +15,26 @@ Tests live under `tests/unit/`; Sphinx documentation is under `docs/source/`.
 
 ## Commands and dependencies
 
-Use a supported Python from `pyproject.toml` and the CI/tox matrix. In an isolated
-environment, install CI tools using the hashed `packaging/ci-requirements.txt`:
+Use a supported Python from `pyproject.toml` and the CI matrix. `uv.lock` is the
+only dependency lock; development tools are PEP 735 dependency groups. Install
+the locked, hash-verified wheels and run the checks with uv:
 
 ```sh
-mise exec python@3.12 -- python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
-mise exec python@3.12 -- tox -e py312,lint,type
-mise exec python@3.12 -- tox -e coverage
-mise exec python@3.12 -- python scripts/check_spdx.py
-mise exec python@3.12 -- python scripts/check_licenses.py
+mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
+uv run pytest tests
+uv run ruff check .
+uv run ruff format --check src tests
+uv run mypy src
+uv run pytest --cov=nagios_plugins tests
+uv run python scripts/check_spdx.py
+uv run python scripts/check_licenses.py
 ```
 
-Read `tox.ini` and `.github/workflows/ci.yml` for docs, security, container,
-Helm, integration and release checks. Dependency-lock regeneration is a separate
-change: preserve hashes, binary-only installation and the reviewed license policy.
+Read `.github/workflows/ci.yml` for docs, security, container, Helm,
+integration and release checks. Dependency-lock regeneration (`uv lock`) is a
+separate change: keep `tool.uv.no-build`, locked hashes and the reviewed license
+policy. The container build and native packages export hashed requirements from
+`uv.lock` with `uv export --locked`.
 
 ## Monitoring contracts and review
 

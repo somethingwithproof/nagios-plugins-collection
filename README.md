@@ -50,12 +50,11 @@ Read the individual check's `--help` and implementation before configuring thres
 The manifest requires Python >=3.11,<3.15. [packaging/platform-support.json](packaging/platform-support.json) records the reviewed runtime and packaging targets. From this checkout:
 
 ```bash
-uv venv
-uv pip install -e ".[all]"
-.venv/bin/check_tls_expiry --help
+uv sync --locked --all-extras
+uv run check_tls_expiry --help
 ```
 
-The commands are installed in `.venv/bin/`. The available extras are defined in the manifest; install only the integrations you need. Source installation is shown without asserting package-index publication.
+`uv sync` installs the locked dependencies, the development tools and the project into `.venv/`; use `uv sync --locked --no-dev --extra aws` (for example) for a runtime-only environment. The available extras are defined in the manifest; install only the integrations you need. Source installation is shown without asserting package-index publication.
 
 ## Compatibility and operations
 
@@ -63,7 +62,7 @@ Use [MIGRATION.md](MIGRATION.md) for historical migration notes, but verify comm
 
 ## Development
 
-Tests and tool configuration live in [pyproject.toml](pyproject.toml), [tox.ini](tox.ini), and [the CI workflow](.github/workflows/ci.yml). No fixed coverage percentage, universal strict-type-checking success, or supply-chain certification is claimed here.
+Tests and tool configuration live in [pyproject.toml](pyproject.toml), [uv.lock](uv.lock), and [the CI workflow](.github/workflows/ci.yml); run tests with `uv run pytest`. No fixed coverage percentage, universal strict-type-checking success, or supply-chain certification is claimed here.
 
 ## Security and license
 

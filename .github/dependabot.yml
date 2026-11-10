@@ -2,10 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 version: 2
 updates:
-- package-ecosystem: pip
-  directories:
-  - /
-  - /docker/mocks
+- package-ecosystem: uv
+  directory: /
   cooldown:
     default-days: 7
   schedule:
@@ -21,6 +19,9 @@ updates:
   # aiohttp 3.14 requires multidict <7; reconsider with a compatible aiohttp.
   - dependency-name: multidict
     versions: [">=7.0.0"]
+  # botocore requires python-dateutil <3.0.0; reconsider when botocore allows it.
+  - dependency-name: python-dateutil
+    versions: [">=3.0.0"]
   # Pydantic pins its core exactly; keep the pair in one dependency update.
   groups:
     pydantic:
@@ -30,8 +31,23 @@ updates:
   rebase-strategy: auto
   labels:
   - dependencies
-  - python
-  - bot
+  - python:uv
+  commit-message:
+    prefix: chore
+    include: scope
+# The E2E mock server is not part of the uv project; it keeps a pip-compiled lock.
+- package-ecosystem: pip
+  directory: /docker/mocks
+  cooldown:
+    default-days: 7
+  schedule:
+    interval: daily
+    time: '04:05'
+    timezone: UTC
+  open-pull-requests-limit: 10
+  rebase-strategy: auto
+  labels:
+  - dependencies
   commit-message:
     prefix: chore
     include: scope
@@ -53,8 +69,6 @@ updates:
       - patch
   labels:
   - dependencies
-  - ci
-  - bot
   commit-message:
     prefix: chore
     include: scope
@@ -71,8 +85,6 @@ updates:
   open-pull-requests-limit: 10
   labels:
   - dependencies
-  - docker
-  - bot
   commit-message:
     prefix: chore
     include: scope
@@ -84,6 +96,9 @@ updates:
     interval: daily
     time: '04:40'
     timezone: UTC
+  labels:
+  - dependencies
+  - pre_commit
   commit-message:
     prefix: chore
     include: scope

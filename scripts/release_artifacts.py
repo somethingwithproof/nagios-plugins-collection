@@ -25,6 +25,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 ROLE_PATHS = ("defaults", "vars", "handlers", "meta", "tasks", "templates", "docs", "examples")
 SEMVER_IDENTIFIER = re.compile(r"[A-Za-z\d-]+", re.ASCII)
+# Plugin extras bundled into the DEB and RPM payloads.
+NATIVE_EXTRAS = ("aws", "dns", "k8s", "pg", "redis")
 
 
 def valid_numeric_identifier(value: str) -> bool:
@@ -134,6 +136,24 @@ def python_payload(payload: Path, wheel: Path, packager: str) -> None:
     """Bundle hash-locked Linux x86-64 clients for the supported Python 3.12 targets."""
     library = payload / "usr/lib/nagios-plugins-collection"
     library.mkdir(parents=True)
+    requirements = payload.parent / f"{payload.name}-requirements.txt"
+    # Export the native client set from uv.lock; the OS supplies libpq, so the
+    # bundled psycopg-binary wheel is omitted.
+    subprocess.run(
+        [
+            os.environ.get("UV", "uv"),
+            "export",
+            "--locked",
+            "--no-dev",
+            "--no-emit-project",
+            *(f"--extra={extra}" for extra in NATIVE_EXTRAS),
+            "--no-emit-package=psycopg-binary",
+            "--output-file",
+            str(requirements),
+        ],
+        cwd=ROOT,
+        check=True,
+    )
     subprocess.run(
         [
             sys.executable,
@@ -156,7 +176,7 @@ def python_payload(payload: Path, wheel: Path, packager: str) -> None:
             "3.12",
             "--require-hashes",
             "-r",
-            str(ROOT / "packaging/runtime-requirements.txt"),
+            str(requirements),
         ],
         check=True,
     )

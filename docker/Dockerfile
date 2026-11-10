@@ -2,24 +2,32 @@
 # SPDX-License-Identifier: Apache-2.0
 # syntax=docker/dockerfile:1.7
 
+# uv exports hash-pinned requirements from uv.lock; pip installs them wheel-only.
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+
 # Builder: collect wheels for the package and its runtime plugin extras.
 FROM python:3.14-slim AS builder
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
-COPY pyproject.toml README.md LICENSE /app/
-COPY packaging /app/packaging
+COPY --from=uv /uv /usr/local/bin/uv
+COPY pyproject.toml uv.lock README.md LICENSE /app/
 COPY src /app/src
-RUN python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt && \
+RUN uv export --locked --no-emit-project --only-group build -o /tmp/build-requirements.txt && \
+    python -m pip install --only-binary=:all: --require-hashes -r /tmp/build-requirements.txt && \
     python -m build --no-isolation --wheel && \
+    mkdir /wheels && \
+    uv export --locked --no-dev --no-emit-project --extra all -o /wheels/requirements.txt && \
     python -m pip download --only-binary=:all: --require-hashes \
-        --dest /wheels -r packaging/container-requirements.txt && \
+        --dest /wheels -r /wheels/requirements.txt && \
     cp /app/dist/*.whl /wheels/
 
 # Test controller: runtime extras plus the development test tools.
 FROM builder AS tests
 COPY tests /app/tests
 COPY scripts /app/scripts
-RUN python -m pip install --only-binary=:all: --require-hashes -r packaging/test-requirements.txt && \
+COPY packaging /app/packaging
+RUN uv export --locked --no-emit-project --all-extras --no-default-groups --group test -o /tmp/test-requirements.txt && \
+    python -m pip install --only-binary=:all: --require-hashes -r /tmp/test-requirements.txt && \
     python -m pip install --only-binary=:all: --no-deps /app/dist/*.whl
 CMD ["pytest", "-q"]
 
@@ -29,9 +37,8 @@ ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 # Install runtime deps only from the built wheel
 COPY --from=builder /wheels /tmp/wheels
-COPY packaging/container-requirements.txt /tmp/requirements.txt
 RUN python -m pip install --no-index --find-links=/tmp/wheels --only-binary=:all: \
-        --require-hashes -r /tmp/requirements.txt && \
+        --require-hashes -r /tmp/wheels/requirements.txt && \
     python -m pip install --only-binary=:all: --no-index --no-deps /tmp/wheels/nagios_plugins_collection-*.whl && \
     rm -rf /tmp/wheels && \
     groupadd --system --gid 10001 nagios && \

@@ -31,6 +31,13 @@ concurrency:
 permissions:
   contents: read
 
+# uv installs only what uv.lock records, verifying its hashes, with the
+# interpreter selected by actions/setup-python.
+env:
+  UV_VERSION: '0.13.6'
+  UV_PYTHON: '3.12'
+  UV_PYTHON_DOWNLOADS: never
+
 jobs:
   platform-support:
     name: Reject retired platforms
@@ -142,20 +149,22 @@ jobs:
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
 
-    - name: Validate developer dependency lock
-      run: |
-        python -m pip install --dry-run --ignore-installed --only-binary=:all: --require-hashes --index-url https://pypi.org/simple -r packaging/test-requirements.txt
+    - name: Set up uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: false
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+    - name: Install locked dependencies and the built project
+      env:
+        UV_PYTHON: ${{ matrix.python-version }}
+      run: uv sync --locked --all-extras --no-editable
 
-    - name: Test with tox
+    - name: Run tests
       env:
         PYTHON_VERSION: ${{ matrix.python-version }}
-      run: tox -e "py${PYTHON_VERSION//./}"
+      run: uv run --no-sync pytest tests -v --junitxml="test-reports/junit-py${PYTHON_VERSION//./}.xml"
 
     - name: Upload test results
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -178,20 +187,26 @@ jobs:
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
       with:
         python-version: '3.12'
-        cache: 'pip'
 
-    - name: Install dependencies
+    - name: Set up uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: false
+
+    - name: Install locked dependencies
+      run: uv sync --locked --all-extras
+
+    - name: Run Ruff
       run: |
-        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
-
-    - name: Run linting via tox
-      run: tox -e lint
+        uv run --no-sync ruff check .
+        uv run --no-sync ruff format --check src tests
 
     - name: Verify SPDX license coverage
-      run: python scripts/check_spdx.py
+      run: uv run --no-sync python scripts/check_spdx.py
 
     - name: Run repository integrity and type hooks
-      run: pre-commit run --all-files --show-diff-on-failure
+      run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 
   type-check:
     name: Type check
@@ -206,14 +221,18 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+
+      - name: Install locked dependencies
+        run: uv sync --locked --all-extras
 
       - name: Run type checking
-        run: tox -e type
+        run: uv run --no-sync mypy src
 
   docs:
     name: Build documentation
@@ -228,14 +247,20 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+
+      - name: Install locked dependencies
+        run: uv sync --locked --all-extras
 
       - name: Build documentation
-        run: tox -e docs
+        run: |
+          uv run --no-sync sphinx-build -W -b html docs/source docs/build/html
+          uv run --no-sync docstr-coverage src --fail-under=95
 
       - name: Upload documentation
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -260,14 +285,18 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+
+      - name: Install locked dependencies
+        run: uv sync --locked --all-extras
 
       - name: Run coverage
-        run: tox -e coverage
+        run: uv run --no-sync pytest --cov=nagios_plugins --cov-report=xml --cov-report=term --cov-report=html tests
 
       - name: Enforce coverage threshold (80%)
         run: |
@@ -364,10 +393,15 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+      - name: Set up uv
+        if: inputs.release-version != ''
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
       - name: Install locked validator dependencies
         if: inputs.release-version != ''
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+        run: uv sync --locked --only-group build
       - name: Promote verified SemVer container tags
         if: inputs.release-version != ''
         env:
@@ -377,7 +411,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -n "$RELEASE_VERSION" ]]; then
-            python scripts/release_artifacts.py validate --version "$RELEASE_VERSION"
+            uv run --no-sync python scripts/release_artifacts.py validate --version "$RELEASE_VERSION"
             container_version="${RELEASE_VERSION//+/_}"
             docker buildx imagetools create --tag "$IMAGE:$container_version" "$IMAGE@$DIGEST"
           fi
@@ -398,18 +432,21 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
-          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+
+      - name: Install locked dependencies
+        run: uv sync --locked --all-extras --no-editable
 
       - name: Run bandit
-        run: bandit -r src/ -c pyproject.toml --severity-level medium
+        run: uv run --no-sync bandit -r src/ -c pyproject.toml --severity-level medium
 
       - name: Audit installed dependencies
-        run: pip-audit --local
+        run: uv run --no-sync pip-audit --local
 
       - name: Secret scan (gitleaks)
         uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
@@ -550,13 +587,15 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
-          cache: 'pip'
+      - name: Set up uv
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
       - name: Install project and pip-licenses
-        run: |
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
-          python -m pip install --no-deps --no-build-isolation --only-binary=:all: .
+        run: uv sync --locked --all-extras --no-editable
       - name: Audit locked runtime dependency licenses
-        run: python scripts/check_licenses.py
+        run: uv run --no-sync python scripts/check_licenses.py
 
   package:
     name: Build and verify package
@@ -573,17 +612,21 @@ jobs:
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
       with:
         python-version: '3.12'
-        cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
+    - name: Set up uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: ${{ env.UV_VERSION }}
+        enable-cache: false
+
+    - name: Install locked dependencies
+      run: uv sync --locked --all-extras
 
     - name: Build package
-      run: python -m build --no-isolation
+      run: uv run --no-sync python -m build --no-isolation
 
     - name: Check package
-      run: twine check dist/*
+      run: uv run --no-sync twine check dist/*
 
     - name: Upload package
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -609,13 +652,17 @@ jobs:
           version: 2026.10.1
           install: false
           cache: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
       - name: Install pinned release tools
         run: |
           mise install nfpm@2.47.0 helm@4.3.0
-          python -m pip install --only-binary=:all: --require-hashes -r packaging/build-requirements.txt
+          uv sync --locked --only-group build
       - name: Build project and native artifacts
         id: version
-        run: mise exec nfpm@2.47.0 helm@4.3.0 -- python scripts/release_artifacts.py build
+        run: mise exec nfpm@2.47.0 helm@4.3.0 -- uv run --no-sync python scripts/release_artifacts.py build
       - name: Install, exercise and remove Debian and RPM packages
         run: python scripts/smoke_native_packages.py "dist/release/${{ steps.version.outputs.version }}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

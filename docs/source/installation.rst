@@ -41,16 +41,15 @@ Install into an isolated environment rather than modifying system Python:
    .venv/bin/python -m pip install ./nagios_plugins_collection-2.0.1-py3-none-any.whl
    .venv/bin/check_website_status --help
 
-For source development, clone the public repository, install the hash-locked
-CI dependencies and install the first-party source without resolving new deps:
+For source development, clone the public repository and install the locked
+dependencies, development tools and first-party source with uv:
 
 .. code-block:: bash
 
    git clone https://github.com/somethingwithproof/nagios-plugins-collection.git
    cd nagios-plugins-collection
-   mise exec python@3.12 -- python -m venv .venv
-   .venv/bin/python -m pip install --only-binary=:all: --require-hashes -r packaging/ci-requirements.txt
-   .venv/bin/python -m pip install --no-deps --no-build-isolation -e .
+   mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
+   uv run check_website_status --help
 
 PyPI publishing is an explicit manual workflow and requires a configured PyPI
 credential. A GitHub release does not automatically publish to PyPI. Choose
