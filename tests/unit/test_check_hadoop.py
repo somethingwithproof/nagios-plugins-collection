@@ -2,15 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the check_hadoop plugin."""
 
-import json
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
 
 from nagios_plugins.base import PerfData, Status
 from nagios_plugins.plugins.check_hadoop import HadoopClusterChecker
+from tests.fakes import serve_http
+
+
+def _raise(error: Exception) -> Callable[[httpx.Request], httpx.Response]:
+    def respond(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    return respond
 
 
 class TestHadoopClusterChecker:
@@ -67,13 +75,7 @@ class TestHadoopClusterChecker:
         """Test a successful cluster check."""
         mock_data = self.create_mock_response(status="ok", mem_component="1024k")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = mock_data
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
-            mock_client.return_value = mock_instance
-
+        with serve_http(lambda request: httpx.Response(200, json=mock_data)):
             result = await checker.check_cluster()
 
             # Verify result
@@ -91,13 +93,7 @@ class TestHadoopClusterChecker:
         """Test a cluster check with warning overall status."""
         mock_data = self.create_mock_response(status="warning")
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = mock_data
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
-            mock_client.return_value = mock_instance
-
+        with serve_http(lambda request: httpx.Response(200, json=mock_data)):
             result = await checker.check_cluster()
 
             # Verify result
@@ -129,13 +125,7 @@ class TestHadoopClusterChecker:
             ],
         )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = mock_data
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
-            mock_client.return_value = mock_instance
-
+        with serve_http(lambda request: httpx.Response(200, json=mock_data)):
             result = await checker.check_cluster()
 
             # Verify result
@@ -170,13 +160,7 @@ class TestHadoopClusterChecker:
             ],
         )
 
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.return_value = mock_data
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
-            mock_client.return_value = mock_instance
-
+        with serve_http(lambda request: httpx.Response(200, json=mock_data)):
             result = await checker.check_cluster()
 
             # Verify result
@@ -189,54 +173,19 @@ class TestHadoopClusterChecker:
             assert "component_component2_minutes_since_update" in result.metrics
 
     @pytest.mark.asyncio
-    async def test_check_cluster_http_error(self, checker):
-        """Test a cluster check with an HTTP error."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = httpx.HTTPError("HTTP Error")
-            mock_client.return_value = mock_instance
-
-            # Mock logger to prevent output during tests
-            with patch("nagios_plugins.plugins.check_hadoop.logger"):
-                result = await checker.check_cluster()
-
-                # Verify result
-                assert result.status == Status.CRITICAL
-                assert "Failed to connect to Hadoop API" in result.message
-                assert result.metrics["status"] == 0
-
-    @pytest.mark.asyncio
-    async def test_check_cluster_json_decode_error(self, checker):
-        """Test a cluster check with a JSON decode error."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_response = MagicMock()
-            mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "{", 0)
-            mock_instance.__aenter__.return_value.get.return_value = mock_response
-            mock_client.return_value = mock_instance
-
-            # Mock logger to prevent output during tests
-            with patch("nagios_plugins.plugins.check_hadoop.logger"):
-                result = await checker.check_cluster()
-
-                # Verify result
-                assert result.status == Status.CRITICAL
-                assert "Invalid JSON response" in result.message
-                assert result.metrics["status"] == 0
-
-    @pytest.mark.asyncio
-    async def test_check_cluster_unexpected_error(self, checker):
-        """Test a cluster check with an unexpected error."""
-        with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = MagicMock()
-            mock_instance.__aenter__.return_value.get.side_effect = Exception("Unexpected error")
-            mock_client.return_value = mock_instance
-
-            # Mock logger to prevent output during tests
-            with patch("nagios_plugins.plugins.check_hadoop.logger"):
-                result = await checker.check_cluster()
-
-                # Verify result
-                assert result.status == Status.UNKNOWN
-                assert "Unexpected error" in result.message
-                assert result.metrics["status"] == 0
+    @pytest.mark.parametrize(
+        "handler,expected,message",
+        [
+            (_raise(httpx.ConnectError("refused")), Status.CRITICAL, "Failed to connect"),
+            (lambda request: httpx.Response(200, text="{"), Status.CRITICAL, "Invalid JSON"),
+            (_raise(RuntimeError("Unexpected error")), Status.UNKNOWN, "Unexpected error"),
+        ],
+        ids=["transport", "json", "unexpected"],
+    )
+    async def test_check_cluster_failures(self, checker, handler, expected, message):
+        """Transport, decoding and unexpected failures never report OK."""
+        with serve_http(handler), patch("nagios_plugins.plugins.check_hadoop.logger"):
+            result = await checker.check_cluster()
+        assert result.status == expected
+        assert message in result.message
+        assert result.metrics["status"] == 0

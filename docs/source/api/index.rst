@@ -26,6 +26,16 @@ The :mod:`nagios_plugins.deadline` module ends a run that outlives its
    :members:
    :show-inheritance:
 
+HTTP Module
+-----------
+
+The :mod:`nagios_plugins.services.http` module registers the shared HTTP
+options and builds every plugin's HTTP client.
+
+.. automodule:: nagios_plugins.services.http
+   :members:
+   :show-inheritance:
+
 Utils Module
 ------------
 

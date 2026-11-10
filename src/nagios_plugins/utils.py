@@ -6,7 +6,6 @@
 This module provides utility functions that are used by multiple Nagios plugins.
 """
 
-import json
 import platform
 import re
 import socket
@@ -17,9 +16,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import httpx
-
-from nagios_plugins.base import Status
 from nagios_plugins.deadline import track_child
 
 
@@ -135,186 +131,6 @@ def check_tcp_port(host: str, port: int, timeout: int = 5) -> tuple[bool, str | 
 
         with suppress(Exception):
             sock.close()
-
-
-async def check_http_endpoint_async(
-    url: str,
-    method: str = "GET",
-    headers: dict[str, str] | None = None,
-    data: dict[str, Any] | None = None,
-    expected_status: int | None = 200,
-    expected_content: str | None = None,
-    verify_ssl: bool = True,
-) -> tuple[Status, str, dict[str, Any] | None]:
-    """Check an HTTP endpoint asynchronously.
-
-    Args:
-        url: The URL to check.
-        method: The HTTP method to use.
-        headers: The HTTP headers to send.
-        data: The data to send in the request body.
-        expected_status: The expected HTTP status code.
-        expected_content: A regex pattern to match in the response content.
-        verify_ssl: Whether to verify SSL certificates.
-
-    Returns:
-        A tuple of (status, message, response_data).
-    """
-    start_time = time.time()
-    try:
-        async with httpx.AsyncClient(timeout=30, verify=verify_ssl) as client:
-            response = await client.request(
-                method,
-                url,
-                headers=headers,
-                json=data,
-                follow_redirects=True,
-            )
-
-        elapsed_time = time.time() - start_time
-        response_time = elapsed_time * 1000  # Convert to milliseconds
-
-        # Check status code
-        if expected_status and response.status_code != expected_status:
-            return (
-                Status.CRITICAL,
-                (
-                    "HTTP "
-                    f"{response.status_code} - Expected {expected_status} - {url} - "
-                    f"{response_time:.2f}ms"
-                ),
-                None,
-            )
-
-        # Check content
-        if expected_content and not re.search(expected_content, response.text):
-            return (
-                Status.CRITICAL,
-                f"Content check failed - Pattern not found - {url} - {response_time:.2f}ms",
-                None,
-            )
-
-        # Try to parse JSON response
-        response_data = None
-        from contextlib import suppress
-
-        with suppress(json.JSONDecodeError, ValueError):
-            response_data = response.json()
-
-        return (
-            Status.OK,
-            f"HTTP {response.status_code} - {url} - {response_time:.2f}ms",
-            response_data,
-        )
-
-    except httpx.TimeoutException:
-        elapsed_time = time.time() - start_time
-        response_time = elapsed_time * 1000  # Convert to milliseconds
-        return (
-            Status.CRITICAL,
-            f"Connection timed out - {url} - {response_time:.2f}ms",
-            None,
-        )
-    except httpx.RequestError as e:
-        elapsed_time = time.time() - start_time
-        response_time = elapsed_time * 1000  # Convert to milliseconds
-        return (
-            Status.CRITICAL,
-            f"Request error: {str(e)} - {url} - {response_time:.2f}ms",
-            None,
-        )
-    except (OSError, httpx.HTTPError, ValueError, KeyError) as e:
-        elapsed_time = time.time() - start_time
-        response_time = elapsed_time * 1000  # Convert to milliseconds
-        return (
-            Status.UNKNOWN,
-            f"Error: {str(e)} - {url} - {response_time:.2f}ms",
-            None,
-        )
-
-
-def check_http_endpoint(
-    url: str,
-    method: str = "GET",
-    headers: dict[str, str] | None = None,
-    data: dict[str, Any] | None = None,
-    timeout: int = 30,
-    expected_status: int | None = 200,
-    expected_content: str | None = None,
-    verify_ssl: bool = True,
-) -> tuple[Status, str, dict[str, Any] | None]:
-    """Check an HTTP endpoint synchronously.
-
-    This helper performs an HTTP request using :class:`httpx.Client` and
-    returns a tuple of ``(Status, message, response_data)`` to keep the API
-    compatible with the unit tests.
-
-    Returns:
-        Tuple containing the resulting status, human readable message and
-        optional JSON data.
-    """
-    start_time = time.time()
-    try:
-        with httpx.Client(timeout=timeout, verify=verify_ssl) as client:
-            response = client.request(
-                method,
-                url,
-                headers=headers,
-                json=data,
-                follow_redirects=True,
-            )
-
-        elapsed = time.time() - start_time
-        response_time = elapsed * 1000
-
-        if expected_status and response.status_code != expected_status:
-            return (
-                Status.CRITICAL,
-                f"HTTP {response.status_code} - Expected {expected_status} - {url} - {response_time:.2f}ms",
-                None,
-            )
-
-        if expected_content and not re.search(expected_content, response.text):
-            return (
-                Status.CRITICAL,
-                f"Content check failed - Pattern not found - {url} - {response_time:.2f}ms",
-                None,
-            )
-
-        from contextlib import suppress
-
-        with suppress(json.JSONDecodeError, ValueError):
-            response_data = response.json()
-
-        return (
-            Status.OK,
-            f"HTTP {response.status_code} - {url} - {response_time:.2f}ms",
-            response_data,
-        )
-    except httpx.TimeoutException:
-        elapsed = time.time() - start_time
-        response_time = elapsed * 1000
-        return (
-            Status.CRITICAL,
-            f"Connection timed out - {url} - {response_time:.2f}ms",
-            None,
-        )
-    except httpx.RequestError as exc:
-        elapsed = time.time() - start_time
-        response_time = elapsed * 1000
-        return (
-            Status.CRITICAL,
-            f"Request error: {exc} - {url} - {response_time:.2f}ms",
-            None,
-        )
-    except OSError as exc:  # pragma: no cover - defensive
-        elapsed = time.time() - start_time
-        response_time = elapsed * 1000
-        return (
-            Status.UNKNOWN,
-            f"OS error: {exc} - {url} - {response_time:.2f}ms",
-            None,
-        )
 
 
 def parse_size_string(size_str: str) -> int:

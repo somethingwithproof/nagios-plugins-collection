@@ -18,12 +18,13 @@ Returns:
 """
 
 import argparse
-import asyncio
 import json
 import logging
 
+import httpx
+
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
-from nagios_plugins.utils import check_http_endpoint_async
+from nagios_plugins.services import http
 
 logger = logging.getLogger("check_mongodb_health")
 
@@ -43,6 +44,7 @@ class MongoHealthChecker:
         url: str,
         mode: int = 1,
         timeout: int = 10,
+        settings: http.HttpSettings | None = None,
     ):
         """Initialize the MongoDB health checker.
 
@@ -50,10 +52,12 @@ class MongoHealthChecker:
             url: URL of the MongoDB health endpoint
             mode: Check mode (1, 2, or 3) determining which checks to verify
             timeout: Request timeout in seconds
+            settings: Shared HTTP options (TLS, authentication, retries)
         """
         self.url = url
         self.mode = mode
         self.timeout = timeout
+        self.settings = settings or http.HttpSettings(timeout=timeout)
 
         # Validate mode
         if mode not in self.MODE_CHECKS:
@@ -74,22 +78,26 @@ class MongoHealthChecker:
             else:
                 normalized_url = self.url
 
-            # Get health status using HTTP endpoint check utility
-            async with asyncio.timeout(self.timeout):
-                status, message, response_data = await check_http_endpoint_async(url=normalized_url)
-
-            # Create metrics dictionary
             metrics = {
                 "engine_alive": 0,
                 "check_count": 0,
                 "passing_checks": 0,
             }
-
-            # Handle connection failures
-            if status != Status.OK or not response_data:
+            try:
+                async with http.async_client(self.settings, follow_redirects=True) as client:
+                    response = await client.get(normalized_url)
+                response.raise_for_status()
+                response_data = response.json()
+            except httpx.HTTPError as error:
+                problem = http.describe_error(error)
+            except ValueError:
+                problem = "response is not JSON"
+            else:
+                problem = "" if isinstance(response_data, dict) and response_data else "no data"
+            if problem:
                 return CheckResult(
                     Status.CRITICAL,
-                    f"Error connecting to MongoDB health endpoint: {message}",
+                    f"Error connecting to MongoDB health endpoint: {problem}",
                     metrics=metrics,
                 )
 
@@ -133,10 +141,6 @@ class MongoHealthChecker:
                 details=json.dumps(response_data, indent=2),
             )
 
-        except TimeoutError:
-            return CheckResult(
-                Status.CRITICAL, "MongoDB health request timed out", metrics={"error": 1}
-            )
         except Exception as e:
             logger.exception("Error checking MongoDB health")
             return CheckResult(
@@ -164,10 +168,16 @@ class CheckMongodbHealth(AsyncNagiosPlugin):
             choices=[1, 2, 3],
             help="Check mode: 1=Migrations+Search, 2=Search+API, 3=Migrations+Search (default: 1)",
         )
+        http.add_http_arguments(self.parser, env_prefix="CHECK_MONGODB_HEALTH")
 
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Check the configured MongoDB health endpoint."""
-        return await MongoHealthChecker(url=args.url, mode=args.mode, timeout=args.timeout).check()
+        return await MongoHealthChecker(
+            url=args.url,
+            mode=args.mode,
+            timeout=args.timeout,
+            settings=http.HttpSettings.from_args(args),
+        ).check()
 
 
 def main() -> int:

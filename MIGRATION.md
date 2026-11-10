@@ -18,23 +18,23 @@ compatibility; omitting it no longer disables verification. For an internal CA,
 use `--ca-file /path/to/ca.pem`. Keep endpoint hostnames consistent with the
 certificate SAN. An expired, untrusted or mismatched certificate fails the check.
 
-Async utility functions no longer accept a `timeout` argument. Apply a caller
-deadline instead:
+`nagios_plugins.utils.check_http_endpoint` and `check_http_endpoint_async` were
+removed. Build clients with `nagios_plugins.services.http.client()` or
+`async_client()`, which apply the shared TLS, credential, retry, proxy and
+User-Agent policy, and register the options with `add_http_arguments()`:
 
 ```python
-import asyncio
-from nagios_plugins.utils import check_http_endpoint_async
+from nagios_plugins.services import http
 
-
-async def check_endpoint():
-    async with asyncio.timeout(10):
-        return await check_http_endpoint_async("https://example.com")
+settings = http.HttpSettings(timeout=10, bearer_token=token)
+with http.client(settings) as client:
+    response = client.get("https://example.com/health")
 ```
 
-Use the same pattern for `execute_command_async`; cancellation terminates and
-reaps its child process. HTTP utilities also impose a 30-second transport ceiling.
-CLI `--timeout` continues to bound each check. Catch `TimeoutError` when directly
-calling the utilities; plugin wrappers translate deadlines into Nagios results.
+`execute_command_async` no longer accepts a `timeout` argument; wrap it in
+`asyncio.timeout()`. Cancellation terminates and reaps its child process. CLI
+`--timeout` bounds the whole run (see the usage guide); catch `TimeoutError` when
+calling utilities directly.
 
 HTTP SLI thresholds are **milliseconds** (`--warning 200 --critical 500`), while
 website-status thresholds are seconds (`--warning 1 --critical 2`). All failed

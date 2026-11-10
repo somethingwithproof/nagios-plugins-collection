@@ -26,6 +26,7 @@ from typing import Any
 import httpx
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, PerfData, Status, format_number
+from nagios_plugins.services import http
 
 logger = logging.getLogger("check_hadoop")
 
@@ -38,6 +39,7 @@ class HadoopClusterChecker:
         url: str,
         max_update_minutes: int | None = None,
         timeout: int = 30,
+        settings: http.HttpSettings | None = None,
     ):
         """Initialize the Hadoop cluster health checker.
 
@@ -45,10 +47,13 @@ class HadoopClusterChecker:
             url: URL to the Hadoop cluster status API
             max_update_minutes: Maximum allowed minutes since last component update
             timeout: HTTP request timeout in seconds
+            settings: Shared HTTP options (TLS, authentication, retries); defaults
+                to verified TLS with no authentication or retries
         """
         self.url = url
         self.max_update_minutes = max_update_minutes
         self.timeout = timeout
+        self.settings = settings or http.HttpSettings(timeout=timeout)
 
     def _component_age(self, component: dict[str, Any], now: datetime) -> int | None:
         """Return update age when a freshness limit and timestamp are available."""
@@ -111,7 +116,7 @@ class HadoopClusterChecker:
         """
         try:
             # Make request to the Hadoop API
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with http.async_client(self.settings) as client:
                 response = await client.get(self.url)
                 response.raise_for_status()
 
@@ -159,7 +164,7 @@ class HadoopClusterChecker:
             logger.exception("HTTP request failed")
             return CheckResult(
                 Status.CRITICAL,
-                f"Failed to connect to Hadoop API: {str(e)}",
+                f"Failed to connect to Hadoop API: {http.describe_error(e)}",
                 metrics={"status": 0},
             )
         except json.JSONDecodeError as e:
@@ -194,6 +199,7 @@ class CheckHadoop(AsyncNagiosPlugin):
             type=int,
             help="Maximum allowed minutes since last component update",
         )
+        http.add_http_arguments(self.parser, env_prefix="CHECK_HADOOP")
 
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Check the configured Hadoop cluster."""
@@ -201,6 +207,7 @@ class CheckHadoop(AsyncNagiosPlugin):
             url=args.url,
             max_update_minutes=args.max_update_minutes,
             timeout=args.timeout,
+            settings=http.HttpSettings.from_args(args),
         ).check_cluster()
 
 

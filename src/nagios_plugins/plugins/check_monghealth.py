@@ -28,6 +28,7 @@ from typing import Any
 import httpx
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
+from nagios_plugins.services import http
 
 logger = logging.getLogger("check_monghealth")
 
@@ -43,6 +44,7 @@ class MongoHealthChecker:
         username: str | None = None,
         password: str | None = None,
         ssl: bool = False,
+        settings: http.HttpSettings | None = None,
     ):
         """Initialize the MongoDB health checker.
 
@@ -53,6 +55,8 @@ class MongoHealthChecker:
             username: MongoDB username
             password: MongoDB password
             ssl: Whether to use SSL
+            settings: Shared HTTP options; overrides ``timeout``, ``username`` and
+                ``password`` when given
         """
         self.host = host
         self.port = port
@@ -65,10 +69,9 @@ class MongoHealthChecker:
         protocol = "https" if ssl else "http"
         self.base_url = f"{protocol}://{host}:{port}"
 
-        # Set up authentication
-        self.auth = None
-        if username and password:
-            self.auth = (username, password)
+        self.settings = settings or http.HttpSettings(
+            timeout=timeout, username=username if password else None, password=password
+        )
 
     async def check_engine_status(self) -> tuple[bool, dict[str, Any]]:
         """Check the MongoDB engine status.
@@ -78,7 +81,7 @@ class MongoHealthChecker:
         """
         url = f"{self.base_url}/api/status"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout, auth=self.auth) as client:
+            async with http.async_client(self.settings) as client:
                 response = await client.get(url)
                 response.raise_for_status()
 
@@ -168,10 +171,6 @@ class CheckMonghealth(AsyncNagiosPlugin):
         self.parser.add_argument(
             "--port", type=int, default=27017, help="MongoDB port (default: 27017)"
         )
-        self.parser.add_argument("--username", help="MongoDB username")
-        self.parser.add_secret_argument(
-            "--password", env="CHECK_MONGHEALTH_PASSWORD", help="MongoDB password"
-        )
         self.parser.add_argument("--ssl", action="store_true", help="Use SSL")
         self.parser.add_argument(
             "--mode",
@@ -180,6 +179,8 @@ class CheckMonghealth(AsyncNagiosPlugin):
             default=1,
             help="Check mode (1: basic, 2: extended, 3: full; default: 1)",
         )
+        # --username/--password keep their names and $CHECK_MONGHEALTH_PASSWORD.
+        http.add_http_arguments(self.parser, env_prefix="CHECK_MONGHEALTH")
 
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Check the MongoDB status API for the components of the selected mode."""
@@ -190,6 +191,7 @@ class CheckMonghealth(AsyncNagiosPlugin):
             username=args.username,
             password=args.password,
             ssl=args.ssl,
+            settings=http.HttpSettings.from_args(args),
         )
         return await checker.check_components(CHECK_MODES[args.mode])
 

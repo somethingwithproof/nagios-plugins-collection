@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 
 from nagios_plugins.base import CheckResult, NagiosPlugin, PerfData, Status, threshold_check
-from nagios_plugins.services.http_tls import add_tls_arguments, tls_verification
+from nagios_plugins.services import http
 
 
 class CheckPrometheusQuery(NagiosPlugin):
@@ -22,15 +22,13 @@ class CheckPrometheusQuery(NagiosPlugin):
         super().__init__()
         self.parser.add_argument("--server", required=True, help="Prometheus base URL")
         self.parser.add_argument("--query", required=True, help="PromQL query returning a scalar")
-        add_tls_arguments(self.parser)
+        http.add_http_arguments(self.parser, env_prefix="CHECK_PROMETHEUS_QUERY")
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
         url = f"{args.server.rstrip('/')}/api/v1/query"
         try:
-            with httpx.Client(
-                timeout=args.timeout, verify=tls_verification(args.ca_file)
-            ) as client:
+            with http.client(args) as client:
                 r = client.get(url, params={"query": args.query})
             r.raise_for_status()
             data = r.json()
@@ -43,7 +41,7 @@ class CheckPrometheusQuery(NagiosPlugin):
             perf = PerfData(value, warning=args.warning, critical=args.critical)
             return CheckResult(status, f"PromQL {args.query}={value}", metrics={"value": perf})
         except httpx.HTTPError as e:
-            return CheckResult(Status.CRITICAL, f"HTTP error: {e}")
+            return CheckResult(Status.CRITICAL, f"HTTP error: {http.describe_error(e)}")
         except Exception as e:  # pragma: no cover
             return CheckResult(Status.UNKNOWN, f"Error: {e}")
 

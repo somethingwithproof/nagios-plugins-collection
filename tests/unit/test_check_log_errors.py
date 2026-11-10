@@ -2,30 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 """Tests for the Elasticsearch/OpenSearch error-count plugin."""
 
-from unittest.mock import patch
+import json
 
+import httpx
 import pytest
 
 from nagios_plugins.base import Status
 from nagios_plugins.plugins.check_log_errors import CheckLogErrors
+from tests.fakes import FakeHttpBackend
 
 
-def _run_with_body(body: object) -> int:
-    with patch("httpx.Client") as mock_client:
-        response = mock_client.return_value.__enter__.return_value.post.return_value
-        response.json.return_value = body
-        response.raise_for_status.return_value = None
-        return CheckLogErrors().run(
-            ["--endpoint", "http://es:9200", "--index", "logs", "-w", "1", "-c", "10"]
-        )
+def _run_with_body(backend: FakeHttpBackend, body: object) -> int:
+    backend.reply(httpx.Response(200, json=body))
+    return CheckLogErrors().run(
+        ["--endpoint", "http://es:9200", "--index", "logs", "-w", "1", "-c", "10"]
+    )
 
 
 @pytest.mark.parametrize(
     "body", [{}, {"hits": {}}, {"hits": {"total": {}}}, {"hits": {"total": "5"}}, []]
 )
-def test_missing_hit_count_is_unknown(body: object) -> None:
+def test_missing_hit_count_is_unknown(http_backend: FakeHttpBackend, body: object) -> None:
     """A response without a hit count is missing data, not zero errors."""
-    assert _run_with_body(body) == Status.UNKNOWN.value
+    assert _run_with_body(http_backend, body) == Status.UNKNOWN.value
 
 
 @pytest.mark.parametrize(
@@ -36,6 +35,20 @@ def test_missing_hit_count_is_unknown(body: object) -> None:
         ({"hits": {"total": 25}}, Status.CRITICAL),
     ],
 )
-def test_hit_counts_from_es7_objects_and_es6_integers(body: object, expected: Status) -> None:
+def test_hit_counts_from_es7_objects_and_es6_integers(
+    http_backend: FakeHttpBackend, body: object, expected: Status
+) -> None:
     """Both total formats are thresholded."""
-    assert _run_with_body(body) == expected.value
+    assert _run_with_body(http_backend, body) == expected.value
+    (request,) = http_backend.requests
+    assert request.method == "POST"
+    assert request.url.path == "/logs/_search"
+    assert "query" in json.loads(request.content)
+
+
+def test_search_post_is_not_retried(http_backend: FakeHttpBackend) -> None:
+    """A gateway error on POST is reported, not repeated: POST is not idempotent."""
+    http_backend.reply(httpx.Response(503))
+    code = CheckLogErrors().run(["--endpoint", "http://es:9200", "--index", "logs"])
+    assert code == Status.CRITICAL.value
+    assert len(http_backend.requests) == 1

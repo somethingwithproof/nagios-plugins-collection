@@ -1,33 +1,26 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2025 Thomas Vincent
 # SPDX-License-Identifier: Apache-2.0
-"""Simple website status checker used in unit tests.
-
-The original project contains a much more feature rich implementation that is
-integrated with a plugin framework.  For the purposes of the kata we only need a
-light‑weight class that can be instantiated directly and whose behaviour is easy
-to mock in tests.
-"""
+"""Check a website's HTTP status, optional content pattern and response time."""
 
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
 import re
-from pathlib import Path
 from typing import Any
 
 import httpx
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status
+from nagios_plugins.services import http
 
 # Module level logger so tests can patch it
 logger = logging.getLogger(__name__)
 
 
 class WebsiteStatusChecker:
-    """Perform a simple HTTP check on a web site."""
+    """Perform one HTTP check on a web site through the shared HTTP client."""
 
     def __init__(
         self,
@@ -39,13 +32,13 @@ class WebsiteStatusChecker:
         method: str = "GET",
         headers: dict[str, str] | None = None,
         body: str | dict[str, Any] | None = None,
-        auth: tuple[str, str] | None = None,
-        retries: int = 0,
-        retry_delay: float = 1.0,
-        verbose: bool = False,
-        log_file: str | Path | None = None,
+        settings: http.HttpSettings | None = None,
     ) -> None:
-        """Configure HTTP request, retry and latency settings."""
+        """Configure the request and latency thresholds.
+
+        ``settings`` carries TLS, authentication and retry options; without it
+        the request uses verified TLS, no authentication and no retries.
+        """
         self.url = url
         self.pattern = pattern
         self.timeout = timeout
@@ -54,37 +47,21 @@ class WebsiteStatusChecker:
         self.method = method.upper()
         self.headers = headers or {}
         self.body = body
-        self.auth = auth
-        self.retries = retries
-        self.retry_delay = retry_delay
-        self.verbose = verbose
-
-        # Setup file logging if requested
-        if log_file:
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(
-                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            )
-            logger.addHandler(file_handler)
-            if verbose:
-                logger.setLevel(logging.DEBUG)
+        self.settings = settings or http.HttpSettings(timeout=timeout)
 
     async def _request(self) -> httpx.Response:
-        """Send one request with the configured body and verified TLS defaults."""
+        """Send the request with the configured body and headers."""
         kwargs: dict[str, Any] = {"headers": self.headers}
         if self.body is not None:
             kwargs["json" if isinstance(self.body, dict) else "content"] = self.body
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True, auth=self.auth
-        ) as client:
+        async with http.async_client(self.settings, follow_redirects=True) as client:
             return await client.request(self.method, self.url, **kwargs)
 
     def _response_result(self, response: httpx.Response) -> CheckResult:
         """Classify HTTP status, optional content and latency independently."""
         duration = response.elapsed.total_seconds()
         metrics = {"status_code": response.status_code, "duration": duration}
-        if self.verbose:
-            logger.debug("Response: %s in %.3fs", response.status_code, duration)
+        logger.debug("Response: %s in %.3fs", response.status_code, duration)
         if self.pattern is not None:
             metrics["pattern_found"] = int(bool(re.search(self.pattern, response.text)))
         if response.status_code != 200:
@@ -103,36 +80,20 @@ class WebsiteStatusChecker:
             )
         return CheckResult(Status.OK, f"Website OK - {duration:.1f}s", metrics)
 
-    def _error_result(self, error: Exception) -> CheckResult:
-        """Translate a terminal request failure into a Nagios result."""
-        if isinstance(error, httpx.TimeoutException):
+    async def check_website(self) -> CheckResult:
+        """Request the site once (the shared client retries transient failures)."""
+        try:
+            return self._response_result(await self._request())
+        except httpx.TimeoutException:
             return CheckResult(
                 Status.CRITICAL, "Website check timed out", {"duration": self.timeout}
             )
-        if isinstance(error, httpx.HTTPError):
-            return CheckResult(Status.CRITICAL, f"HTTP error: {error}", {"duration": 0})
-        return CheckResult(Status.UNKNOWN, f"Unexpected error: {error}", {"duration": 0})
-
-    async def check_website(self) -> CheckResult:
-        """Retry transport errors, preserving response status and latency semantics."""
-        if self.retries < 0:
-            return CheckResult(Status.UNKNOWN, "Retries must not be negative", {"duration": 0})
-        for attempt in range(self.retries + 1):
-            try:
-                if self.verbose:
-                    logger.debug(
-                        "Attempt %s/%s: %s %s", attempt + 1, self.retries + 1, self.method, self.url
-                    )
-                return self._response_result(await self._request())
-            except re.error as error:
-                return self._error_result(error)
-            except Exception as error:
-                if self.verbose:
-                    logger.exception("Website attempt %s failed", attempt + 1)
-                if attempt == self.retries:
-                    return self._error_result(error)
-                await asyncio.sleep(self.retry_delay)
-        raise RuntimeError("Website retry loop terminated unexpectedly")
+        except httpx.HTTPError as error:
+            return CheckResult(
+                Status.CRITICAL, f"HTTP error: {http.describe_error(error)}", {"duration": 0}
+            )
+        except re.error as error:
+            return CheckResult(Status.UNKNOWN, f"Invalid --pattern: {error}", {"duration": 0})
 
 
 class CheckWebsiteStatus(AsyncNagiosPlugin):
@@ -144,8 +105,9 @@ class CheckWebsiteStatus(AsyncNagiosPlugin):
         self.parser.add_argument("--url", required=True)
         self.parser.add_argument("--pattern")
         self.parser.add_argument("--method", choices=["GET", "HEAD", "POST"], default="GET")
-        self.parser.add_argument("--retries", type=int, default=0)
-        self.parser.add_argument("--retry-delay", type=float, default=1.0)
+        http.add_http_arguments(
+            self.parser, env_prefix="CHECK_WEBSITE_STATUS", retries=0, retry_delay=1.0
+        )
 
     async def check_async(self, args: argparse.Namespace) -> CheckResult:
         """Evaluate the configured check and return status and performance data."""
@@ -156,9 +118,7 @@ class CheckWebsiteStatus(AsyncNagiosPlugin):
             warning_threshold=float(args.warning) if args.warning is not None else 1.0,
             critical_threshold=float(args.critical) if args.critical is not None else 2.0,
             method=args.method,
-            retries=args.retries,
-            retry_delay=args.retry_delay,
-            verbose=bool(args.verbose),
+            settings=http.HttpSettings.from_args(args),
         )
         return await checker.check_website()
 

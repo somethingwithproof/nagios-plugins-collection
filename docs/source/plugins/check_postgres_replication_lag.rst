@@ -35,4 +35,5 @@ Installed command options
      --json                Output results in JSON format
      --dsn DSN             PostgreSQL DSN for primary (visible in the process
                            list; prefer --dsn-file or $CHECK_POSTGRES_DSN)
-     --dsn-file PATH       Read PostgreSQL DSN for primary from PATH
+     --dsn-file PATH       Read PostgreSQL DSN for primary from PATH (or the file
+                           named by $CHECK_POSTGRES_DSN_FILE)

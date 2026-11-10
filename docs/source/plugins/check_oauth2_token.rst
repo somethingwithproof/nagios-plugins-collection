@@ -19,7 +19,9 @@ Installed command options
    usage: check_oauth2_token [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
                              [--json] --token-url TOKEN_URL --client-id CLIENT_ID
                              [--client-secret CLIENT_SECRET | --client-secret-file PATH]
-                             [--scope SCOPE] [--ca-file CA_FILE]
+                             [--scope SCOPE] [--ca-file PATH] [--insecure]
+                             [--client-cert PATH] [--client-key PATH]
+                             [--retries RETRIES] [--retry-delay SECONDS]
 
    Obtain an OAuth2 token and report time-to-expiry; validate scopes if provided.
 
@@ -41,6 +43,22 @@ Installed command options
                            prefer --client-secret-file or
                            $CHECK_OAUTH2_CLIENT_SECRET)
      --client-secret-file PATH
-                           Read OAuth2 client secret from PATH
+                           Read OAuth2 client secret from PATH (or the file named
+                           by $CHECK_OAUTH2_CLIENT_SECRET_FILE)
      --scope SCOPE
-     --ca-file CA_FILE     PEM CA bundle; defaults to system trust
+
+   TLS:
+     --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store
+                           or $SSL_CERT_FILE)
+     --insecure            Do not verify TLS certificates or hostnames (for
+                           testing; prefer --ca-file)
+     --client-cert PATH    PEM client certificate for mutual TLS
+     --client-key PATH     PEM private key for --client-cert (when not in the
+                           same file)
+
+   HTTP retries:
+     --retries RETRIES     Retries for transient failures within --timeout
+                           (default: 2)
+     --retry-delay SECONDS
+                           First retry pause, doubled for each retry (default:
+                           0.5)

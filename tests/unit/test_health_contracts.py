@@ -3,7 +3,6 @@
 """Validate health schemas, freshness thresholds and monitoring failures."""
 
 import datetime as dt
-from unittest.mock import patch
 
 import httpx
 import pytest
@@ -13,6 +12,7 @@ from nagios_plugins.plugins.check_component_status import ComponentStatusChecker
 from nagios_plugins.plugins.check_jobs import JobStatusChecker
 from nagios_plugins.plugins.check_monghealth import MongoHealthChecker as LegacyMongoHealthChecker
 from nagios_plugins.plugins.check_mongodb_health import MongoHealthChecker
+from tests.fakes import serve_http
 
 
 @pytest.mark.asyncio
@@ -27,15 +27,12 @@ from nagios_plugins.plugins.check_mongodb_health import MongoHealthChecker
 )
 async def test_component_freshness(state: str, age: int, expected: Status) -> None:
     updated = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=age)
-    client_type = httpx.AsyncClient
     transport = httpx.MockTransport(
         lambda request: httpx.Response(
             200, json={"status": state, "updated": updated.isoformat(), "response_time": 3}
         )
     )
-    with patch(
-        "httpx.AsyncClient", side_effect=lambda **kwargs: client_type(transport=transport, **kwargs)
-    ):
+    with serve_http(transport.handle_request):
         result = await ComponentStatusChecker("https://monitor.example", ["database"]).check()
     assert result.status == expected
     assert result.metrics["total_components"] == 1
@@ -44,10 +41,8 @@ async def test_component_freshness(state: str, age: int, expected: Status) -> No
 @pytest.mark.asyncio
 @pytest.mark.parametrize("response_status", [500, 404])
 async def test_component_api_failure(response_status: int) -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(response_status))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(response_status))
+    with serve_http(transport.handle_request):
         result = await ComponentStatusChecker("monitor.example", ["database"]).check()
     assert result.status == Status.CRITICAL
 
@@ -69,10 +64,8 @@ async def test_component_api_failure(response_status: int) -> None:
     ],
 )
 async def test_job_health(payload: dict, expected: Status) -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    with serve_http(transport.handle_request):
         result = await JobStatusChecker("https://monitor.example/jobs").check_jobs()
     assert result.status == expected
 
@@ -80,10 +73,8 @@ async def test_job_health(payload: dict, expected: Status) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("status,body", [(503, "offline"), (200, "invalid json")])
 async def test_job_health_api_failure(status: int, body: str) -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(status, text=body))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(status, text=body))
+    with serve_http(transport.handle_request):
         result = await JobStatusChecker("https://monitor.example/jobs").check_jobs()
     assert result.status == Status.UNKNOWN
 
@@ -95,10 +86,8 @@ async def test_job_health_api_failure(status: int, body: str) -> None:
 )
 async def test_mongodb_health_api(alive: bool, search: bool, expected: Status) -> None:
     payload = {"alive": alive, "search_reachable": search, "site_api_reachable": True}
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    with serve_http(transport.handle_request):
         result = await MongoHealthChecker("https://monitor.example/health", mode=2).check()
     assert result.status == expected
     assert result.metrics["engine_alive"] == int(alive)
@@ -120,10 +109,8 @@ def test_invalid_mongodb_mode() -> None:
     ],
 )
 async def test_legacy_mongodb_components(payload: dict, expected: Status) -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    with serve_http(transport.handle_request):
         result = await LegacyMongoHealthChecker("monitor.example", ssl=True).check_components(
             [("search", True)]
         )
@@ -134,14 +121,10 @@ async def test_legacy_mongodb_components(payload: dict, expected: Status) -> Non
 @pytest.mark.parametrize(("state", "age"), [("error", 0), ("ok", 15), ("ok", 0)])
 async def test_component_status_line_has_one_status_prefix(state: str, age: int) -> None:
     updated = dt.datetime.now(dt.UTC) - dt.timedelta(minutes=age)
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(
-                200, json={"status": state, "updated": updated.isoformat()}
-            )
-        )
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"status": state, "updated": updated.isoformat()})
     )
-    with patch("httpx.AsyncClient", return_value=client):
+    with serve_http(transport.handle_request):
         result = await ComponentStatusChecker("https://monitor.example", ["database"]).check()
     line = str(result).splitlines()[0]
     assert line.startswith(f"{result.status} - ")
@@ -158,10 +141,8 @@ async def test_component_status_line_has_one_status_prefix(state: str, age: int)
     ],
 )
 async def test_mongodb_status_line_has_one_status_prefix(payload: dict) -> None:
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
-    )
-    with patch("httpx.AsyncClient", return_value=client):
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+    with serve_http(transport.handle_request):
         result = await MongoHealthChecker("https://monitor.example/health", mode=2).check()
     line = str(result).splitlines()[0]
     assert not line.startswith(f"{result.status} - {result.status}")

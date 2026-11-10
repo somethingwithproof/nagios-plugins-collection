@@ -7,6 +7,31 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Unreleased
 
+- **Breaking:** every HTTP check now uses one shared client
+  (`nagios_plugins.services.http`); see "HTTP Options" in the usage guide.
+  All of them accept `--ca-file`, `--insecure`, `--client-cert`/`--client-key`,
+  `--retries`/`--retry-delay`, and `--username`/`--password`,
+  `--bearer-token` and `--api-key`/`--api-key-header`, each secret with a
+  `-file` option, a `CHECK_<COMMAND>_<NAME>` variable and a `*_FILE` variable.
+  Every secret option, including the existing `--client-secret` and
+  `--password`, now also reads the file named by its variable plus `_FILE`.
+  Credentials are sent only to the requested origin: redirects to another
+  scheme, host or port drop them, and an HTTPS to HTTP redirect with
+  credentials configured is CRITICAL. Transient failures are retried within
+  `--timeout` (2 retries by default; `POST` only when the connection was never
+  made; none for `check_website_status` unless `--retries` is given, and none
+  for `check_http_sli`). Proxy variables are honored, requests send a
+  versioned User-Agent, and HTTP errors name the URL without credentials or
+  query string. `check_website_status --retry-delay` is now the first pause
+  and doubles for each further retry (capped at 5 seconds), and only transient
+  failures are retried. `--password` without `--username`, `--bearer-token` with
+  `--username`, `--insecure` with `--ca-file` and `--client-key` without
+  `--client-cert` are usage errors (exit 3); `check_monghealth --password`
+  without `--username` previously sent no credentials. Library callers:
+  `nagios_plugins.utils.check_http_endpoint`, `check_http_endpoint_async` and
+  `nagios_plugins.services.http_tls` are removed in favor of
+  `nagios_plugins.services.http`, and `WebsiteStatusChecker` takes a
+  `settings` argument instead of `retries`.
 - `--timeout` now bounds the whole run of every plugin. One second after it
   the run ends with `UNKNOWN - Plugin timed out after N seconds` (or the JSON
   equivalent) and exit 3, even while it waits on DNS resolution, a TCP

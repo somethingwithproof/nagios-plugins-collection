@@ -42,4 +42,4 @@ Installed command options
                            in the process list; prefer --url-file or
                            $CHECK_REDIS_URL)
      --url-file PATH       Read Redis URL e.g. redis://:password@host:6379/0 from
-                           PATH
+                           PATH (or the file named by $CHECK_REDIS_URL_FILE)

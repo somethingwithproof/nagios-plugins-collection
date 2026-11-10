@@ -17,12 +17,13 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
-from nagios_plugins.services.http_tls import tls_verification
+from nagios_plugins.services.http import HttpSettings, client
 from nagios_plugins.services.tls import days_remaining, fetch_server_cert
 
 
-@pytest.fixture
-def tls_server(tmp_path: Path) -> Iterator[tuple[int, str]]:
+@pytest.fixture(params=[False], ids=["server-auth"])
+def tls_server(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[tuple[int, str, str]]:
+    """Serve HTTPS on localhost; with ``request.param`` true, require a client certificate."""
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
     now = dt.datetime.now(dt.UTC)
@@ -61,45 +62,48 @@ def tls_server(tmp_path: Path) -> Iterator[tuple[int, str]]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain(cert_path, key_path)
+    if request.param:
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.load_verify_locations(cert_path)
     server.socket = context.wrap_socket(server.socket, server_side=True)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        yield server.server_port, str(cert_path)
+        yield server.server_port, str(cert_path), str(key_path)
     finally:
         server.shutdown()
         server.server_close()
         thread.join()
 
 
-def test_default_trust_rejects_unknown_certificate(tls_server: tuple[int, str]) -> None:
-    port, _ = tls_server
+def test_default_trust_rejects_unknown_certificate(tls_server: tuple[int, str, str]) -> None:
+    port, _, _ = tls_server
     with (
-        httpx.Client(verify=tls_verification(), trust_env=False) as client,
+        client(HttpSettings(), trust_env=False) as http_client,
         pytest.raises(httpx.ConnectError, match="CERTIFICATE_VERIFY_FAILED"),
     ):
-        client.get(f"https://localhost:{port}")
+        http_client.get(f"https://localhost:{port}")
 
 
-def test_explicit_ca_allows_matching_hostname(tls_server: tuple[int, str]) -> None:
-    port, ca_file = tls_server
-    with httpx.Client(verify=tls_verification(ca_file), trust_env=False) as client:
-        response = client.get(f"https://localhost:{port}")
+def test_explicit_ca_allows_matching_hostname(tls_server: tuple[int, str, str]) -> None:
+    port, ca_file, _ = tls_server
+    with client(HttpSettings(ca_file=ca_file), trust_env=False) as http_client:
+        response = http_client.get(f"https://localhost:{port}")
     assert response.status_code == 200
     assert response.text == "trusted"
 
 
-def test_explicit_ca_still_rejects_wrong_hostname(tls_server: tuple[int, str]) -> None:
-    port, ca_file = tls_server
+def test_explicit_ca_still_rejects_wrong_hostname(tls_server: tuple[int, str, str]) -> None:
+    port, ca_file, _ = tls_server
     with (
-        httpx.Client(verify=tls_verification(ca_file), trust_env=False) as client,
+        client(HttpSettings(ca_file=ca_file), trust_env=False) as http_client,
         pytest.raises(httpx.ConnectError, match="CERTIFICATE_VERIFY_FAILED"),
     ):
-        client.get(f"https://127.0.0.1:{port}")
+        http_client.get(f"https://127.0.0.1:{port}")
 
 
-def test_verified_peer_certificate_metadata(tls_server: tuple[int, str]) -> None:
-    port, ca_file = tls_server
+def test_verified_peer_certificate_metadata(tls_server: tuple[int, str, str]) -> None:
+    port, ca_file, _ = tls_server
     context = ssl.create_default_context(cafile=ca_file)
     with patch("ssl.create_default_context", return_value=context):
         info = fetch_server_cert("localhost", port)
@@ -108,3 +112,23 @@ def test_verified_peer_certificate_metadata(tls_server: tuple[int, str]) -> None
     assert "localhost" in info.issuer
     assert days_remaining(info, now=info.not_after - dt.timedelta(days=5)) == 5
     assert days_remaining(info, now=info.not_after + dt.timedelta(days=1)) == 0
+
+
+def test_insecure_skips_verification(tls_server: tuple[int, str, str]) -> None:
+    port, _, _ = tls_server
+    with client(HttpSettings(insecure=True), trust_env=False) as http_client:
+        assert http_client.get(f"https://127.0.0.1:{port}").status_code == 200
+
+
+@pytest.mark.parametrize("tls_server", [True], ids=["mutual"], indirect=True)
+def test_client_certificate_is_presented(tls_server: tuple[int, str, str]) -> None:
+    port, ca_file, key_file = tls_server
+    url = f"https://localhost:{port}"
+    with (
+        client(HttpSettings(ca_file=ca_file), trust_env=False) as http_client,
+        pytest.raises(httpx.TransportError),
+    ):
+        http_client.get(url)
+    settings = HttpSettings(ca_file=ca_file, client_cert=ca_file, client_key=key_file)
+    with client(settings, trust_env=False) as http_client:
+        assert http_client.get(url).text == "trusted"
