@@ -11,8 +11,17 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   schedule: {{ .Values.schedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
   jobTemplate:
     spec:
+      {{- /* A non-zero exit is a WARNING/CRITICAL/UNKNOWN result, not a crash to retry. */}}
+      backoffLimit: {{ .Values.job.backoffLimit }}
+      activeDeadlineSeconds: {{ .Values.job.activeDeadlineSeconds }}
+      {{- with .Values.job.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ . }}
+      {{- end }}
       template:
         spec:
           serviceAccountName: {{ include "nagios-plugins-collection.serviceAccountName" . }}
@@ -21,13 +30,17 @@ spec:
           containers:
             - name: plugin
               securityContext: {{- toYaml .Values.securityContext | nindent 16 }}
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               command: {{ toJson .Values.command }}
               args: {{ toJson .Values.args }}
               env:
                 {{- range .Values.env }}
                 - name: {{ .name }}
+                  {{- if .valueFrom }}
+                  valueFrom: {{- toYaml .valueFrom | nindent 20 }}
+                  {{- else }}
                   value: {{ .value | quote }}
+                  {{- end }}
                 {{- end }}
               resources: {{- toYaml .Values.resources | nindent 16 }}
