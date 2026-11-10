@@ -16,8 +16,7 @@ Returns:
     0 (OK): All components are OK and recently updated
     1 (WARNING): Components are OK but not updated recently
     2 (CRITICAL): One or more components are in an error state
-    3 (UNKNOWN): A component has no valid ``updated`` timestamp, or an
-       unexpected error occurred during the check
+    3 (UNKNOWN): A component has no valid ``updated`` timestamp, or the check failed
 """
 
 import argparse
