@@ -6,7 +6,7 @@
 check_oauth2_token \- Obtain an OAuth2 token and report time\-to\-expiry; validate scopes if provided.
 .SH SYNOPSIS
 .B check_oauth2_token
-[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] \fB\-\-token\-url\fR \fITOKEN_URL\fR \fB\-\-client\-id\fR \fICLIENT_ID\fR [\fB\-\-client\-secret\-file\fR \fIPATH\fR] [\fB\-\-scope\fR \fISCOPE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR]
+[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] \fB\-\-token\-url\fR \fITOKEN_URL\fR \fB\-\-client\-id\fR \fICLIENT_ID\fR [\fB\-\-client\-secret\-file\fR \fIPATH\fR] [\fB\-\-scope\fR \fISCOPE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-max\-response\-bytes\fR \fIBYTES\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR]
 .SH DESCRIPTION
 \fBcheck_oauth2_token\fR prints one status line, with performance data after a
 \(lq|\(rq, and exits with the Nagios plugin status.
@@ -53,6 +53,9 @@ PEM client certificate for mutual TLS
 .TP
 \fB\-\-client\-key\fR \fIPATH\fR
 PEM private key for \-\-client\-cert (when not in the same file)
+.TP
+\fB\-\-max\-response\-bytes\fR \fIBYTES\fR
+Largest response body read, after decompression; a larger one is UNKNOWN (default: 10485760)
 .TP
 \fB\-\-retries\fR \fIRETRIES\fR
 Retries for transient failures within \-\-timeout (default: 2)

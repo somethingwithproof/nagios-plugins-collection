@@ -20,6 +20,9 @@ behave the same in every check:
   ``--timeout``. A connection that was never established is retried for any
   method; a response of 502/503/504 or an error after the request was sent is
   retried only for idempotent methods.
+* A response body is read up to ``--max-response-bytes`` (10 MiB by default,
+  after decompression); a larger one raises :class:`ResponseTooLarge`, which
+  the plugin runner reports as UNKNOWN.
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from nagios_plugins import __version__
-from nagios_plugins.base import NagiosArgumentParser
+from nagios_plugins.base import NagiosArgumentParser, UnknownResult
 from nagios_plugins.deadline import remaining_time
 from nagios_plugins.redaction import register_secret
 
@@ -54,6 +57,76 @@ _NOT_SENT = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
 MAX_BACKOFF = 5.0
 #: An attempt with less time than this left is not started.
 MIN_ATTEMPT = 0.5
+#: Default ``--max-response-bytes``: far above any status document a check reads.
+MAX_RESPONSE_BYTES = 10 * 1024 * 1024
+
+
+class ResponseTooLarge(UnknownResult):
+    """A response body exceeded the configured size; the answer cannot be judged."""
+
+    def __init__(self, url: httpx.URL, limit: int) -> None:
+        """Name the URL (without credentials or query) and the limit."""
+        super().__init__(
+            f"Response from {safe_url(url)} is larger than {limit} bytes "
+            "(raise --max-response-bytes if this is expected)"
+        )
+
+
+def _decoded_copy(response: httpx.Response, body: bytes) -> httpx.Response:
+    """Return an already-read copy of ``response`` holding the decoded ``body``."""
+    headers = httpx.Headers(response.headers)
+    headers.pop("content-encoding", None)
+    headers["content-length"] = str(len(body))
+    copy = httpx.Response(
+        response.status_code,
+        headers=headers,
+        content=body,
+        request=response.request,
+        extensions=response.extensions,
+        history=response.history,
+        default_encoding=response.default_encoding,
+    )
+    copy.elapsed = response.elapsed
+    copy.next_request = response.next_request
+    return copy
+
+
+def _check_size(response: httpx.Response, size: int, limit: int) -> None:
+    """Raise :class:`ResponseTooLarge` once ``size`` decoded bytes exceed ``limit``."""
+    if size > limit:
+        raise ResponseTooLarge(response.request.url, limit)
+
+
+def read_bounded(response: httpx.Response, limit: int) -> httpx.Response:
+    """Read a streamed response, decoding at most ``limit`` bytes, and close it.
+
+    Raises:
+        ResponseTooLarge: The decoded body is larger than ``limit``.
+    """
+    chunks: list[bytes] = []
+    size = 0
+    try:
+        for chunk in response.iter_bytes():
+            size += len(chunk)
+            _check_size(response, size, limit)
+            chunks.append(chunk)
+    finally:
+        response.close()
+    return _decoded_copy(response, b"".join(chunks))
+
+
+async def aread_bounded(response: httpx.Response, limit: int) -> httpx.Response:
+    """Asynchronous :func:`read_bounded`."""
+    chunks: list[bytes] = []
+    size = 0
+    try:
+        async for chunk in response.aiter_bytes():
+            size += len(chunk)
+            _check_size(response, size, limit)
+            chunks.append(chunk)
+    finally:
+        await response.aclose()
+    return _decoded_copy(response, b"".join(chunks))
 
 
 @dataclass(frozen=True)
@@ -241,22 +314,26 @@ class RetryingClient(httpx.Client):
     """An :class:`httpx.Client` with origin-bound credentials and a :class:`RetryPolicy`.
 
     Redirects are followed one hop at a time so :class:`OriginAuth` sees each.
+    Unless the caller streams, the body is read up to ``max_response_bytes``.
     """
 
-    def __init__(self, *, retry: RetryPolicy, **kwargs: Any) -> None:
+    def __init__(
+        self, *, retry: RetryPolicy, max_response_bytes: int = MAX_RESPONSE_BYTES, **kwargs: Any
+    ) -> None:
         """Create the client; ``kwargs`` are passed to :class:`httpx.Client`."""
         super().__init__(**kwargs)
         self.retry = retry
+        self.max_response_bytes = max_response_bytes
 
     def send(self, request: httpx.Request, **kwargs: Any) -> httpx.Response:
         """Send ``request`` and its redirects, retrying transient failures."""
+        stream = kwargs.pop("stream", False)
         hops = _hops(self, kwargs)
         while True:
             response = self._attempts(request, **kwargs)
             following = hops.next(request, response)
             if following is None:
-                return response
-            response.read()
+                return response if stream else read_bounded(response, self.max_response_bytes)
             response.close()
             request = following
 
@@ -267,7 +344,7 @@ class RetryingClient(httpx.Client):
         while True:
             _bounded_timeout(request, configured)
             try:
-                response = super().send(request, follow_redirects=False, **kwargs)
+                response = super().send(request, follow_redirects=False, stream=True, **kwargs)
             except httpx.TransportError as error:
                 if (delay := self.retry.next_pause(request, attempt, error=error)) is None:
                     raise
@@ -282,20 +359,25 @@ class RetryingClient(httpx.Client):
 class RetryingAsyncClient(httpx.AsyncClient):
     """An :class:`httpx.AsyncClient` with origin-bound credentials and a :class:`RetryPolicy`."""
 
-    def __init__(self, *, retry: RetryPolicy, **kwargs: Any) -> None:
+    def __init__(
+        self, *, retry: RetryPolicy, max_response_bytes: int = MAX_RESPONSE_BYTES, **kwargs: Any
+    ) -> None:
         """Create the client; ``kwargs`` are passed to :class:`httpx.AsyncClient`."""
         super().__init__(**kwargs)
         self.retry = retry
+        self.max_response_bytes = max_response_bytes
 
     async def send(self, request: httpx.Request, **kwargs: Any) -> httpx.Response:
         """Send ``request`` and its redirects, retrying transient failures."""
+        stream = kwargs.pop("stream", False)
         hops = _hops(self, kwargs)
         while True:
             response = await self._attempts(request, **kwargs)
             following = hops.next(request, response)
             if following is None:
-                return response
-            await response.aread()
+                if stream:
+                    return response
+                return await aread_bounded(response, self.max_response_bytes)
             await response.aclose()
             request = following
 
@@ -306,7 +388,9 @@ class RetryingAsyncClient(httpx.AsyncClient):
         while True:
             _bounded_timeout(request, configured)
             try:
-                response = await super().send(request, follow_redirects=False, **kwargs)
+                response = await super().send(
+                    request, follow_redirects=False, stream=True, **kwargs
+                )
             except httpx.TransportError as error:
                 if (delay := self.retry.next_pause(request, attempt, error=error)) is None:
                     raise
@@ -334,6 +418,7 @@ class HttpSettings:
     api_key: str | None = None
     api_key_header: str = "X-API-Key"
     user_agent: str = f"nagios-plugins-collection/{__version__}"
+    max_response_bytes: int = MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
         """Mask the credentials in all output, however the settings were built."""
@@ -356,6 +441,7 @@ class HttpSettings:
             api_key=getattr(args, "api_key", None),
             api_key_header=getattr(args, "api_key_header", "X-API-Key"),
             user_agent=getattr(args, "http_user_agent", cls.user_agent),
+            max_response_bytes=getattr(args, "max_response_bytes", MAX_RESPONSE_BYTES),
         )
 
     def ssl_context(self) -> ssl.SSLContext:
@@ -399,13 +485,21 @@ def client(settings: HttpSettings | argparse.Namespace, **kwargs: Any) -> Retryi
     ``kwargs`` (for example ``follow_redirects=True``) override the defaults.
     """
     resolved = _settings(settings)
-    return RetryingClient(retry=resolved.retry, **{**resolved.client_options(), **kwargs})
+    return RetryingClient(
+        retry=resolved.retry,
+        max_response_bytes=resolved.max_response_bytes,
+        **{**resolved.client_options(), **kwargs},
+    )
 
 
 def async_client(settings: HttpSettings | argparse.Namespace, **kwargs: Any) -> RetryingAsyncClient:
     """Return an asynchronous client configured by ``settings`` or parsed options."""
     resolved = _settings(settings)
-    return RetryingAsyncClient(retry=resolved.retry, **{**resolved.client_options(), **kwargs})
+    return RetryingAsyncClient(
+        retry=resolved.retry,
+        max_response_bytes=resolved.max_response_bytes,
+        **{**resolved.client_options(), **kwargs},
+    )
 
 
 def _settings(settings: HttpSettings | argparse.Namespace) -> HttpSettings:
@@ -501,6 +595,14 @@ def add_http_arguments(
     """
     add_tls_arguments(parser)
     parser.set_defaults(http_user_agent=f"nagios-plugins-collection/{__version__} ({parser.prog})")
+    parser.add_argument(
+        "--max-response-bytes",
+        type=_positive_bytes,
+        default=MAX_RESPONSE_BYTES,
+        metavar="BYTES",
+        help="Largest response body read, after decompression; a larger one is UNKNOWN "
+        f"(default: {MAX_RESPONSE_BYTES})",
+    )
     if retries is not None:
         group = parser.add_argument_group("HTTP retries")
         group.add_argument(
@@ -519,6 +621,17 @@ def add_http_arguments(
         parser.add_validator(_check_retries)
     if auth:
         add_auth_arguments(parser, env_prefix)
+
+
+def _positive_bytes(text: str) -> int:
+    """Parse ``--max-response-bytes``: a whole number of bytes, at least 1."""
+    try:
+        value = int(text)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive number of bytes: {text!r}")
+    return value
 
 
 def _check_retries(args: argparse.Namespace) -> str | None:

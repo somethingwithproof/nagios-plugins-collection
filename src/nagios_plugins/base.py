@@ -33,6 +33,14 @@ _LOG_HANDLER_NAME = "nagios_plugins.stderr"
 _LOG_LEVELS = (logging.WARNING, logging.INFO, logging.DEBUG)
 
 
+class UnknownResult(Exception):
+    """Raise from a check to report UNKNOWN with this message and no traceback.
+
+    For conditions under which the answer cannot be judged, such as a response
+    too large to read; unexpected exceptions are still logged with traceback.
+    """
+
+
 class Status(Enum):
     """Nagios status codes."""
 
@@ -84,6 +92,18 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(value)
 
 
+#: Longest status message and long output written; Nagios Core 4 reads 64 KiB.
+MAX_MESSAGE_CHARS = 4096
+MAX_DETAILS_CHARS = 32768
+
+
+def truncate(text: str, limit: int) -> str:
+    """Return ``text`` cut to ``limit`` characters, saying how much was dropped."""
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]} [truncated {len(text) - limit} characters]"
+
+
 def single_line(text: str) -> str:
     """Collapse line breaks and remove the perfdata separator from status text."""
     return " ".join(text.replace("|", "/").splitlines())
@@ -93,7 +113,9 @@ def single_line(text: str) -> str:
 class PerfData:
     """One performance-data value with its optional unit, thresholds and bounds.
 
-    ``warning`` and ``critical`` are Nagios range strings, as passed to ``-w``/``-c``.
+    ``warning`` and ``critical`` are Nagios range strings, as passed to ``-w``/``-c``;
+    they are written in canonical form (``:10`` as ``~:10``, ``1e1`` as ``10``),
+    so perfdata parsers see plain positional numbers.
     """
 
     value: float
@@ -104,9 +126,17 @@ class PerfData:
     maximum: float | None = None
 
     def __post_init__(self) -> None:
-        """Reject units outside the Nagios Plugin Guidelines."""
+        """Reject units outside the Nagios Plugin Guidelines and normalize thresholds.
+
+        Raises:
+            ValueError: The unit is not allowed or a threshold is not a valid range.
+        """
         if self.uom not in PERFDATA_UOMS:
             raise ValueError(f"Invalid perfdata unit: {self.uom!r}")
+        for name in ("warning", "critical"):
+            threshold = getattr(self, name)
+            if threshold is not None:
+                object.__setattr__(self, name, str(ThresholdRange.from_string(threshold)))
 
 
 def format_perfdata_label(label: str) -> str:
@@ -169,13 +199,16 @@ class CheckResult:
 
         The first line is always ``STATUS - message[ | perfdata]``; ``details``
         follow as long output with any ``|`` removed so they cannot start perfdata.
+        The message and details are cut to :data:`MAX_MESSAGE_CHARS` and
+        :data:`MAX_DETAILS_CHARS`.
         """
-        output = f"{self.status} - {single_line(redact(self.message))}"
+        message = truncate(single_line(redact(self.message)), MAX_MESSAGE_CHARS)
+        output = f"{self.status} - {message}"
         perfdata = format_perfdata(self.metrics)
         if perfdata:
             output += f" | {perfdata}"
         if self.details:
-            output += "\n" + redact(self.details).replace("|", "/")
+            output += "\n" + truncate(redact(self.details), MAX_DETAILS_CHARS).replace("|", "/")
         return output
 
     def to_json(self) -> str:
@@ -186,8 +219,9 @@ class CheckResult:
         """
         result_dict = asdict(self)
         result_dict["status"] = self.status.name
-        result_dict["message"] = redact(self.message)
-        result_dict["details"] = redact(self.details) if self.details else self.details
+        result_dict["message"] = truncate(redact(self.message), MAX_MESSAGE_CHARS)
+        if self.details:
+            result_dict["details"] = truncate(redact(self.details), MAX_DETAILS_CHARS)
         result_dict["metrics"] = {key: _json_metric(value) for key, value in self.metrics.items()}
         result_dict["timestamp"] = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(self.timestamp)
@@ -597,6 +631,8 @@ class NagiosPlugin(ABC):
         """Run :meth:`check`, reporting any unhandled exception as UNKNOWN."""
         try:
             return self.check(args)
+        except UnknownResult as e:
+            return CheckResult(Status.UNKNOWN, str(e))
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
             return CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
@@ -694,6 +730,8 @@ class ThresholdRange:
         inclusive = text.startswith("@")
         if inclusive:
             text = text[1:]
+            if not text.strip():
+                raise ValueError(f"Invalid threshold range, '@' needs a range: {threshold!r}")
 
         start, separator, end = text.partition(":")
         if not separator:
@@ -747,19 +785,21 @@ def most_severe(*statuses: Status) -> Status:
 
 
 def nagios_range(value: str) -> str:
-    """Accept a well-formed Nagios range for an option and return it unchanged.
+    """Accept a well-formed Nagios range for an option and return it in canonical form.
 
     A malformed threshold is a configuration error, so it is rejected while
-    parsing (exit 3) instead of surfacing after the check has run.
+    parsing (exit 3) instead of surfacing after the check has run. The value
+    is returned as :class:`ThresholdRange` writes it (``:10`` becomes ``~:10``
+    and ``1e1`` becomes ``10``), so perfdata repeats it in valid syntax.
 
     Raises:
         argparse.ArgumentTypeError: If ``value`` is not a valid range.
     """
     try:
-        ThresholdRange.from_string(value)
+        parsed = ThresholdRange.from_string(value)
     except ValueError as error:
         raise argparse.ArgumentTypeError(f"invalid Nagios range {value!r}: {error}") from None
-    return value
+    return str(parsed)
 
 
 def threshold_check(

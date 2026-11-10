@@ -36,6 +36,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `nagios_plugins.services.http_tls` are removed in favor of
   `nagios_plugins.services.http`, and `WebsiteStatusChecker` takes a
   `settings` argument instead of `retries`.
+- HTTP checks read at most `--max-response-bytes` (10 MiB by default) of a
+  response body, after decompression, and report a larger one as UNKNOWN
+  instead of buffering it; `check_http_sli` counts it as a failed probe. Every
+  check cuts its status message to 4,096 and its long output to 32,768
+  characters, marked `[truncated N characters]`.
 - `--timeout` now bounds the whole run of every plugin. One second after it
   the run ends with `UNKNOWN - Plugin timed out after N seconds` (or the JSON
   equivalent) and exit 3, even while it waits on DNS resolution, a TCP
@@ -74,6 +79,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   tokens (a plain `300` alerts above 300), and with thresholds a response
   without `expires_in` is UNKNOWN. Perfdata carries the thresholds. Every
   other command either applies `-w`/`-c` or rejects them.
+- A bare `@` is no longer accepted as a range (it silently meant `@0:`,
+  alerting on every non-negative value); it is a usage error (exit 3), as is
+  a malformed `check_http_sli` `--latency-*`/`--error-rate-*` range. Ranges
+  are repeated in perfdata in canonical form: `:10` as `~:10` and `1e1` as
+  `10`.
 - A malformed `-w`/`-c` range is a usage error (exit 3) for every command whose
   thresholds are ranges, reported before the check contacts anything.
   Previously `check_dig` retried and reported CRITICAL, and other commands

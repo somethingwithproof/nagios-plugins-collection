@@ -22,7 +22,7 @@ Installed command options
                          [--error-rate-warning RANGE]
                          [--error-rate-critical RANGE] [--ca-file PATH]
                          [--insecure] [--client-cert PATH] [--client-key PATH]
-                         [--username USERNAME]
+                         [--max-response-bytes BYTES] [--username USERNAME]
                          [--password PASSWORD | --password-file PATH]
                          [--bearer-token BEARER_TOKEN | --bearer-token-file PATH]
                          [--api-key API_KEY | --api-key-file PATH]
@@ -56,6 +56,9 @@ Installed command options
      --error-rate-critical RANGE
                            Range for the fraction of failed requests (0-1) for
                            CRITICAL
+     --max-response-bytes BYTES
+                           Largest response body read, after decompression; a
+                           larger one is UNKNOWN (default: 10485760)
 
    TLS:
      --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store

@@ -25,6 +25,33 @@ tests:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
           value: ghcr.io/example/repo:v1
 
+  - it: pins the image by digest when one is given
+    set:
+      image:
+        repository: ghcr.io/example/repo
+        tag: v1
+        digest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: ghcr.io/example/repo@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+
+  - it: defaults the tag to the chart appVersion without a digest
+    chart:
+      appVersion: 9.9.9
+    asserts:
+      - equal:
+          path: spec.jobTemplate.spec.template.spec.containers[0].image
+          value: ghcr.io/somethingwithproof/nagios-plugins-collection:9.9.9
+
+  - it: rejects a malformed digest
+    set:
+      image:
+        digest: sha256:abc
+    asserts:
+      - failedTemplate:
+          errorPattern: "image.digest must be sha256: followed by 64 lowercase hex digits"
+
   - it: passes command and args
     set:
       command: ["check_website_status", "--url=https://example.com"]

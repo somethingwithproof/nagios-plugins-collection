@@ -20,8 +20,9 @@ Installed command options
                                [--json] --url URL [--pattern PATTERN]
                                [--method {GET,HEAD,POST}] [--ca-file PATH]
                                [--insecure] [--client-cert PATH]
-                               [--client-key PATH] [--retries RETRIES]
-                               [--retry-delay SECONDS] [--username USERNAME]
+                               [--client-key PATH] [--max-response-bytes BYTES]
+                               [--retries RETRIES] [--retry-delay SECONDS]
+                               [--username USERNAME]
                                [--password PASSWORD | --password-file PATH]
                                [--bearer-token BEARER_TOKEN | --bearer-token-file PATH]
                                [--api-key API_KEY | --api-key-file PATH]
@@ -48,6 +49,9 @@ Installed command options
      --url URL
      --pattern PATTERN
      --method {GET,HEAD,POST}
+     --max-response-bytes BYTES
+                           Largest response body read, after decompression; a
+                           larger one is UNKNOWN (default: 10485760)
 
    TLS:
      --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store
