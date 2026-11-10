@@ -56,8 +56,9 @@ dependencies, development tools and first-party source with uv:
    mise exec python@3.12 -- uv sync --locked --all-extras --python 3.12
    uv run check_website_status --help
 
-PyPI publishing is an explicit manual workflow and requires a configured PyPI
-credential. A GitHub release does not automatically publish to PyPI. Choose
+PyPI publishing is an explicit manual workflow that uses PyPI trusted
+publishing and must be enabled by a maintainer (see :doc:`releasing`). A GitHub
+release does not automatically publish to PyPI. Choose
 extras such as ``[aws]``, ``[dns]``, ``[k8s]``, ``[pg]`` and ``[redis]`` when
 installing a published Python distribution for those monitoring targets.
 
