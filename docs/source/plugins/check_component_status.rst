@@ -26,7 +26,8 @@ Installed command options
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
      -t TIMEOUT, --timeout TIMEOUT
-                           Timeout in seconds (default: 10)
+                           Timeout in seconds for the whole run (default: 10);
+                           the plugin exits UNKNOWN 1 second after it
      -w WARNING, --warning WARNING
                            Warning threshold in minutes for stale updates
                            (default: 10)

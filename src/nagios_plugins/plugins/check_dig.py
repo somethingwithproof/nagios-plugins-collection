@@ -28,9 +28,13 @@ import shlex
 import time
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status, threshold_check
+from nagios_plugins.deadline import remaining_time, track_child
 from nagios_plugins.utils import CommandResult
 
 logger = logging.getLogger("check_dig")
+
+#: Seconds between attempts; bounded by what is left of --timeout.
+RETRY_DELAY = 1.0
 
 
 class SSHDNSChecker:
@@ -63,7 +67,7 @@ class SSHDNSChecker:
             dig_arguments: Additional dig command arguments
             expected_address: Expected result from the DNS query
             timeout: Command timeout in seconds
-            retries: Number of retries on failure
+            retries: Number of attempts, bounded by the run's --timeout
             warning_threshold: Warning range for the query time in seconds
             critical_threshold: Critical range for the query time in seconds
         """
@@ -173,6 +177,10 @@ class SSHDNSChecker:
         last_error = None
 
         while attempt < self.retries:
+            budget = remaining_time()
+            if budget is not None and budget <= 0:
+                break
+            attempt_timeout = self.timeout if budget is None else min(self.timeout, budget)
             try:
                 # Build the commands
                 dig_cmd = self._build_dig_command()
@@ -180,7 +188,7 @@ class SSHDNSChecker:
 
                 # Measure execution time
                 start_time = time.time()
-                async with asyncio.timeout(self.timeout):
+                async with asyncio.timeout(attempt_timeout):
                     result = await execute_command_async(ssh_cmd)
                 duration = time.time() - start_time
 
@@ -195,17 +203,19 @@ class SSHDNSChecker:
 
             except Exception as e:
                 logger.exception("DNS attempt %s failed", attempt + 1)
-                last_error = str(e)
+                last_error = str(e) or type(e).__name__
                 attempt += 1
 
                 if attempt < self.retries:
-                    logger.info(f"Retrying in {self.timeout} seconds...")
-                    await asyncio.sleep(self.timeout)
+                    budget = remaining_time()
+                    delay = RETRY_DELAY if budget is None else min(RETRY_DELAY, budget)
+                    logger.info("Retrying in %.1f seconds", delay)
+                    await asyncio.sleep(delay)
 
-        # All retries failed
+        # All attempts failed or the run's timeout was spent
         return CheckResult(
             Status.CRITICAL,
-            f"DNS query failed after {self.retries} attempts",
+            f"DNS query failed after {attempt} attempts",
             metrics={"duration": 0, "response_matches": 0},
             details=f"Last error: {last_error}",
         )
@@ -232,7 +242,8 @@ async def execute_command_async(command: list[str], shell: bool = False) -> Comm
     )
 
     try:
-        stdout, stderr = await process.communicate()
+        with track_child(process):
+            stdout, stderr = await process.communicate()
         execution_time = time.time() - start_time
         return CommandResult(
             exit_code=process.returncode or 0,

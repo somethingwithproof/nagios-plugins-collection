@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 
 from nagios_plugins.base import Status
+from nagios_plugins.deadline import track_child
 
 
 @dataclass
@@ -86,7 +87,8 @@ def execute_command(
             universal_newlines=True,
         )
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            with track_child(process):
+                stdout, stderr = process.communicate(timeout=timeout)
             return process.returncode, stdout, stderr
         except subprocess.TimeoutExpired:
             process.kill()
