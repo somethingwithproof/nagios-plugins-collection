@@ -90,6 +90,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   client honors `--timeout`.
 - All AWS clients come from one helper with connect/read timeouts and capped
   standard-mode retries (3 attempts).
+- `check_backup_freshness` reports a backup dated in the future (clock skew)
+  as age 0 instead of a negative age that alerted as CRITICAL. A listing that
+  is still running with less than one second of `--timeout` left is UNKNOWN
+  with the number of objects listed; S3 lists by key, not date, so keep
+  `--prefix` narrow.
 - `check_ro_mounts --exclude` ignores empty entries, so a trailing comma no
   longer excludes every mount, and excludes match whole path components:
   the default `/run` exclude no longer hides `/runner`, and only `/var` and

@@ -4,8 +4,9 @@
 
 import datetime as dt
 import ssl
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -193,3 +194,34 @@ def test_tls_ca_file_is_used_for_verification() -> None:
         with pytest.raises(ssl.SSLError):
             tls.fetch_server_cert("example.com", ca_file="/etc/pki/private-ca.pem")
     context.assert_called_once_with(cafile="/etc/pki/private-ca.pem")
+
+
+def test_backup_from_the_future_counts_as_fresh() -> None:
+    """Clock skew must not turn a just-written backup into a negative, alerting age."""
+    s3 = MagicMock()
+    future = dt.datetime.now(dt.UTC) + dt.timedelta(minutes=3)
+    s3.get_paginator.return_value.paginate.return_value = [{"Contents": [{"LastModified": future}]}]
+    with patch("boto3.client", return_value=s3):
+        assert latest_object_age_seconds("backups") == 0
+
+
+def test_backup_listing_stops_before_the_deadline() -> None:
+    """A huge prefix ends with a specific error, not an exhausted run."""
+    now = dt.datetime.now(dt.UTC)
+    fetched: list[int] = []
+
+    def pages() -> Iterator[dict[str, Any]]:
+        for number in range(1000):
+            fetched.append(number)
+            yield {"Contents": [{"LastModified": now}] * 1000}
+
+    s3 = MagicMock()
+    s3.get_paginator.return_value.paginate.return_value = pages()
+    budgets = iter([30.0, 0.5])
+    with (
+        patch("boto3.client", return_value=s3),
+        patch("nagios_plugins.services.aws_s3.remaining_time", side_effect=lambda: next(budgets)),
+        pytest.raises(RuntimeError, match="after 2000 objects; use a narrower --prefix"),
+    ):
+        latest_object_age_seconds("backups", "all/")
+    assert fetched == [0, 1]
