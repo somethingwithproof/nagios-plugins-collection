@@ -286,8 +286,11 @@ be a regular file of UTF-8 text no larger than 64 KiB; anything else, such as a
 FIFO, a directory or binary content, is a usage error (exit 3). Secret files are
 read within ``--timeout``, so a stuck mount ends the run with the timeout
 result. Plugin output, JSON
-output and log records mask URL credentials (``scheme://***@host``), secret
-parameters such as ``token=***`` or ``password=***`` and bearer tokens.
+output and log records mask every resolved secret and every password in a URL
+option wherever it appears (also URL-encoded or as a quoted fragment), URL
+credentials (``scheme://***@host``), secret parameters such as ``token=***``,
+``password: ***`` or ``"password": "***"``, ``Authorization`` and cookie
+headers, bearer tokens and AWS access keys.
 
 Diagnostics
 ~~~~~~~~~~~

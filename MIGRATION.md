@@ -90,6 +90,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   client honors `--timeout`.
 - All AWS clients come from one helper with connect/read timeouts and capped
   standard-mode retries (3 attempts).
+- `check_backup_freshness` reports a backup dated in the future (clock skew)
+  as age 0 instead of a negative age that alerted as CRITICAL. A listing that
+  is still running with less than one second of `--timeout` left is UNKNOWN
+  with the number of objects listed; S3 lists by key, not date, so keep
+  `--prefix` narrow.
 - `check_ro_mounts --exclude` ignores empty entries, so a trailing comma no
   longer excludes every mount, and excludes match whole path components:
   the default `/run` exclude no longer hides `/runner`, and only `/var` and
@@ -155,7 +160,13 @@ review each one against your Nagios or Icinga configuration before upgrading.
   records, including exception text from HTTP clients that embeds the request
   URL: URL userinfo becomes `scheme://***@host`, and parameters such as
   `token`, `password`, `client_secret` and `api_key`, as well as bearer tokens,
-  become `***`.
+  become `***`. Every resolved secret option, HTTP credential and password in a
+  URL option is also masked as a literal wherever it appears, including its
+  URL-encoded forms and quoted fragments (libpq echoes part of a malformed
+  DSN), as are `key: value` and JSON `"key": "value"` credentials,
+  `Authorization` and cookie headers and AWS access keys.
+  `check_prometheus_query` reports the API's `errorType` and `error` instead
+  of the whole response body.
 - Secrets can be supplied without putting them on the command line, where the
   process list exposes them: `check_oauth2_token --client-secret-file` or
   `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or
@@ -181,7 +192,9 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `updated` timestamp is missing or unparseable (it reported OK without
   checking freshness) and adds an `unknown_components` count;
   `check_log_errors` returns UNKNOWN when the response has no `hits.total`
-  (ES 6 integer totals are now read too); `check_k8s_node_status` returns
+  (ES 6 integer totals are now read too), asks for an exact count
+  (`track_total_hits`) so counts above 10,000 are no longer capped, and
+  returns UNKNOWN for a lower-bound (`relation: gte`) count; `check_k8s_node_status` returns
   UNKNOWN when no node matches; `check_oauth2_token` returns CRITICAL for a
   success response without an `access_token` and no longer publishes a missing
   `expires_in` as `0`; `check_postgres_replication_lag` returns CRITICAL when
