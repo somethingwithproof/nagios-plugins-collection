@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Thomas Vincent
 # SPDX-License-Identifier: Apache-2.0
 [build-system]
-requires = ["setuptools>=84.2.1", "wheel>=0.37.0"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -51,6 +51,8 @@ cli = [
 schema = [
     "pydantic>=2.14.2",
 ]
+# prom and es add nothing beyond the core httpx dependency; they remain so
+# existing installs that name them keep working.
 prom = [
     "httpx>=0.26.0",
 ]
@@ -131,7 +133,6 @@ no-build-isolation-package = ["nagios-plugins-collection"]
 
 [tool.ruff]
 line-length = 100
-# Match Black target versions
 target-version = "py311"
 
 [tool.ruff.lint]
@@ -144,9 +145,7 @@ select = [
   "SIM" # flake8-simplify
 ]
 ignore = [
-  "E203",   # whitespace before ':' (Black compatibility)
-  "E501",   # line length handled by Black
-  "UP007"   # union operator not available on py38 syntax
+  "E501",   # line length is handled by ruff format
 ]
 
 [project.scripts]
