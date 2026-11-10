@@ -108,7 +108,7 @@ def test_main_fails_when_any_file_fails(tmp_path: Path, monkeypatch: pytest.Monk
         assert provenance.main(["--source-commit", COMMIT, str(path)]) == 1
 
 
-@pytest.mark.parametrize("commit", ["", "v3.0.0", COMMIT[:12], COMMIT.upper()])
+@pytest.mark.parametrize("commit", ["", "v1.2.3", COMMIT[:12], COMMIT.upper()])
 def test_main_requires_a_full_commit(
     commit: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
