@@ -16,7 +16,7 @@ Returns:
     0 (OK): All components are OK and recently updated
     1 (WARNING): Components are OK but not updated recently
     2 (CRITICAL): One or more components are in an error state
-    3 (UNKNOWN): An unexpected error occurred during the check
+    3 (UNKNOWN): A component has no valid ``updated`` timestamp, or the check failed
 """
 
 import argparse
@@ -27,7 +27,13 @@ from typing import Any
 
 import httpx
 
-from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, NagiosArgumentParser, Status
+from nagios_plugins.base import (
+    AsyncNagiosPlugin,
+    CheckResult,
+    NagiosArgumentParser,
+    Status,
+    most_severe,
+)
 from nagios_plugins.services import http
 
 logger = logging.getLogger("check_component_status")
@@ -133,6 +139,8 @@ class ComponentStatusChecker:
             all_metrics = {}
             critical_components = []
             warning_components = []
+            # Freshness is part of the contract: no timestamp is missing data, not OK.
+            undated_components = []
 
             # Get current time for freshness checks
             current_time = datetime.datetime.now(datetime.UTC)
@@ -156,50 +164,42 @@ class ComponentStatusChecker:
                     critical_components.append(component)
                     continue
 
-                # Check update freshness if we have a timestamp
-                if updated_time:
-                    minutes_since_update = (current_time - updated_time).total_seconds() / 60
-                    all_metrics[f"{component}_minutes_since_update"] = round(
-                        minutes_since_update, 2
-                    )
-
-                    if minutes_since_update > self.critical_threshold:
-                        critical_components.append(component)
-                    elif minutes_since_update > self.warning_threshold:
-                        warning_components.append(component)
+                if updated_time is None:
+                    undated_components.append(component)
+                    continue
+                minutes_since_update = (current_time - updated_time).total_seconds() / 60
+                all_metrics[f"{component}_minutes_since_update"] = round(minutes_since_update, 2)
+                if minutes_since_update > self.critical_threshold:
+                    critical_components.append(component)
+                elif minutes_since_update > self.warning_threshold:
+                    warning_components.append(component)
 
             # Add summary metrics
             all_metrics["total_components"] = len(self.components)
             all_metrics["critical_components"] = len(critical_components)
             all_metrics["warning_components"] = len(warning_components)
+            all_metrics["unknown_components"] = len(undated_components)
             all_metrics["ok_components"] = (
-                len(self.components) - len(critical_components) - len(warning_components)
+                len(self.components)
+                - len(critical_components)
+                - len(warning_components)
+                - len(undated_components)
             )
 
-            # Determine overall status and message
-            if critical_components:
-                component_list = ", ".join(critical_components)
-                return CheckResult(
-                    Status.CRITICAL,
-                    f"Components with issues: {component_list}",
-                    metrics=all_metrics,
-                    details=json.dumps(component_statuses, default=str, indent=2),
-                )
-            elif warning_components:
-                component_list = ", ".join(warning_components)
-                return CheckResult(
-                    Status.WARNING,
-                    f"Components not recently updated: {component_list}",
-                    metrics=all_metrics,
-                    details=json.dumps(component_statuses, default=str, indent=2),
-                )
-            else:
-                return CheckResult(
-                    Status.OK,
-                    f"All {len(self.components)} components are healthy and recently updated",
-                    metrics=all_metrics,
-                    details=json.dumps(component_statuses, default=str, indent=2),
-                )
+            findings = [
+                (Status.CRITICAL, "Components with issues", critical_components),
+                (Status.WARNING, "Components not recently updated", warning_components),
+                (Status.UNKNOWN, "Components without a valid update time", undated_components),
+            ]
+            parts = [f"{label}: {', '.join(names)}" for _, label, names in findings if names]
+            overall = most_severe(*(level for level, _, names in findings if names))
+            return CheckResult(
+                overall,
+                "; ".join(parts)
+                or f"All {len(self.components)} components are healthy and recently updated",
+                metrics=all_metrics,
+                details=json.dumps(component_statuses, default=str, indent=2),
+            )
 
         except Exception as e:
             logger.exception("Error checking components")

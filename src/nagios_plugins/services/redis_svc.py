@@ -4,9 +4,12 @@
 
 from __future__ import annotations
 
+from nagios_plugins.redaction import register_secret
+
 
 def get_stats(url: str, timeout: int = 5) -> dict[str, float | int]:
     """Read Redis statistics with the configured connection timeout."""
+    register_secret(url)
     try:
         import redis  # type: ignore
     except Exception as e:  # pragma: no cover

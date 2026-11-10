@@ -170,7 +170,13 @@ review each one against your Nagios or Icinga configuration before upgrading.
   records, including exception text from HTTP clients that embeds the request
   URL: URL userinfo becomes `scheme://***@host`, and parameters such as
   `token`, `password`, `client_secret` and `api_key`, as well as bearer tokens,
-  become `***`.
+  become `***`. Every resolved secret option, HTTP credential and password in a
+  URL option is also masked as a literal wherever it appears, including its
+  URL-encoded forms and quoted fragments (libpq echoes part of a malformed
+  DSN), as are `key: value` and JSON `"key": "value"` credentials,
+  `Authorization` and cookie headers and AWS access keys.
+  `check_prometheus_query` reports the API's `errorType` and `error` instead
+  of the whole response body.
 - Secrets can be supplied without putting them on the command line, where the
   process list exposes them: `check_oauth2_token --client-secret-file` or
   `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or
@@ -192,6 +198,9 @@ review each one against your Nagios or Icinga configuration before upgrading.
   traceback with exit 1.
 - Missing data no longer reports OK. `check_prometheus_query` returns UNKNOWN
   for an empty or sample-less result instead of treating it as `0`;
+  `check_component_status` returns UNKNOWN for a healthy component whose
+  `updated` timestamp is missing or unparseable (it reported OK without
+  checking freshness) and adds an `unknown_components` count;
   `check_log_errors` returns UNKNOWN when the response has no `hits.total`
   (ES 6 integer totals are now read too), asks for an exact count
   (`track_total_hits`) so counts above 10,000 are no longer capped, and

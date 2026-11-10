@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+from nagios_plugins.redaction import register_secret
+
 
 def replication_lag_seconds(dsn: str, timeout: int = 10) -> float | None:
     """Return the largest standby lag in seconds, or None when no standby is connected.
 
     A connected standby with NULL lag columns is caught up and idle, so it reports 0.
     """
+    register_secret(dsn)
     try:
         import psycopg  # type: ignore
     except Exception as e:  # pragma: no cover

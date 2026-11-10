@@ -11,6 +11,7 @@ from _pytest.config.argparsing import Parser
 from _pytest.fixtures import FixtureRequest
 from hypothesis import settings
 
+from nagios_plugins.redaction import clear_secrets
 from tests.fakes import FakeHttpBackend, offline_http, serve_http
 
 # Shared CI runners have noisy timing; a per-example deadline would only flake.
@@ -42,6 +43,14 @@ def _no_remote_http() -> Iterator[None]:
     """Fail any HTTP request to a non-loopback host that a test did not fake."""
     with offline_http():
         yield
+
+
+@pytest.fixture(autouse=True)
+def _forget_registered_secrets() -> Iterator[None]:
+    """Each test starts with no secrets registered for redaction."""
+    clear_secrets()
+    yield
+    clear_secrets()
 
 
 @pytest.fixture
