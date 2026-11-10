@@ -5,5 +5,6 @@ recursive-include LICENSES *.txt
 recursive-include packaging *.yaml *.json
 recursive-include scripts *.py
 recursive-include charts *.yaml *.tpl
+recursive-include contrib *.conf *.cfg *.1
 recursive-include docs/source *.rst *.py *.svg
 recursive-include tests *.py

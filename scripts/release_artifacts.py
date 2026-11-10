@@ -25,6 +25,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 ROLE_PATHS = ("defaults", "vars", "handlers", "meta", "tasks", "templates", "docs", "examples")
 SEMVER_IDENTIFIER = re.compile(r"[A-Za-z\d-]+", re.ASCII)
+ARCHIVE_PREFIX = re.compile(r"[A-Za-z\d][A-Za-z\d._+-]*", re.ASCII)
 # Plugin extras bundled into the DEB and RPM payloads.
 NATIVE_EXTRAS = ("aws", "dns", "k8s", "pg", "redis")
 
@@ -104,32 +105,76 @@ def copy_role(payload: Path) -> None:
         shutil.copy2(ROOT / name, destination / name)
 
 
-def role_archive(payload: Path, output: Path, epoch: int) -> None:
-    """Create a role-installable archive with stable ownership and timestamps."""
-    role = payload / "usr/share/ansible/roles/wordpress_enterprise"
+def _archive_member(source: Path, path: Path, prefix: str, epoch: int) -> tarfile.TarInfo:
+    """Describe ``path`` as a root-owned member below ``prefix``; reject unsafe entries."""
+    if path.is_symlink():
+        raise ValueError("Release archive sources must not contain symlinks")
+    relative = path.relative_to(source)
+    if any(part in {".", ".."} or "\\" in part for part in relative.parts):
+        raise ValueError("Release archive member names must be safe relative paths")
+    info = tarfile.TarInfo(f"{prefix}/{relative.as_posix()}")
+    info.type = tarfile.DIRTYPE if path.is_dir() else tarfile.REGTYPE
+    info.size = 0 if path.is_dir() else path.stat().st_size
+    info.uid = info.gid = 0
+    info.uname = info.gname = "root"
+    info.mtime = epoch
+    info.mode = 0o755 if path.is_dir() else 0o644
+    return info
+
+
+def stable_archive(source: Path, prefix: str, output: Path, epoch: int) -> None:
+    """Archive ``source`` under ``prefix`` with stable ownership, modes and timestamps.
+
+    Raises:
+        ValueError: If ``prefix`` is not one safe path component, or a source
+            entry is a symlink or has an unsafe name.
+    """
+    # The prefix carries the release version; every member must stay below it.
+    if not ARCHIVE_PREFIX.fullmatch(prefix):
+        raise ValueError(f"Release archive prefix must be one safe path component: {prefix!r}")
     with (
         output.open("wb") as raw,
         gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=epoch) as compressed,
         tarfile.open(fileobj=compressed, mode="w") as archive,
     ):
-        for path in sorted(role.rglob("*")):
-            if path.is_symlink():
-                raise ValueError("Role release sources must not contain symlinks")
-            relative = path.relative_to(role)
-            if any(part in {".", ".."} or "\\" in part for part in relative.parts):
-                raise ValueError("Role archive member names must be safe relative paths")
-            info = tarfile.TarInfo(f"wordpress_enterprise/{relative.as_posix()}")
-            info.type = tarfile.DIRTYPE if path.is_dir() else tarfile.REGTYPE
-            info.size = 0 if path.is_dir() else path.stat().st_size
-            info.uid = info.gid = 0
-            info.uname = info.gname = "root"
-            info.mtime = epoch
-            info.mode = 0o755 if path.is_dir() else 0o644
+        for path in sorted(source.rglob("*")):
+            info = _archive_member(source, path, prefix, epoch)
             if path.is_file():
                 with path.open("rb") as stream:
                     archive.addfile(info, stream)
             else:
                 archive.addfile(info)
+
+
+def role_archive(payload: Path, output: Path, epoch: int) -> None:
+    """Create a role-installable archive with stable ownership and timestamps."""
+    stable_archive(
+        payload / "usr/share/ansible/roles/wordpress_enterprise",
+        "wordpress_enterprise",
+        output,
+        epoch,
+    )
+
+
+def monitoring_config(payload: Path, scripts: dict[str, str]) -> None:
+    """Install the generated Icinga 2 and Nagios definitions and a man page per command."""
+    # Written by scripts/generate_monitoring_config.py and kept current by CI.
+    contrib = ROOT / "contrib"
+    share = payload / "usr/share/nagios-plugins-collection"
+    for name in ("icinga2", "nagios"):
+        shutil.copytree(contrib / name, share / name)
+    manuals = payload / "usr/share/man/man1"
+    manuals.mkdir(parents=True)
+    for name in scripts:
+        page = contrib / "man/man1" / f"{name}.1"
+        if not page.is_file():
+            raise ValueError(f"Missing generated man page for {name}")
+        # mtime=0 and no file name keep the compressed page reproducible.
+        with (
+            (manuals / f"{page.name}.gz").open("wb") as raw,
+            gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as compressed,
+        ):
+            compressed.write(page.read_bytes())
 
 
 def python_payload(payload: Path, wheel: Path, packager: str) -> None:
@@ -214,6 +259,7 @@ def python_payload(payload: Path, wheel: Path, packager: str) -> None:
             f"#!{interpreter}\nimport sys\nsys.dont_write_bytecode = True\nsys.path.insert(0, '/usr/lib/nagios-plugins-collection')\nfrom {module} import main\nraise SystemExit(main())\n"
         )
         target.chmod(0o755)
+    monitoring_config(payload, scripts)
     documents = payload / "usr/share/doc/nagios-plugins-collection"
     documents.mkdir(parents=True)
     for name in ("README.md", "LICENSE"):
@@ -233,6 +279,8 @@ def package_contents(payload: Path) -> list[dict[str, Any]]:
             "usr/lib",
             "usr/share",
             "usr/share/doc",
+            "usr/share/man",
+            "usr/share/man/man1",
             "usr/share/ansible",
             "usr/share/ansible/roles",
             "usr/lib/nagios",
@@ -277,7 +325,7 @@ def build_python_archives(output: Path, environment: dict[str, str]) -> Path:
             "twine",
             "check",
             str(wheels[0]),
-            *map(str, output.glob("*.tar.gz")),
+            *map(str, output.glob(f"{wheels[0].name.split('-')[0]}-*.tar.gz")),
         ],
         check=True,
     )
@@ -324,6 +372,12 @@ def build_artifacts(version: str) -> Path:
             role_archive(payload, output / f"ansible-wordpress-enterprise-{version}.tar.gz", epoch)
         else:
             wheel = build_python_archives(output, environment)
+            stable_archive(
+                ROOT / "contrib",
+                f"{config['name']}-monitoring-config-{version}",
+                output / f"{config['name']}-monitoring-config-{version}.tar.gz",
+                epoch,
+            )
         for packager in ("deb", "rpm"):
             if not role:
                 payload = workspace / packager

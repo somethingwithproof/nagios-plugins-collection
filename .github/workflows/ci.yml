@@ -189,6 +189,21 @@ jobs:
     - name: Verify SPDX license coverage
       run: uv run --no-sync python scripts/check_spdx.py
 
+    - name: Verify generated monitoring definitions and man pages
+      run: uv run --no-sync python scripts/generate_monitoring_config.py --check
+
+    - name: Validate the Icinga 2 CheckCommands with Icinga 2
+      env:
+        # icinga/icinga2:2.15.1
+        IMAGE: icinga/icinga2@sha256:30521523bfcf6e1ecd99698b864f7455817723f89a655233990f4c8aa003db32
+      run: |
+        docker run --rm --entrypoint sh --mount "type=bind,src=$PWD/contrib/icinga2,dst=/contrib,readonly" "$IMAGE" -ec '
+          printf "%s\n" "const PluginDir = \"/usr/lib/nagios/plugins\"" "const NodeName = \"ci\"" "const ZoneName = \"ci\"" \
+            "include <itl>" "include <plugins>" "include \"/contrib/nagios-plugins-collection.conf\"" > /tmp/icinga2.conf
+          icinga2 daemon --validate --config /tmp/icinga2.conf 2>&1 | tee /tmp/validate.log
+          grep -q "Instantiated [0-9]* CheckCommands" /tmp/validate.log
+          ! grep -q "critical/config" /tmp/validate.log'
+
     - name: Run repository integrity and type hooks
       run: uv run --no-sync pre-commit run --all-files --show-diff-on-failure
 

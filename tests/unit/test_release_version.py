@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """Reject ambiguous versions before release workflows can publish packages."""
 
+import gzip
 import importlib.util
 import json
 import re
 import subprocess
+import tarfile
 import tomllib
 from pathlib import Path
 
@@ -73,6 +75,7 @@ def test_native_payload_preserves_required_python_extensions(
     for name in ("README.md", "LICENSE"):
         (tmp_path / name).write_text("package documentation\n")
     (tmp_path / "docs/source/_static").mkdir(parents=True)
+    _contrib(tmp_path, "check_example")
     payload = tmp_path / "payload"
     extension = (
         payload
@@ -98,6 +101,49 @@ def test_native_payload_preserves_required_python_extensions(
     assert "--require-hashes" in locked_install
     assert locked_install[locked_install.index("--abi") + 1] == "cp312"
     assert locked_install[locked_install.index("--python-version") + 1] == "3.12"
+    share = payload / "usr/share/nagios-plugins-collection"
+    assert (share / "icinga2/nagios-plugins-collection.conf").read_text() == "icinga\n"
+    assert (share / "nagios/nagios-plugins-collection.cfg").read_text() == "nagios\n"
+    page = payload / "usr/share/man/man1/check_example.1.gz"
+    assert gzip.decompress(page.read_bytes()) == b".TH CHECK_EXAMPLE 1\n"
+    # No timestamp or name in the gzip header, so rebuilt packages are identical.
+    assert page.read_bytes()[4:8] == b"\0\0\0\0"
+    paths = {item["dst"] for item in release.package_contents(payload)}
+    assert "/usr/share/man/man1/check_example.1.gz" in paths
+    assert not {"/usr/share/man", "/usr/share/man/man1"} & paths
+
+
+def _contrib(root: Path, *commands: str) -> None:
+    for name, text in (("icinga2", "icinga"), ("nagios", "nagios")):
+        target = root / "contrib" / name
+        target.mkdir(parents=True)
+        suffix = "conf" if name == "icinga2" else "cfg"
+        (target / f"nagios-plugins-collection.{suffix}").write_text(f"{text}\n")
+    manuals = root / "contrib/man/man1"
+    manuals.mkdir(parents=True)
+    for command in commands:
+        (manuals / f"{command}.1").write_text(f".TH {command.upper()} 1\n")
+
+
+def test_native_payload_requires_a_man_page_per_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(release, "ROOT", tmp_path)
+    _contrib(tmp_path)
+    with pytest.raises(ValueError, match="man page for check_example"):
+        release.monitoring_config(tmp_path / "payload", {"check_example": "x:main"})
+
+
+def test_monitoring_archive_is_reproducible(tmp_path: Path) -> None:
+    _contrib(tmp_path, "check_example")
+    first, second = tmp_path / "a.tar.gz", tmp_path / "b.tar.gz"
+    release.stable_archive(tmp_path / "contrib", "config-1.0.0", first, 1_700_000_000)
+    release.stable_archive(tmp_path / "contrib", "config-1.0.0", second, 1_700_000_000)
+    assert first.read_bytes() == second.read_bytes()
+    with tarfile.open(first) as archive:
+        members = {member.name: member for member in archive.getmembers()}
+    assert "config-1.0.0/man/man1/check_example.1" in members
+    assert {(m.uid, m.uname, m.mtime) for m in members.values()} == {(0, "root", 1_700_000_000)}
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -176,3 +222,10 @@ def test_release_please_files_and_lock_agree_with_the_source_version() -> None:
         # The generic updater rewrites every x.y.z in those lines, so any other
         # version there would be overwritten too.
         assert versions == {version}, f"{name} bumps {versions}, expected {version}"
+
+
+@pytest.mark.parametrize("prefix", ["../escape", "a/b", "", ".hidden", "x\\y"])
+def test_archive_prefix_must_be_one_safe_component(tmp_path: Path, prefix: str) -> None:
+    (tmp_path / "source").mkdir()
+    with pytest.raises(ValueError, match="one safe path component"):
+        release.stable_archive(tmp_path / "source", prefix, tmp_path / "out.tar.gz", 0)
