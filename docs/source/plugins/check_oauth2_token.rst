@@ -21,7 +21,8 @@ Installed command options
                              [--client-secret CLIENT_SECRET | --client-secret-file PATH]
                              [--scope SCOPE] [--ca-file PATH] [--insecure]
                              [--client-cert PATH] [--client-key PATH]
-                             [--retries RETRIES] [--retry-delay SECONDS]
+                             [--max-response-bytes BYTES] [--retries RETRIES]
+                             [--retry-delay SECONDS]
 
    Obtain an OAuth2 token and report time-to-expiry; validate scopes if provided.
 
@@ -46,6 +47,9 @@ Installed command options
                            Read OAuth2 client secret from PATH (or the file named
                            by $CHECK_OAUTH2_CLIENT_SECRET_FILE)
      --scope SCOPE
+     --max-response-bytes BYTES
+                           Largest response body read, after decompression; a
+                           larger one is UNKNOWN (default: 10485760)
 
    TLS:
      --ca-file PATH        PEM CA bundle (default: the bundled Mozilla CA store

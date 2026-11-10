@@ -6,7 +6,7 @@
 check_monghealth \- Check MongoDB health.
 .SH SYNOPSIS
 .B check_monghealth
-[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-json\fR] \fB\-\-host\fR \fIHOST\fR [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-ssl\fR] [\fB\-\-mode\fR \fIMODE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
+[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-json\fR] \fB\-\-host\fR \fIHOST\fR [\fB\-\-port\fR \fIPORT\fR] [\fB\-\-ssl\fR] [\fB\-\-mode\fR \fIMODE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-max\-response\-bytes\fR \fIBYTES\fR] [\fB\-\-retries\fR \fIRETRIES\fR] [\fB\-\-retry\-delay\fR \fISECONDS\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
 .SH DESCRIPTION
 \fBcheck_monghealth\fR prints one status line, with performance data after a
 \(lq|\(rq, and exits with the Nagios plugin status.
@@ -47,6 +47,9 @@ PEM client certificate for mutual TLS
 .TP
 \fB\-\-client\-key\fR \fIPATH\fR
 PEM private key for \-\-client\-cert (when not in the same file)
+.TP
+\fB\-\-max\-response\-bytes\fR \fIBYTES\fR
+Largest response body read, after decompression; a larger one is UNKNOWN (default: 10485760)
 .TP
 \fB\-\-retries\fR \fIRETRIES\fR
 Retries for transient failures within \-\-timeout (default: 2)
