@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
 from nagios_plugins.services import aws
 
 
@@ -52,11 +52,8 @@ class CheckCloudBudget(NagiosPlugin):
             )
         amount = float(results[0]["Total"]["UnblendedCost"]["Amount"])
         percent = (amount / args.budget * 100) if args.budget > 0 else 0.0
-        status = Status.OK
-        if args.critical and percent >= float(args.critical):
-            status = Status.CRITICAL
-        elif args.warning and percent >= float(args.warning):
-            status = Status.WARNING
+        # Nagios ranges: a plain N alerts above N (outside 0..N).
+        status = threshold_check(percent, args.warning, args.critical)
         msg = f"mtd_usd={amount:.2f} {percent:.1f}% of budget {args.budget:.2f}"
         metrics = {"mtd_usd": round(amount, 2), "percent_of_budget": round(percent, 1)}
         return CheckResult(status, msg, metrics=metrics)

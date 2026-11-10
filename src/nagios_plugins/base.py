@@ -569,6 +569,15 @@ class ThresholdRange:
         return f"{prefix}{start}:{end}"
 
 
+#: Nagios plugin guidelines: CRITICAL > WARNING > UNKNOWN > OK when combining results.
+_SEVERITY = {Status.OK: 0, Status.UNKNOWN: 1, Status.WARNING: 2, Status.CRITICAL: 3}
+
+
+def most_severe(*statuses: Status) -> Status:
+    """Return the status that should be reported for several measurements (OK if none)."""
+    return max(statuses, key=_SEVERITY.__getitem__, default=Status.OK)
+
+
 def nagios_range(value: str) -> str:
     """Accept a well-formed Nagios range for an option and return it unchanged.
 
