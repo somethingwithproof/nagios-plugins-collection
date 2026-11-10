@@ -181,10 +181,44 @@ def _tracked_files() -> list[str]:
     return [name for name in listed.stdout.split("\0") if name]
 
 
+def _version_copies(line: str, version: str) -> bool:
+    """Return whether ``line`` names ``version`` as a copy, not as another package's bound.
+
+    ``>=X.Y.Z`` in a dependency constraint is a bound on some other package that
+    merely coincides with the project version on a release branch. A lone ``=``
+    is an assignment such as ``VERSION=X.Y.Z``, so it still counts as a copy.
+    """
+    pattern = re.compile(rf"(?<![\d.]){re.escape(version)}(?![\d])")
+    return any(
+        not re.search(r"(?:[<>=!~]=|[<>^~])\s*v?$", line[: match.start()])
+        for match in pattern.finditer(line)
+    )
+
+
+@pytest.mark.parametrize(
+    ("line", "copies"),
+    [
+        ('version = "7.8.9"', True),
+        ("image: ghcr.io/o/r:7.8.9", True),
+        ("ref: v7.8.9", True),
+        ('versions: [">=7.8.9"]', False),
+        ("python-dateutil<7.8.9", False),
+        ("pkg ~= 7.8.9", False),
+        ("pkg == 7.8.9", False),
+        ("ARG VERSION=7.8.9", True),
+        ("version = 7.8.9", True),
+        ('kubeVersion: ">=7.8.9"', False),
+        ("pkg>7.8.9,<8", False),
+        ("17.8.9 and 7.8.91", False),
+    ],
+)
+def test_version_copies_ignores_other_packages_bounds(line: str, copies: bool) -> None:
+    assert _version_copies(line, "7.8.9") is copies
+
+
 def test_release_please_updates_every_copy_of_the_version() -> None:
     """A hard-coded version Release Please does not bump would go stale at release."""
     version = release.declared_version()
-    pattern = re.compile(rf"(?<![\d.]){re.escape(version)}(?![\d])")
     managed = _release_please_files()
     stale = []
     for name in _tracked_files():
@@ -199,7 +233,7 @@ def test_release_please_updates_every_copy_of_the_version() -> None:
         stale += [
             f"{name}:{number}"
             for number, line in enumerate(text.splitlines(), 1)
-            if pattern.search(line) and number not in bumped
+            if _version_copies(line, version) and number not in bumped
         ]
     assert not stale, f"version {version} is hard-coded outside Release Please: {stale}"
 
