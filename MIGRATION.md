@@ -177,6 +177,9 @@ review each one against your Nagios or Icinga configuration before upgrading.
   traceback with exit 1.
 - Missing data no longer reports OK. `check_prometheus_query` returns UNKNOWN
   for an empty or sample-less result instead of treating it as `0`;
+  `check_component_status` returns UNKNOWN for a healthy component whose
+  `updated` timestamp is missing or unparseable (it reported OK without
+  checking freshness) and adds an `unknown_components` count;
   `check_log_errors` returns UNKNOWN when the response has no `hits.total`
   (ES 6 integer totals are now read too); `check_k8s_node_status` returns
   UNKNOWN when no node matches; `check_oauth2_token` returns CRITICAL for a
