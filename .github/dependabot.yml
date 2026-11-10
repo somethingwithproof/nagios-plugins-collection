@@ -21,6 +21,9 @@ updates:
   # aiohttp 3.14 requires multidict <7; reconsider with a compatible aiohttp.
   - dependency-name: multidict
     versions: [">=7.0.0"]
+  # botocore requires python-dateutil <3.0.0; reconsider when botocore allows it.
+  - dependency-name: python-dateutil
+    versions: [">=3.0.0"]
   # Pydantic pins its core exactly; keep the pair in one dependency update.
   groups:
     pydantic:
