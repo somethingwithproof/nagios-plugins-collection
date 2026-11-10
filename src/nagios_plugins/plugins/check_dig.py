@@ -167,50 +167,37 @@ class SSHDNSChecker:
             details=f"Response: {response}",
         )
 
+    async def _query(self, timeout: float) -> CheckResult:
+        """Run dig over SSH once and classify its answer and latency."""
+        ssh_cmd = self._build_ssh_command(self._build_dig_command())
+        start_time = time.time()
+        async with asyncio.timeout(timeout):
+            result = await execute_command_async(ssh_cmd)
+        duration = time.time() - start_time
+        if result.exit_code != 0:
+            raise RuntimeError(f"SSH command failed: {result.stderr}")
+        return self._response_result(result.stdout.strip(), duration)
+
     async def check_dns(self) -> CheckResult:
-        """Check DNS via SSH.
+        """Check DNS via SSH, retrying failed attempts within the run's timeout.
 
         Returns:
             CheckResult with the check result
         """
         attempt = 0
         last_error = None
-
         while attempt < self.retries:
-            budget = remaining_time()
-            if budget is not None and budget <= 0:
+            if attempt:
+                await asyncio.sleep(_within_budget(RETRY_DELAY))
+            timeout = _within_budget(self.timeout)
+            if timeout <= 0:
                 break
-            attempt_timeout = self.timeout if budget is None else min(self.timeout, budget)
             try:
-                # Build the commands
-                dig_cmd = self._build_dig_command()
-                ssh_cmd = self._build_ssh_command(dig_cmd)
-
-                # Measure execution time
-                start_time = time.time()
-                async with asyncio.timeout(attempt_timeout):
-                    result = await execute_command_async(ssh_cmd)
-                duration = time.time() - start_time
-
-                # Process result
-                if result.exit_code != 0:
-                    raise RuntimeError(f"SSH command failed: {result.stderr}")
-
-                # Response is in stdout
-                response = result.stdout.strip()
-
-                return self._response_result(response, duration)
-
+                return await self._query(timeout)
             except Exception as e:
                 logger.exception("DNS attempt %s failed", attempt + 1)
                 last_error = str(e) or type(e).__name__
-                attempt += 1
-
-                if attempt < self.retries:
-                    budget = remaining_time()
-                    delay = RETRY_DELAY if budget is None else min(RETRY_DELAY, budget)
-                    logger.info("Retrying in %.1f seconds", delay)
-                    await asyncio.sleep(delay)
+            attempt += 1
 
         # All attempts failed or the run's timeout was spent
         return CheckResult(
@@ -219,6 +206,12 @@ class SSHDNSChecker:
             metrics={"duration": 0, "response_matches": 0},
             details=f"Last error: {last_error}",
         )
+
+
+def _within_budget(seconds: float) -> float:
+    """Clamp ``seconds`` to what is left of the run's --timeout (0 when spent)."""
+    budget = remaining_time()
+    return seconds if budget is None else min(seconds, budget)
 
 
 async def execute_command_async(command: list[str], shell: bool = False) -> CommandResult:

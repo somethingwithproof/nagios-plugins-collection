@@ -189,7 +189,8 @@ def test_remaining_time_tracks_the_timeout() -> None:
     assert remaining_time() is None
     with Deadline(5, "UNKNOWN - x"):
         left = remaining_time()
-        assert left is not None and 4 < left <= 5
+        assert left is not None
+        assert 4 < left <= 5
     assert remaining_time() is None
 
 
@@ -197,8 +198,9 @@ def test_remaining_time_tracks_the_timeout() -> None:
 def test_timeout_must_be_a_positive_whole_number(
     value: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    plugin = Sleeper()
     with pytest.raises(SystemExit) as exited:
-        Sleeper().parse_args(["--timeout", value])
+        plugin.parse_args(["--timeout", value])
     assert exited.value.code == 3
     assert capsys.readouterr().out.startswith("UNKNOWN - ")
 
