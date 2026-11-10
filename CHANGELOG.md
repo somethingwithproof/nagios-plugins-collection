@@ -5,6 +5,15 @@ SPDX-License-Identifier: Apache-2.0
 
 # Changelog
 
+## Unreleased
+
+- Make `uv.lock` the single dependency lock. Development tools moved from the
+  `dev` and `security` extras to PEP 735 dependency groups; install them with
+  `uv sync`. The runtime extras, including `prom` and `es`, are unchanged.
+- Replace tox and the `packaging/*-requirements` files with `uv sync --locked`
+  and `uv run`. The container image and native packages export hashed
+  requirements from `uv.lock` at build time.
+
 ## 2.0.1 — 2026-10-06
 
 - Align package metadata and SPDX headers with the existing Apache-2.0 LICENSE.

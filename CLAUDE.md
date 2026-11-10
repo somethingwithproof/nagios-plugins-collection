@@ -15,7 +15,7 @@ Preserve Nagios exit codes, threshold/performance-data contracts, bounded reques
 
 ## Verification
 
-`mise exec python@3.12 -- tox -e py312,lint,type` and the focused plugin tests.
+`mise exec python@3.12 -- uv run pytest tests`, `uv run ruff check .`, `uv run mypy src` and the focused plugin tests.
 
 Separate offline checks from operations that change hosts, databases, firewalls
 or published artifacts. State verification limits and preserve existing controls.

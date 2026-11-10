@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: 2025 Thomas Vincent
-# SPDX-License-Identifier: Apache-2.0
-build
-twine
-setuptools>=84.2.1
-wheel
-PyYAML

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -22,10 +23,29 @@ def normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def runtime_distributions() -> list[str]:
+def locked_runtime_requirements() -> str:
+    """Export the container image's runtime distributions from uv.lock."""
+    return subprocess.check_output(
+        [
+            os.environ.get("UV", "uv"),
+            "export",
+            "--locked",
+            "--no-dev",
+            "--no-emit-project",
+            "--extra=all",
+            "--no-hashes",
+            "--no-header",
+            "--no-annotate",
+        ],
+        cwd=ROOT,
+        text=True,
+    )
+
+
+def runtime_distributions(requirements: str) -> list[str]:
     """Select requirements whose markers apply to the current audit environment."""
     names = []
-    for line in (ROOT / "packaging/container-requirements.txt").read_text().splitlines():
+    for line in requirements.splitlines():
         if not re.match(r"[A-Za-z\d_.-]+==", line):
             continue
         requirement = Requirement(line.rstrip("\\ "))
@@ -53,7 +73,7 @@ def approved_license(name: str, label: str, policy: dict[str, Any]) -> bool:
 
 def main() -> None:
     """Generate license evidence for shipping clients and fail on unknown licenses."""
-    names = runtime_distributions()
+    names = runtime_distributions(locked_runtime_requirements())
     result = subprocess.check_output(
         [
             sys.executable,

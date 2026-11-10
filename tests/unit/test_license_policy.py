@@ -33,3 +33,16 @@ def test_license_whitespace_and_missing_components() -> None:
     assert licenses.approved_license("client", "MIT\tOR\nApache-2.0; BSD-3-Clause", policy)
     assert not licenses.approved_license("client", "MIT AND", policy)
     assert not licenses.approved_license("client", "OR MIT", policy)
+
+
+def test_runtime_distributions_follow_exported_markers() -> None:
+    exported = "\n".join(
+        [
+            "# comment",
+            "Typing_Extensions==4.16.0",
+            "async-timeout==5.0.1 ; python_full_version < '3.0'",
+            "    # via redis",
+            "psycopg==3.3.4 ; python_full_version >= '3.0'",
+        ]
+    )
+    assert licenses.runtime_distributions(exported) == ["psycopg", "typing-extensions"]

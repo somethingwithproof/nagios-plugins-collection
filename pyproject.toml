@@ -72,29 +72,62 @@ aws = [
 es = [
     "httpx>=0.26.0",
 ]
-dev = [
-    "pytest>=9.2.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=1.4.1.post1",
-    "tox>=4.67.5",
-    "ruff>=0.17.3",
-    "pre-commit>=4.7.0",
-    "mypy>=2.4.1",
-    "sphinx>=7.2.0",
-    "sphinx-rtd-theme>=3.1.0",
-    "build>=1.0.0",
-    "twine>=6.2.0",
-    "pydantic>=2.14.2",
-    "myst-parser>=2.0.0",
-    "cryptography>=46.0.0",
-]
-security = [
-    "bandit>=1.9.4",
-    "pip-audit>=2.10.1",
-]
 all = [
     "nagios-plugins-collection[mongodb,ssh,cli,schema,prom,dns,k8s,pg,redis,aws,es]",
 ]
+
+# Development tools are PEP 735 dependency groups locked in uv.lock; they are
+# not published as package extras. `uv sync` installs the default dev group.
+[dependency-groups]
+test = [
+    "cryptography>=46.0.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "pytest-cov>=4.1.0",
+    "pyyaml>=6.0",
+]
+lint = [
+    "pre-commit>=4.7.0",
+    "ruff>=0.17.3",
+]
+type = [
+    "mypy>=2.4.1",
+    "pydantic>=2.14.2",
+]
+docs = [
+    "docstr-coverage>=2.2.0",
+    "myst-parser>=2.0.0",
+    "sphinx>=7.2.0",
+    "sphinx-rtd-theme>=3.1.0",
+]
+security = [
+    "bandit>=1.9.4",
+    "pip>=26.2.2",
+    "pip-audit>=2.10.1",
+    "pip-licenses>=5.0.0",
+]
+build = [
+    "build>=1.0.0",
+    "pip>=26.2.2",
+    "pyyaml>=6.0",
+    "setuptools>=84.2.1",
+    "twine>=6.2.0",
+]
+dev = [
+    {include-group = "test"},
+    {include-group = "lint"},
+    {include-group = "type"},
+    {include-group = "docs"},
+    {include-group = "security"},
+    {include-group = "build"},
+]
+
+[tool.uv]
+# Install only locked wheels; never build third-party source distributions.
+no-build = true
+# Build this project with the locked setuptools from the build group instead of
+# resolving an unhashed backend into an isolated environment.
+no-build-isolation-package = ["nagios-plugins-collection"]
 
 [tool.ruff]
 line-length = 100

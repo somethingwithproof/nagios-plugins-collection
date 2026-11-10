@@ -12,7 +12,7 @@ Read [AGENTS.md](../AGENTS.md) for the complete repository-specific guidance.
 Preserve Nagios exit codes, threshold/performance-data contracts, bounded requests and safe failure states.
 
 Require focused regression evidence for changed behavior and preserve existing
-correctness/security checks. `mise exec python@3.12 -- tox -e py312,lint,type` and the focused plugin tests.
+correctness/security checks. `mise exec python@3.12 -- uv run pytest tests`, `uv run ruff check .`, `uv run mypy src` and the focused plugin tests.
 
 Flag unsupported maturity claims, hidden failures, credentials in code/logs, and
 generated output presented as first-party implementation. Review permissions,

@@ -10,8 +10,8 @@ Python releases. CI exercises these four runtimes; Python 3.15 requires adoption
 and testing before it becomes supported. Use `mise` to select a development runtime.
 
 The unused `legacy` extra and its Pynag/pexpect dependencies were removed.
-`[all]` now selects runtime clients; install development and security tools
-explicitly through their extras or the hash-locked CI requirements.
+`[all]` now selects runtime clients; development and security tools are
+dependency groups in `uv.lock`, installed by `uv sync`.
 
 HTTP checks verify certificates by default. `--verify-ssl` remains accepted for
 compatibility; omitting it no longer disables verification. For an internal CA,

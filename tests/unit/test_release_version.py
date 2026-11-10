@@ -86,5 +86,11 @@ def test_native_payload_preserves_required_python_extensions(
     release.python_payload(payload, tmp_path / "project.whl", "deb")
 
     assert extension.read_bytes() == b"required native extension"
-    assert installs[0][installs[0].index("--abi") + 1] == "cp312"
-    assert installs[0][installs[0].index("--python-version") + 1] == "3.12"
+    export, locked_install = installs[0], installs[1]
+    assert export[1:3] == ["export", "--locked"]
+    assert "--no-emit-package=psycopg-binary" in export
+    requirements = export[export.index("--output-file") + 1]
+    assert locked_install[locked_install.index("-r") + 1] == requirements
+    assert "--require-hashes" in locked_install
+    assert locked_install[locked_install.index("--abi") + 1] == "cp312"
+    assert locked_install[locked_install.index("--python-version") + 1] == "3.12"
