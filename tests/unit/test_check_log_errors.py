@@ -63,3 +63,40 @@ def test_thresholds_are_nagios_ranges(
 ) -> None:
     """-w 1 -c 10 alert above 1 and 10; a count equal to N is inside 0..N."""
     assert _run_with_body(http_backend, {"hits": {"total": hits}}) == expected.value
+
+
+def test_search_counts_every_hit(http_backend: FakeHttpBackend) -> None:
+    """ES 7+ caps hits.total at 10,000 unless the search asks for an exact count."""
+    body = {"hits": {"total": {"value": 25000, "relation": "eq"}}}
+    assert _run_with_body(http_backend, body) == Status.CRITICAL.value
+    assert json.loads(http_backend.requests[0].content)["track_total_hits"] is True
+
+
+def test_lower_bound_count_is_unknown(
+    http_backend: FakeHttpBackend, capsys: pytest.CaptureFixture[str]
+) -> None:
+    body = {"hits": {"total": {"value": 10000, "relation": "gte"}}}
+    assert _run_with_body(http_backend, body) == Status.UNKNOWN.value
+    assert "at least 10000 errors" in capsys.readouterr().out
+
+
+def test_elasticsearch_6_is_asked_again_without_track_total_hits(
+    http_backend: FakeHttpBackend,
+) -> None:
+    rejected = httpx.Response(
+        400,
+        json={"error": {"type": "parsing_exception", "reason": "Unknown key [track_total_hits]"}},
+    )
+    http_backend.reply(rejected, httpx.Response(200, json={"hits": {"total": 25}}))
+    code = CheckLogErrors().run(["--endpoint", "http://es:9200", "--index", "logs", "-c", "10"])
+    assert code == Status.CRITICAL.value
+    first, second = (json.loads(request.content) for request in http_backend.requests)
+    assert first["track_total_hits"] is True
+    assert "track_total_hits" not in second
+
+
+def test_other_bad_requests_are_not_repeated(http_backend: FakeHttpBackend) -> None:
+    http_backend.reply(httpx.Response(400, json={"error": "bad query"}))
+    code = CheckLogErrors().run(["--endpoint", "http://es:9200", "--index", "logs"])
+    assert code == Status.CRITICAL.value
+    assert len(http_backend.requests) == 1

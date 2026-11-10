@@ -183,7 +183,9 @@ review each one against your Nagios or Icinga configuration before upgrading.
 - Missing data no longer reports OK. `check_prometheus_query` returns UNKNOWN
   for an empty or sample-less result instead of treating it as `0`;
   `check_log_errors` returns UNKNOWN when the response has no `hits.total`
-  (ES 6 integer totals are now read too); `check_k8s_node_status` returns
+  (ES 6 integer totals are now read too), asks for an exact count
+  (`track_total_hits`) so counts above 10,000 are no longer capped, and
+  returns UNKNOWN for a lower-bound (`relation: gte`) count; `check_k8s_node_status` returns
   UNKNOWN when no node matches; `check_oauth2_token` returns CRITICAL for a
   success response without an `access_token` and no longer publishes a missing
   `expires_in` as `0`; `check_postgres_replication_lag` returns CRITICAL when
