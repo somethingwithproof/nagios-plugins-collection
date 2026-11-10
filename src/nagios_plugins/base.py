@@ -33,6 +33,14 @@ _LOG_HANDLER_NAME = "nagios_plugins.stderr"
 _LOG_LEVELS = (logging.WARNING, logging.INFO, logging.DEBUG)
 
 
+class UnknownResult(Exception):
+    """Raise from a check to report UNKNOWN with this message and no traceback.
+
+    For conditions under which the answer cannot be judged, such as a response
+    too large to read; unexpected exceptions are still logged with traceback.
+    """
+
+
 class Status(Enum):
     """Nagios status codes."""
 
@@ -82,6 +90,18 @@ def format_number(value: float) -> str:
 def _is_number(value: Any) -> bool:
     """Return whether a metric value can be published as perfdata."""
     return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+#: Longest status message and long output written; Nagios Core 4 reads 64 KiB.
+MAX_MESSAGE_CHARS = 4096
+MAX_DETAILS_CHARS = 32768
+
+
+def truncate(text: str, limit: int) -> str:
+    """Return ``text`` cut to ``limit`` characters, saying how much was dropped."""
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]} [truncated {len(text) - limit} characters]"
 
 
 def single_line(text: str) -> str:
@@ -169,13 +189,16 @@ class CheckResult:
 
         The first line is always ``STATUS - message[ | perfdata]``; ``details``
         follow as long output with any ``|`` removed so they cannot start perfdata.
+        The message and details are cut to :data:`MAX_MESSAGE_CHARS` and
+        :data:`MAX_DETAILS_CHARS`.
         """
-        output = f"{self.status} - {single_line(redact(self.message))}"
+        message = truncate(single_line(redact(self.message)), MAX_MESSAGE_CHARS)
+        output = f"{self.status} - {message}"
         perfdata = format_perfdata(self.metrics)
         if perfdata:
             output += f" | {perfdata}"
         if self.details:
-            output += "\n" + redact(self.details).replace("|", "/")
+            output += "\n" + truncate(redact(self.details), MAX_DETAILS_CHARS).replace("|", "/")
         return output
 
     def to_json(self) -> str:
@@ -186,8 +209,9 @@ class CheckResult:
         """
         result_dict = asdict(self)
         result_dict["status"] = self.status.name
-        result_dict["message"] = redact(self.message)
-        result_dict["details"] = redact(self.details) if self.details else self.details
+        result_dict["message"] = truncate(redact(self.message), MAX_MESSAGE_CHARS)
+        if self.details:
+            result_dict["details"] = truncate(redact(self.details), MAX_DETAILS_CHARS)
         result_dict["metrics"] = {key: _json_metric(value) for key, value in self.metrics.items()}
         result_dict["timestamp"] = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(self.timestamp)
@@ -589,6 +613,8 @@ class NagiosPlugin(ABC):
         """Run :meth:`check`, reporting any unhandled exception as UNKNOWN."""
         try:
             return self.check(args)
+        except UnknownResult as e:
+            return CheckResult(Status.UNKNOWN, str(e))
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
             return CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")

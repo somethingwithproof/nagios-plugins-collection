@@ -227,6 +227,13 @@ Retries
    ``--timeout``. ``check_http_sli`` never retries: every sample is a
    measurement.
 
+Response size
+   ``--max-response-bytes BYTES`` (10 MiB by default) bounds the body a check
+   reads, counted after decompression. A larger answer is UNKNOWN, naming the
+   URL; for ``check_http_sli`` it counts as a failed probe. The status message
+   and long output of every check are cut to 4,096 and 32,768 characters,
+   ending with ``[truncated N characters]``.
+
 Proxies and identification
    ``HTTP_PROXY``, ``HTTPS_PROXY``, ``ALL_PROXY`` and ``NO_PROXY`` are honored.
    Requests carry ``User-Agent: nagios-plugins-collection/VERSION (COMMAND)``.

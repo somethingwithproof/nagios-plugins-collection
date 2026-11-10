@@ -36,6 +36,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `nagios_plugins.services.http_tls` are removed in favor of
   `nagios_plugins.services.http`, and `WebsiteStatusChecker` takes a
   `settings` argument instead of `retries`.
+- HTTP checks read at most `--max-response-bytes` (10 MiB by default) of a
+  response body, after decompression, and report a larger one as UNKNOWN
+  instead of buffering it; `check_http_sli` counts it as a failed probe. Every
+  check cuts its status message to 4,096 and its long output to 32,768
+  characters, marked `[truncated N characters]`.
 - `--timeout` now bounds the whole run of every plugin. One second after it
   the run ends with `UNKNOWN - Plugin timed out after N seconds` (or the JSON
   equivalent) and exit 3, even while it waits on DNS resolution, a TCP

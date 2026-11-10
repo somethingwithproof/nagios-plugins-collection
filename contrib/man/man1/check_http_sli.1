@@ -6,7 +6,7 @@
 check_http_sli \- Probe one or more URLs concurrently and report p50/p95/p99 and error\-rate.
 .SH SYNOPSIS
 .B check_http_sli
-[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] \fB\-\-url\fR \fIURL\fR [\fB\-\-samples\fR \fISAMPLES\fR] [\fB\-\-latency\-warning\fR \fIRANGE\fR] [\fB\-\-latency\-critical\fR \fIRANGE\fR] [\fB\-\-error\-rate\-warning\fR \fIRANGE\fR] [\fB\-\-error\-rate\-critical\fR \fIRANGE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
+[\fB\-\-timeout\fR \fITIMEOUT\fR] [\fB\-\-warning\fR \fIWARNING\fR] [\fB\-\-critical\fR \fICRITICAL\fR] [\fB\-\-json\fR] \fB\-\-url\fR \fIURL\fR [\fB\-\-samples\fR \fISAMPLES\fR] [\fB\-\-latency\-warning\fR \fIRANGE\fR] [\fB\-\-latency\-critical\fR \fIRANGE\fR] [\fB\-\-error\-rate\-warning\fR \fIRANGE\fR] [\fB\-\-error\-rate\-critical\fR \fIRANGE\fR] [\fB\-\-ca\-file\fR \fIPATH\fR] [\fB\-\-insecure\fR] [\fB\-\-client\-cert\fR \fIPATH\fR] [\fB\-\-client\-key\fR \fIPATH\fR] [\fB\-\-max\-response\-bytes\fR \fIBYTES\fR] [\fB\-\-username\fR \fIUSERNAME\fR] [\fB\-\-password\-file\fR \fIPATH\fR] [\fB\-\-bearer\-token\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-file\fR \fIPATH\fR] [\fB\-\-api\-key\-header\fR \fINAME\fR]
 .SH DESCRIPTION
 \fBcheck_http_sli\fR prints one status line, with performance data after a
 \(lq|\(rq, and exits with the Nagios plugin status.
@@ -59,6 +59,9 @@ PEM client certificate for mutual TLS
 .TP
 \fB\-\-client\-key\fR \fIPATH\fR
 PEM private key for \-\-client\-cert (when not in the same file)
+.TP
+\fB\-\-max\-response\-bytes\fR \fIBYTES\fR
+Largest response body read, after decompression; a larger one is UNKNOWN (default: 10485760)
 .TP
 \fB\-\-username\fR \fIUSERNAME\fR
 User name for HTTP basic authentication
