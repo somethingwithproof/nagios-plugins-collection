@@ -115,13 +115,22 @@ class CheckHttpSli(AsyncNagiosPlugin):
 
     @staticmethod
     def _percentiles(latencies: list[float]) -> tuple[float, float, float]:
-        """Handle empty and singleton samples before computing percentiles."""
+        """Return p50/p95/p99, interpolated between observed samples.
+
+        The inclusive method treats the samples as the whole population, so a
+        percentile never falls outside the observed latencies; the default
+        exclusive method extrapolates beyond the slowest probe for the small
+        sample counts a check takes. Interpolation rounding is clamped to the
+        samples and cannot reorder the three percentiles.
+        """
         if not latencies:
             return (float("inf"),) * 3
         if len(latencies) == 1:
             return (latencies[0],) * 3
-        percentiles = statistics.quantiles(latencies, n=100)
-        return percentiles[49], percentiles[94], percentiles[98]
+        percentiles = statistics.quantiles(latencies, n=100, method="inclusive")
+        low, high = min(latencies), max(latencies)
+        p50, p95, p99 = sorted(min(max(percentiles[i], low), high) for i in (49, 94, 98))
+        return p50, p95, p99
 
     async def _probe(self, client: httpx.AsyncClient, url: str) -> float | None:
         """Return elapsed milliseconds for one successful HTTP request."""

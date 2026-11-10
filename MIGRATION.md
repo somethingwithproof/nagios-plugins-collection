@@ -125,7 +125,10 @@ review each one against your Nagios or Icinga configuration before upgrading.
   fraction to `-w`/`-c` must move it to the new options. All values use Nagios
   ranges, so a p95 exactly equal to the threshold is no longer an alert.
   Perfdata carries each threshold, and the message reads `p95=n/a` instead of
-  `inf` when every probe fails.
+  `inf` when every probe fails. Percentiles interpolate between the measured
+  samples, so p50, p95 and p99 never exceed the slowest probe; with the default
+  3 samples p95 was previously extrapolated above it and could alert on a
+  latency no probe measured.
 - Helm: the CronJob sets `concurrencyPolicy: Forbid`, `backoffLimit: 0`,
   `activeDeadlineSeconds: 300` and `ttlSecondsAfterFinished`, so a WARNING,
   CRITICAL or UNKNOWN exit is no longer retried up to six times per run (all
