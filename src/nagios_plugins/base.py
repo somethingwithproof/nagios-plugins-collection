@@ -23,6 +23,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, ClassVar, NoReturn
 
+from nagios_plugins.deadline import Deadline, PluginTimeout, hard_remaining
 from nagios_plugins.redaction import redact
 
 _LOG_HANDLER_NAME = "nagios_plugins.stderr"
@@ -222,6 +223,17 @@ def configure_logging(verbosity: int = 0) -> None:
     root.setLevel(_LOG_LEVELS[min(max(verbosity, 0), 2)])
 
 
+def positive_seconds(text: str) -> int:
+    """Parse a whole number of seconds greater than zero for ``--timeout``."""
+    try:
+        seconds = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid seconds: {text!r}") from None
+    if seconds < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1 second: {text!r}")
+    return seconds
+
+
 class NagiosArgumentParser(argparse.ArgumentParser):
     """Argument parser whose usage errors exit UNKNOWN (3), not argparse's 2.
 
@@ -334,9 +346,12 @@ class NagiosPlugin(ABC):
         parser.add_argument(
             "-t",
             "--timeout",
-            type=int,
+            type=positive_seconds,
             default=self.default_timeout,
-            help=f"Timeout in seconds (default: {self.default_timeout})",
+            help=(
+                f"Timeout in seconds for the whole run (default: {self.default_timeout}); "
+                "the plugin exits UNKNOWN 1 second after it"
+            ),
         )
         if self.has_thresholds:
             self.add_threshold_arguments(parser)
@@ -397,13 +412,26 @@ class NagiosPlugin(ABC):
             SystemExit: For ``--help`` (0) and usage errors (3), as argparse does.
         """
         parsed_args = self.parse_args(args)
+        timed_out = CheckResult(
+            Status.UNKNOWN, f"Plugin timed out after {parsed_args.timeout} seconds"
+        )
+        rendered = timed_out.to_json() if parsed_args.json else str(timed_out)
         try:
-            result = self.check(parsed_args)
-        except Exception as e:  # pylint: disable=broad-except
-            self.logger.exception("Unhandled exception")
-            result = CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
+            with Deadline(parsed_args.timeout, rendered):
+                result = self._checked(parsed_args)
+        except PluginTimeout:
+            self.logger.warning("Run deadline expired")
+            result = timed_out
         self.logger.debug("Plugin execution time: %.3f seconds", time.time() - self.start_time)
         return emit(result, parsed_args.json)
+
+    def _checked(self, args: argparse.Namespace) -> CheckResult:
+        """Run :meth:`check`, reporting any unhandled exception as UNKNOWN."""
+        try:
+            return self.check(args)
+        except Exception as e:  # pylint: disable=broad-except
+            self.logger.exception("Unhandled exception")
+            return CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
 
 
 class AsyncNagiosPlugin(NagiosPlugin):
@@ -415,7 +443,25 @@ class AsyncNagiosPlugin(NagiosPlugin):
 
     def check(self, args: argparse.Namespace) -> CheckResult:
         """Run :meth:`check_async` to completion in a new event loop."""
-        return asyncio.run(self.check_async(args))
+        return asyncio.run(self._bounded(args))
+
+    async def _bounded(self, args: argparse.Namespace) -> CheckResult:
+        """Cancel the check when the run deadline expires.
+
+        Cancellation, unlike an exception from a signal handler, reaches the
+        awaiting coroutine even inside ``asyncio.gather(return_exceptions=True)``.
+        """
+        remaining = hard_remaining()
+        if remaining is None:
+            return await self.check_async(args)
+        bound = asyncio.timeout(remaining)
+        try:
+            async with bound:
+                return await self.check_async(args)
+        except TimeoutError:
+            if bound.expired():
+                raise PluginTimeout from None
+            raise
 
     @abstractmethod
     async def check_async(self, args: argparse.Namespace) -> CheckResult:

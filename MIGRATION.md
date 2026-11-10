@@ -11,6 +11,19 @@ SPDX-License-Identifier: Apache-2.0
 exit codes, output or threshold semantics for existing command definitions;
 review each one against your Nagios or Icinga configuration before upgrading.
 
+- `--timeout` now bounds the whole run of every plugin. One second after it
+  the run ends with `UNKNOWN - Plugin timed out after N seconds` (or the JSON
+  equivalent) and exit 3, even while it waits on DNS resolution, a TCP
+  connect, retries or a child process; `ssh`, `dig` and `mount` children are
+  killed. Previously a stuck resolver or a retry loop could run until the
+  scheduler killed the plugin with no result. Per-request timeouts still use
+  `--timeout`, so their specific errors (for example an HTTP timeout reported
+  as CRITICAL) are unchanged. `check_dig --retries` attempts now share the
+  timeout and wait 1 second between attempts instead of `--timeout` seconds,
+  and its failure message counts the attempts actually made. `--timeout` must
+  be a whole number of at least 1; `0` or a negative value is a usage error
+  (exit 3). Keep `--timeout` at least two seconds below the scheduler's check
+  timeout.
 - Every command now runs on the shared `NagiosPlugin` base class.
   `check_component_status`, `check_mongodb_health`, `check_monghealth`,
   `check_hadoop`, `check_jobs`, `check_dig` and `check_ro_mounts` had their own

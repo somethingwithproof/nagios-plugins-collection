@@ -25,7 +25,8 @@ Installed command options
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
      -t TIMEOUT, --timeout TIMEOUT
-                           Timeout in seconds (default: 10)
+                           Timeout in seconds for the whole run (default: 10);
+                           the plugin exits UNKNOWN 1 second after it
      --json                Output results in JSON format
      --url URL             URL of the MongoDB health endpoint
      --mode {1,2,3}        Check mode: 1=Migrations+Search, 2=Search+API,

@@ -28,9 +28,13 @@ import shlex
 import time
 
 from nagios_plugins.base import AsyncNagiosPlugin, CheckResult, Status, threshold_check
+from nagios_plugins.deadline import remaining_time, track_child
 from nagios_plugins.utils import CommandResult
 
 logger = logging.getLogger("check_dig")
+
+#: Seconds between attempts; bounded by what is left of --timeout.
+RETRY_DELAY = 1.0
 
 
 class SSHDNSChecker:
@@ -63,7 +67,7 @@ class SSHDNSChecker:
             dig_arguments: Additional dig command arguments
             expected_address: Expected result from the DNS query
             timeout: Command timeout in seconds
-            retries: Number of retries on failure
+            retries: Number of attempts, bounded by the run's --timeout
             warning_threshold: Warning range for the query time in seconds
             critical_threshold: Critical range for the query time in seconds
         """
@@ -163,52 +167,51 @@ class SSHDNSChecker:
             details=f"Response: {response}",
         )
 
+    async def _query(self) -> CheckResult:
+        """Run dig over SSH once and classify its answer and latency."""
+        ssh_cmd = self._build_ssh_command(self._build_dig_command())
+        start_time = time.time()
+        result = await execute_command_async(ssh_cmd)
+        duration = time.time() - start_time
+        if result.exit_code != 0:
+            raise RuntimeError(f"SSH command failed: {result.stderr}")
+        return self._response_result(result.stdout.strip(), duration)
+
     async def check_dns(self) -> CheckResult:
-        """Check DNS via SSH.
+        """Check DNS via SSH, retrying failed attempts within the run's timeout.
 
         Returns:
             CheckResult with the check result
         """
         attempt = 0
         last_error = None
-
         while attempt < self.retries:
+            if attempt:
+                await asyncio.sleep(_within_budget(RETRY_DELAY))
+            timeout = _within_budget(self.timeout)
+            if timeout <= 0:
+                break
             try:
-                # Build the commands
-                dig_cmd = self._build_dig_command()
-                ssh_cmd = self._build_ssh_command(dig_cmd)
-
-                # Measure execution time
-                start_time = time.time()
-                async with asyncio.timeout(self.timeout):
-                    result = await execute_command_async(ssh_cmd)
-                duration = time.time() - start_time
-
-                # Process result
-                if result.exit_code != 0:
-                    raise RuntimeError(f"SSH command failed: {result.stderr}")
-
-                # Response is in stdout
-                response = result.stdout.strip()
-
-                return self._response_result(response, duration)
-
+                async with asyncio.timeout(timeout):
+                    return await self._query()
             except Exception as e:
                 logger.exception("DNS attempt %s failed", attempt + 1)
-                last_error = str(e)
-                attempt += 1
+                last_error = str(e) or type(e).__name__
+            attempt += 1
 
-                if attempt < self.retries:
-                    logger.info(f"Retrying in {self.timeout} seconds...")
-                    await asyncio.sleep(self.timeout)
-
-        # All retries failed
+        # All attempts failed or the run's timeout was spent
         return CheckResult(
             Status.CRITICAL,
-            f"DNS query failed after {self.retries} attempts",
+            f"DNS query failed after {attempt} attempts",
             metrics={"duration": 0, "response_matches": 0},
             details=f"Last error: {last_error}",
         )
+
+
+def _within_budget(seconds: float) -> float:
+    """Clamp ``seconds`` to what is left of the run's --timeout (0 when spent)."""
+    budget = remaining_time()
+    return seconds if budget is None else min(seconds, budget)
 
 
 async def execute_command_async(command: list[str], shell: bool = False) -> CommandResult:
@@ -232,7 +235,8 @@ async def execute_command_async(command: list[str], shell: bool = False) -> Comm
     )
 
     try:
-        stdout, stderr = await process.communicate()
+        with track_child(process):
+            stdout, stderr = await process.communicate()
         execution_time = time.time() - start_time
         return CommandResult(
             exit_code=process.returncode or 0,

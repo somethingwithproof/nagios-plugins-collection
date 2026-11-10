@@ -14,7 +14,7 @@ All plugins in the collection share a common set of command-line options:
 .. code-block:: text
 
     -v, --verbose         Increase verbosity (can be used multiple times)
-    -t, --timeout SECONDS Timeout in seconds (default: 30)
+    -t, --timeout SECONDS Timeout in seconds for the whole run (default: 30)
     -w, --warning THRESHOLD
                           Warning threshold (plugin-specific)
     -c, --critical THRESHOLD
@@ -154,6 +154,26 @@ Example JSON output:
       },
       "timestamp": "2025-04-11 12:30:45"
     }
+
+Timeouts
+--------
+
+``--timeout`` bounds the whole run, not only one request. Network requests and
+commands use it as their own timeout, so a slow service is reported with the
+plugin's usual result (for example ``CRITICAL`` for an HTTP timeout). One
+second after it, the run is ended regardless of what it is waiting for, such as
+DNS resolution, a TCP connect, a retry or a child process: the plugin prints
+``UNKNOWN - Plugin timed out after N seconds`` (or the JSON equivalent), kills
+any ``ssh``, ``dig`` or ``mount`` child it started and exits 3. Retries and
+pauses between them stop when the timeout is spent.
+
+Set ``--timeout`` at least two seconds below the scheduler's own limit (Nagios
+``service_check_timeout``, 60 seconds by default, or the Icinga 2
+CheckCommand ``timeout``), so the plugin's UNKNOWN result arrives before the
+scheduler kills it. On POSIX the run is interrupted with ``SIGALRM``; where
+that is unavailable, or the process cannot be interrupted, a watchdog thread
+writes the result and exits one second later. ``--timeout`` must be a whole
+number of seconds of at least 1.
 
 Return Codes
 ------------

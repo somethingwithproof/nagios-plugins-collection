@@ -80,7 +80,11 @@ do not build a separate parser or `main()` loop.
 
 - A check that awaits I/O derives from `AsyncNagiosPlugin` and implements
   `async def check_async(self, args)`; the base class owns the event loop.
-- Set `default_timeout` to change the `-t/--timeout` default.
+- Set `default_timeout` to change the `-t/--timeout` default. The base class
+  ends the whole run UNKNOWN one second after `--timeout` (see
+  `nagios_plugins.deadline`), so use `--timeout` for each request or command
+  and `remaining_time()` to bound retries, and register child processes with
+  `track_child()` so they are killed when the run is ended.
 - Set `has_thresholds = False` when the check has no `-w`/`-c`, so they are
   rejected instead of silently ignored, or override `add_threshold_arguments`
   when established options take something other than Nagios ranges.

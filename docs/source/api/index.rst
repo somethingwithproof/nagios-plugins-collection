@@ -16,6 +16,16 @@ The :mod:`nagios_plugins.base` module provides the foundation for all Nagios plu
    :undoc-members:
    :show-inheritance:
 
+Deadline Module
+---------------
+
+The :mod:`nagios_plugins.deadline` module ends a run that outlives its
+``--timeout`` and kills the child processes it started.
+
+.. automodule:: nagios_plugins.deadline
+   :members:
+   :show-inheritance:
+
 Utils Module
 ------------
 

@@ -26,7 +26,8 @@ Installed command options
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
      -t TIMEOUT, --timeout TIMEOUT
-                           Timeout in seconds (default: 30)
+                           Timeout in seconds for the whole run (default: 30);
+                           the plugin exits UNKNOWN 1 second after it
      --json                Output results in JSON format
      --host HOST           Remote host to check over SSH (default: local)
      --ssh-user SSH_USER   SSH username
