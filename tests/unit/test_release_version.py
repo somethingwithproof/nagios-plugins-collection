@@ -3,6 +3,10 @@
 """Reject ambiguous versions before release workflows can publish packages."""
 
 import importlib.util
+import json
+import re
+import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -94,3 +98,81 @@ def test_native_payload_preserves_required_python_extensions(
     assert "--require-hashes" in locked_install
     assert locked_install[locked_install.index("--abi") + 1] == "cp312"
     assert locked_install[locked_install.index("--python-version") + 1] == "3.12"
+
+
+ROOT = Path(__file__).resolve().parents[2]
+#: Files that may name the current version as history rather than as a copy.
+HISTORY = {"CHANGELOG.md", "MIGRATION.md", "docs/source/changelog.rst"}
+#: Copies Release Please updates through its python strategy or the manifest.
+STRATEGY_FILES = {"pyproject.toml", "uv.lock", ".release-please-manifest.json"}
+
+
+def _release_please_files() -> set[str]:
+    config = json.loads((ROOT / "release-please-config.json").read_text())
+    entries = config["packages"]["."]["extra-files"]
+    return {entry if isinstance(entry, str) else entry["path"] for entry in entries}
+
+
+def _bumped_lines(text: str) -> set[int]:
+    """Return the line numbers the generic updater rewrites (annotated or in a block)."""
+    bumped, inside = set(), False
+    for number, line in enumerate(text.splitlines(), 1):
+        if "x-release-please-start-version" in line:
+            inside = True
+        elif "x-release-please-end" in line:
+            inside = False
+        elif inside or "x-release-please-version" in line:
+            bumped.add(number)
+    return bumped
+
+
+def _tracked_files() -> list[str]:
+    if not (ROOT / ".git").exists():
+        pytest.skip("needs a git checkout")
+    listed = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True, text=True
+    )
+    return [name for name in listed.stdout.split("\0") if name]
+
+
+def test_release_please_updates_every_copy_of_the_version() -> None:
+    """A hard-coded version Release Please does not bump would go stale at release."""
+    version = release.declared_version()
+    pattern = re.compile(rf"(?<![\d.]){re.escape(version)}(?![\d])")
+    managed = _release_please_files()
+    stale = []
+    for name in _tracked_files():
+        if name in HISTORY or name in STRATEGY_FILES:
+            continue
+        path = ROOT / name
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, IsADirectoryError, FileNotFoundError):
+            continue
+        bumped = _bumped_lines(text) if name in managed else set()
+        stale += [
+            f"{name}:{number}"
+            for number, line in enumerate(text.splitlines(), 1)
+            if pattern.search(line) and number not in bumped
+        ]
+    assert not stale, f"version {version} is hard-coded outside Release Please: {stale}"
+
+
+def test_release_please_files_and_lock_agree_with_the_source_version() -> None:
+    version = release.declared_version()
+    manifest = json.loads((ROOT / ".release-please-manifest.json").read_text())
+    assert manifest == {".": version}
+    lock = tomllib.loads((ROOT / "uv.lock").read_text())
+    (project,) = [p for p in lock["package"] if p["name"] == "nagios-plugins-collection"]
+    assert project["version"] == version
+    for name in _release_please_files() - {"uv.lock"}:
+        text = (ROOT / name).read_text(encoding="utf-8")
+        lines = text.splitlines()
+        versions = {
+            found
+            for number in _bumped_lines(text)
+            for found in re.findall(r"\d+\.\d+\.\d+", lines[number - 1])
+        }
+        # The generic updater rewrites every x.y.z in those lines, so any other
+        # version there would be overwritten too.
+        assert versions == {version}, f"{name} bumps {versions}, expected {version}"

@@ -33,6 +33,15 @@ CMD ["pytest", "-q"]
 
 # Runtime: minimal image with package installed
 FROM python:3.14-slim AS runtime
+# CI passes the pyproject.toml version and commit; local builds leave them empty.
+ARG VERSION=""
+ARG REVISION=""
+LABEL org.opencontainers.image.title="nagios-plugins-collection" \
+      org.opencontainers.image.description="Nagios and Icinga monitoring plugins" \
+      org.opencontainers.image.source="https://github.com/somethingwithproof/nagios-plugins-collection" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 # Apply Debian security updates the base image has not picked up yet.
