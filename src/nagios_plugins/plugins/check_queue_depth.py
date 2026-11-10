@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
 from nagios_plugins.services.aws_sqs import queue_depth
 
 
@@ -26,12 +26,9 @@ class CheckQueueDepth(NagiosPlugin):
             m = queue_depth(args.queue_url, region=args.region, timeout=args.timeout)
         except RuntimeError as e:
             return CheckResult(Status.UNKNOWN, str(e))
-        status = Status.OK
         depth = m["depth"]
-        if args.critical and depth >= int(args.critical):
-            status = Status.CRITICAL
-        elif args.warning and depth >= int(args.warning):
-            status = Status.WARNING
+        # Nagios ranges: a plain N alerts above N (outside 0..N).
+        status = threshold_check(depth, args.warning, args.critical)
         msg = f"depth={depth} inflight={m['inflight']} delayed={m['delayed']}"
         return CheckResult(status, msg, metrics=m)
 

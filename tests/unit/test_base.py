@@ -304,3 +304,12 @@ def test_perfdata_labels_replace_unprintable_characters() -> None:
     from nagios_plugins.base import format_perfdata
 
     assert format_perfdata({"disk\tsda": 1, "bell\x07": 2}) == "disk_sda=1 bell_=2"
+
+
+def test_most_severe_follows_nagios_precedence() -> None:
+    from nagios_plugins.base import most_severe
+
+    assert most_severe() is Status.OK
+    assert most_severe(Status.OK, Status.UNKNOWN) is Status.UNKNOWN
+    assert most_severe(Status.UNKNOWN, Status.WARNING) is Status.WARNING
+    assert most_severe(Status.WARNING, Status.CRITICAL, Status.OK) is Status.CRITICAL

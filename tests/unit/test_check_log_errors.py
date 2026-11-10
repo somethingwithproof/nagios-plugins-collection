@@ -52,3 +52,14 @@ def test_search_post_is_not_retried(http_backend: FakeHttpBackend) -> None:
     code = CheckLogErrors().run(["--endpoint", "http://es:9200", "--index", "logs"])
     assert code == Status.CRITICAL.value
     assert len(http_backend.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "hits,expected",
+    [(1, Status.OK), (2, Status.WARNING), (10, Status.WARNING), (11, Status.CRITICAL)],
+)
+def test_thresholds_are_nagios_ranges(
+    http_backend: FakeHttpBackend, hits: int, expected: Status
+) -> None:
+    """-w 1 -c 10 alert above 1 and 10; a count equal to N is inside 0..N."""
+    assert _run_with_body(http_backend, {"hits": {"total": hits}}) == expected.value

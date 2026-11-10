@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
 from nagios_plugins.services.aws_s3 import latest_object_age_seconds
 
 
@@ -29,11 +29,8 @@ class CheckBackupFreshness(NagiosPlugin):
             )
         except RuntimeError as e:
             return CheckResult(Status.UNKNOWN, str(e))
-        status = Status.OK
-        if args.critical and age >= int(args.critical):
-            status = Status.CRITICAL
-        elif args.warning and age >= int(args.warning):
-            status = Status.WARNING
+        # Nagios ranges: a plain N alerts above N (outside 0..N).
+        status = threshold_check(age, args.warning, args.critical)
         return CheckResult(status, f"backup_age={age}s", metrics={"age_seconds": age})
 
 

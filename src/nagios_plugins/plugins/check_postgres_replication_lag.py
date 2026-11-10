@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import argparse
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
 from nagios_plugins.services.pg import replication_lag_seconds
 
 
@@ -31,11 +31,8 @@ class CheckPostgresReplicationLag(NagiosPlugin):
             return CheckResult(
                 Status.CRITICAL, "No standby connected (pg_stat_replication is empty)"
             )
-        status = Status.OK
-        if args.critical and lag >= float(args.critical):
-            status = Status.CRITICAL
-        elif args.warning and lag >= float(args.warning):
-            status = Status.WARNING
+        # Nagios ranges: a plain N alerts above N (outside 0..N).
+        status = threshold_check(lag, args.warning, args.critical)
         return CheckResult(
             status, f"replication_lag={lag:.1f}s", metrics={"lag_seconds": round(lag, 1)}
         )

@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from nagios_plugins.base import CheckResult, NagiosPlugin, Status
+from nagios_plugins.base import CheckResult, NagiosPlugin, Status, threshold_check
 from nagios_plugins.services import http
 
 
@@ -54,11 +54,8 @@ class CheckLogErrors(NagiosPlugin):
             hits = _total_hits(r.json())
             if hits is None:
                 return CheckResult(Status.UNKNOWN, "Search response has no hits.total count")
-            status = Status.OK
-            if args.critical and hits >= int(args.critical):
-                status = Status.CRITICAL
-            elif args.warning and hits >= int(args.warning):
-                status = Status.WARNING
+            # Nagios ranges: a plain N alerts above N (outside 0..N).
+            status = threshold_check(hits, args.warning, args.critical)
             return CheckResult(
                 status, f"errors={hits} in {args.minutes}m", metrics={"errors": hits}
             )
