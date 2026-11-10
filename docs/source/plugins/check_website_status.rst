@@ -16,7 +16,7 @@ Installed command options
 
 .. code-block:: text
 
-   usage: check_website_status [-h] [-v] [-t TIMEOUT] [-w WARNING] [-c CRITICAL]
+   usage: check_website_status [-h] [-v] [-t TIMEOUT] [-w SECONDS] [-c SECONDS]
                                [--json] --url URL [--pattern PATTERN]
                                [--method {GET,HEAD,POST}] [--ca-file PATH]
                                [--insecure] [--client-cert PATH]
@@ -29,16 +29,21 @@ Installed command options
 
    Check website content, status and response time in seconds.
 
+   -w/-c are response times in seconds, not Nagios ranges: the check alerts
+   when the response takes longer.
+
    options:
      -h, --help            show this help message and exit
      -v, --verbose         Increase verbosity (can be used multiple times)
      -t TIMEOUT, --timeout TIMEOUT
                            Timeout in seconds for the whole run (default: 30);
                            the plugin exits UNKNOWN 1 second after it
-     -w WARNING, --warning WARNING
-                           Warning threshold (plugin-specific)
-     -c CRITICAL, --critical CRITICAL
-                           Critical threshold (plugin-specific)
+     -w SECONDS, --warning SECONDS
+                           WARNING when the response takes longer (default: 1.0;
+                           not a range)
+     -c SECONDS, --critical SECONDS
+                           CRITICAL when the response takes longer (default: 2.0;
+                           not a range)
      --json                Output results in JSON format
      --url URL
      --pattern PATTERN

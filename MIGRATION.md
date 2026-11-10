@@ -114,6 +114,16 @@ review each one against your Nagios or Icinga configuration before upgrading.
   example `check_queue_depth -w 100` is now OK at a depth of exactly 100. Use
   `-w 99` to keep alerting at 100 for integer measurements. Range forms such
   as `@10:20` and `5:` now work instead of reporting UNKNOWN.
+- `check_tls_expiry` and `check_website_status` keep plain-number `-w`/`-c`
+  instead of Nagios ranges. `check_tls_expiry` alerts when the days remaining
+  are at or below the value (the `check_http -C` convention) and
+  `check_website_status` when the response takes longer than the value in
+  seconds. A range form such as `30:` or `@0:30`, a fractional number of days
+  and a negative or non-finite number of seconds are usage errors (exit 3);
+  previously a range crashed the check. `check_tls_expiry -c 0` now alerts on
+  the expiry day. Perfdata carries the thresholds as equivalent ranges, for
+  example `days_remaining=12;@~:30;@~:7` and `duration=0.4;1;2` (the default
+  1 and 2 seconds are always published).
 - `check_http_sli` thresholds are split by measurement. `-w`/`-c` compared one
   number with both the error rate (a 0-1 fraction) and p95 latency (ms), so a
   value meant for one was meaningless for the other. `--latency-warning` and
@@ -125,7 +135,10 @@ review each one against your Nagios or Icinga configuration before upgrading.
   fraction to `-w`/`-c` must move it to the new options. All values use Nagios
   ranges, so a p95 exactly equal to the threshold is no longer an alert.
   Perfdata carries each threshold, and the message reads `p95=n/a` instead of
-  `inf` when every probe fails.
+  `inf` when every probe fails. Percentiles interpolate between the measured
+  samples, so p50, p95 and p99 never exceed the slowest probe; with the default
+  3 samples p95 was previously extrapolated above it and could alert on a
+  latency no probe measured.
 - Helm: the CronJob sets `concurrencyPolicy: Forbid`, `backoffLimit: 0`,
   `activeDeadlineSeconds: 300` and `ttlSecondsAfterFinished`, so a WARNING,
   CRITICAL or UNKNOWN exit is no longer retried up to six times per run (all
@@ -154,7 +167,11 @@ review each one against your Nagios or Icinga configuration before upgrading.
   `CHECK_OAUTH2_CLIENT_SECRET`, `check_postgres_replication_lag --dsn-file` or
   `CHECK_POSTGRES_DSN`, `check_redis_saturation --url-file` or
   `CHECK_REDIS_URL`, and `check_monghealth --password-file` or
-  `CHECK_MONGHEALTH_PASSWORD`. The existing options keep working.
+  `CHECK_MONGHEALTH_PASSWORD`. The existing options keep working. A secret
+  file must be a regular UTF-8 file of at most 64 KiB, or the run is a usage
+  error (exit 3), and it is read within `--timeout`. Pipes are refused, so
+  shell process substitution (`--password-file <(...)`) no longer works; pass
+  the secret in the environment variable instead.
 - Usage errors (unknown or missing arguments, invalid values) exit 3 (UNKNOWN)
   with an `UNKNOWN - <command>: <error>` status line instead of argparse's exit
   2, which Nagios reads as CRITICAL. `--help` still exits 0.

@@ -68,12 +68,11 @@ jobs:
           gh release download "v$version" --repo "$GITHUB_REPOSITORY" --dir dist \
             --pattern "$DIST-*.whl" --pattern "$DIST-*.tar.gz" --pattern SHA256SUMS
           (cd dist && sha256sum --check --ignore-missing SHA256SUMS)
-          for artifact in dist/"$DIST"-*.whl dist/"$DIST"-*.tar.gz; do
-            test -f "$artifact"
-            gh attestation verify "$artifact" --repo "$GITHUB_REPOSITORY" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
-              --source-ref "refs/tags/v$version" --deny-self-hosted-runners
-          done
+          # The Release workflow builds on main, so its provenance records
+          # refs/heads/main; the tag binds it to the released commit.
+          commit="$(git rev-parse "refs/tags/v$version^{commit}")"
+          python3 scripts/verify_release_provenance.py --source-commit "$commit" \
+            dist/"$DIST"-*.whl dist/"$DIST"-*.tar.gz
           uv run --no-sync twine check dist/"$DIST"-*.whl dist/"$DIST"-*.tar.gz
       - name: Upload artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

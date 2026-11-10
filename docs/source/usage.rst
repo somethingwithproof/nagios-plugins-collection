@@ -48,7 +48,13 @@ Examples:
 - ``-w @10:80 -c @5:90``: Warning if inside 10-80, critical if inside 5-90
 
 Each plugin's ``--help`` states whether its ``-w``/``-c`` take ranges or a
-plain number of a documented unit.
+plain number of a documented unit. Three commands keep plain numbers and reject
+range forms as a usage error:
+
+- ``check_tls_expiry``: days; alert when the days remaining are at or below
+  the value, as ``check_http -C`` does
+- ``check_website_status``: seconds; alert when the response takes longer
+- ``check_component_status``: whole minutes since the last update; alert above
 
 Basic Usage Examples
 --------------------
@@ -275,7 +281,11 @@ Options that carry a secret also accept a file or an environment variable:
      - ``CHECK_MONGHEALTH_PASSWORD``
 
 The command-line option wins over the file, and the file over the environment
-variable. Line breaks around a file's content are ignored. Plugin output, JSON
+variable. Line breaks around a file's content are ignored. A secret file must
+be a regular file of UTF-8 text no larger than 64 KiB; anything else, such as a
+FIFO, a directory or binary content, is a usage error (exit 3). Secret files are
+read within ``--timeout``, so a stuck mount ends the run with the timeout
+result. Plugin output, JSON
 output and log records mask every resolved secret and every password in a URL
 option wherever it appears (also URL-encoded or as a quoted fragment), URL
 credentials (``scheme://***@host``), secret parameters such as ``token=***``,
