@@ -21,6 +21,7 @@ contracts form the release baseline.
    introduction
    installation
    usage
+   monitoring-config
    plugins/index
    api/index
    development

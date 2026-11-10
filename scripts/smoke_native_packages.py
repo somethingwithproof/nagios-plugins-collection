@@ -24,7 +24,10 @@ for command in commands:
     result = subprocess.run([str(command), '--help'], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, (command.name, result.stderr)
     assert 'usage:' in result.stdout.lower(), command
-print('All 21 installed checks and runtime clients passed')
+share = pathlib.Path('/usr/share/nagios-plugins-collection')
+assert (share / 'icinga2/nagios-plugins-collection.conf').is_file()
+assert (share / 'nagios/nagios-plugins-collection.cfg').is_file()
+print('All 21 installed checks, runtime clients and monitoring definitions passed')
 """
 
 ROLE_CHECK = """
@@ -62,6 +65,8 @@ def check_distribution(directory: Path, project: str, rpm: bool) -> None:
         install = ["apt-get", "-y", "install", "python3", package]
         remove = ["dpkg", "--remove", project]
         image = "ubuntu:24.04"
+    # Minimal images skip /usr/share/man on install, so man pages are checked in the package.
+    listing = ["rpm", "-qlp", package] if rpm else ["dpkg-deb", "--contents", package]
     # Arguments are serialized and consumed by Python, never interpolated into shell.
     controller = f"""
 import os
@@ -71,6 +76,10 @@ os.environ['DEBIAN_FRONTEND'] = 'noninteractive'
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 subprocess.run({install!r}, check=True)
 subprocess.run([{interpreter!r}, '-c', {(ROLE_CHECK if role else PLUGIN_CHECK)!r}], check=True)
+if {not role!r}:
+    listed = subprocess.run({listing!r}, check=True, capture_output=True, text=True).stdout
+    pages = [line for line in listed.splitlines() if '/usr/share/man/man1/check_' in line]
+    assert len(pages) == 21, pages
 subprocess.run({remove!r}, check=True)
 assert not pathlib.Path({("/usr/share/ansible/roles/wordpress_enterprise/tasks/main.yml" if role else "/usr/lib/nagios/plugins/check_website_status")!r}).exists()
 """
