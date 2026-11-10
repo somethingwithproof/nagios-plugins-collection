@@ -18,7 +18,11 @@ class CheckBackupFreshness(NagiosPlugin):
         """Register the monitoring endpoint and alert arguments."""
         super().__init__()
         self.parser.add_argument("--bucket", required=True)
-        self.parser.add_argument("--prefix", default="")
+        self.parser.add_argument(
+            "--prefix",
+            default="",
+            help="Key prefix of the backups; every object under it is listed, so keep it narrow",
+        )
         self.parser.add_argument("--region")
 
     def check(self, args: argparse.Namespace) -> CheckResult:

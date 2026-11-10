@@ -34,5 +34,6 @@ Installed command options
                            Critical threshold (plugin-specific)
      --json                Output results in JSON format
      --bucket BUCKET
-     --prefix PREFIX
+     --prefix PREFIX       Key prefix of the backups; every object under it is
+                           listed, so keep it narrow
      --region REGION
