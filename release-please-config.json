@@ -5,7 +5,6 @@
   "include-component-in-tag": false,
   "bump-minor-pre-major": false,
   "bump-patch-for-minor-pre-major": false,
-  "pull-request-title-pattern": "chore${scope}: release ${version}",
   "changelog-sections": [
     {"type": "feat", "section": "Features"},
     {"type": "fix", "section": "Bug Fixes"},
@@ -29,10 +28,10 @@
           "path": "uv.lock",
           "jsonpath": "$.package[?(@.name.value=='nagios-plugins-collection')].version"
         },
-        "charts/nagios-plugins-collection/Chart.yaml",
-        "charts/nagios-plugins-collection/tests/cronjob_test.yaml",
-        "deploy/nomad/nagios-plugins-collection.nomad.hcl",
-        "docs/source/installation.rst"
+        {"type": "generic", "path": "charts/nagios-plugins-collection/Chart.yaml"},
+        {"type": "generic", "path": "charts/nagios-plugins-collection/tests/cronjob_test.yaml"},
+        {"type": "generic", "path": "deploy/nomad/nagios-plugins-collection.nomad.hcl"},
+        {"type": "generic", "path": "docs/source/installation.rst"}
       ]
     }
   }
