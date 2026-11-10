@@ -8,23 +8,20 @@ behavior and enterprise-grade features.
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import math
 import sys
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Coroutine
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, NoReturn
 
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.traceback import install as install_rich_traceback
-
-# Install rich traceback handler for better exception formatting
-install_rich_traceback(show_locals=False)
+_LOG_HANDLER_NAME = "nagios_plugins.stderr"
 
 
 class Status(Enum):
@@ -183,6 +180,66 @@ class CheckResult:
         return json.dumps(result_dict, indent=2)
 
 
+def emit(result: CheckResult, as_json: bool = False) -> int:
+    """Write the result to stdout and return its exit code."""
+    sys.stdout.write((result.to_json() if as_json else str(result)) + "\n")
+    return result.status.value
+
+
+def configure_logging(verbosity: int = 0) -> None:
+    """Route log records to stderr so stdout carries only the plugin result.
+
+    Called once per run after argument parsing, never at import time. Repeated
+    calls replace the handler instead of stacking duplicates.
+
+    Args:
+        verbosity: 0 logs warnings, 1 adds info, 2 or more adds debug records.
+    """
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        if handler.get_name() == _LOG_HANDLER_NAME:
+            root.removeHandler(handler)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.set_name(_LOG_HANDLER_NAME)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    root.addHandler(handler)
+    root.setLevel(
+        logging.DEBUG if verbosity >= 2 else logging.INFO if verbosity == 1 else logging.WARNING
+    )
+
+
+class NagiosArgumentParser(argparse.ArgumentParser):
+    """Argument parser whose usage errors exit UNKNOWN (3), not argparse's 2.
+
+    Exit code 2 means CRITICAL to Nagios, so a typo in a command definition
+    would otherwise page as an outage. ``--help`` still exits 0.
+    """
+
+    def error(self, message: str) -> NoReturn:
+        """Print an UNKNOWN status line and usage, then exit 3."""
+        sys.stdout.write(f"{Status.UNKNOWN} - {self.prog}: {single_line(message)}\n")
+        self.print_usage(sys.stderr)
+        self.exit(Status.UNKNOWN.value)
+
+
+def run_async_check(
+    args: argparse.Namespace,
+    check: Callable[[argparse.Namespace], Coroutine[Any, Any, CheckResult]],
+) -> int:
+    """Run a standalone plugin's async check and emit its result.
+
+    Shared by the plugins that predate :class:`NagiosPlugin`: configures
+    logging, turns any unhandled exception into UNKNOWN and honors ``--json``.
+    """
+    configure_logging(getattr(args, "verbose", 0))
+    try:
+        result = asyncio.run(check(args))
+    except Exception as exc:  # pylint: disable=broad-except
+        logging.getLogger(__name__).exception("Unhandled exception")
+        result = CheckResult(Status.UNKNOWN, f"Unhandled exception: {exc}")
+    return emit(result, getattr(args, "json", False))
+
+
 class NagiosPlugin(ABC):
     """Base class for all Nagios plugins.
 
@@ -197,22 +254,8 @@ class NagiosPlugin(ABC):
     def __init__(self) -> None:
         """Initialize the plugin."""
         self.parser = self._create_argument_parser()
-        self.console = Console(stderr=True)
-        self._setup_logging()
-        self.start_time = time.time()
-
-    def _setup_logging(self) -> None:
-        """Set up logging for the plugin."""
         self.logger = logging.getLogger(self.__class__.__name__)
-
-        # Remove any existing handlers
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # Add rich handler for better formatting
-        handler = RichHandler(console=self.console, rich_tracebacks=True)
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.WARNING)
+        self.start_time = time.time()
 
     def _create_argument_parser(self) -> argparse.ArgumentParser:
         """Create the argument parser for the plugin.
@@ -220,7 +263,7 @@ class NagiosPlugin(ABC):
         Returns:
             The argument parser.
         """
-        parser = argparse.ArgumentParser(
+        parser = NagiosArgumentParser(
             description=self.__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
@@ -265,13 +308,7 @@ class NagiosPlugin(ABC):
             The parsed arguments.
         """
         parsed_args = self.parser.parse_args(args)
-
-        # Set logging level based on verbosity
-        if parsed_args.verbose == 1:
-            self.logger.setLevel(logging.INFO)
-        elif parsed_args.verbose >= 2:
-            self.logger.setLevel(logging.DEBUG)
-
+        configure_logging(parsed_args.verbose)
         return parsed_args
 
     @abstractmethod
@@ -293,31 +330,18 @@ class NagiosPlugin(ABC):
 
         Returns:
             The exit code.
+
+        Raises:
+            SystemExit: For ``--help`` (0) and usage errors (3), as argparse does.
         """
+        parsed_args = self.parse_args(args)
         try:
-            parsed_args = self.parse_args(args)
             result = self.check(parsed_args)
-
-            if parsed_args.json:
-                sys.stdout.write(result.to_json() + "\n")
-            else:
-                sys.stdout.write(str(result) + "\n")
-
-            return result.status.value
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
-            error_result = CheckResult(
-                Status.UNKNOWN,
-                f"Unhandled exception: {str(e)}",
-            )
-            if "parsed_args" in locals() and getattr(parsed_args, "json", False):
-                sys.stdout.write(error_result.to_json() + "\n")
-            else:
-                sys.stdout.write(str(error_result) + "\n")
-            return Status.UNKNOWN.value
-        finally:
-            elapsed_time = time.time() - self.start_time
-            self.logger.debug("Plugin execution time: %.3f seconds", elapsed_time)
+            result = CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
+        self.logger.debug("Plugin execution time: %.3f seconds", time.time() - self.start_time)
+        return emit(result, parsed_args.json)
 
 
 class ThresholdRange:

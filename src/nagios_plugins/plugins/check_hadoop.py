@@ -25,18 +25,16 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from rich.console import Console
-from rich.logging import RichHandler
 
-from nagios_plugins.base import CheckResult, PerfData, Status, format_number
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
+from nagios_plugins.base import (
+    CheckResult,
+    NagiosArgumentParser,
+    PerfData,
+    Status,
+    format_number,
+    run_async_check,
 )
+
 logger = logging.getLogger("check_hadoop")
 
 
@@ -59,7 +57,6 @@ class HadoopClusterChecker:
         self.url = url
         self.max_update_minutes = max_update_minutes
         self.timeout = timeout
-        self.console = Console()
 
     def _component_age(self, component: dict[str, Any], now: datetime) -> int | None:
         """Return update age when a freshness limit and timestamp are available."""
@@ -195,7 +192,7 @@ def parse_args() -> argparse.Namespace:
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
+    parser = NagiosArgumentParser(
         description="Check Hadoop cluster health",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -230,53 +227,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def main_async() -> int:
-    """Main async function.
-
-    Returns:
-        Exit code
-    """
-    args = parse_args()
-
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Create checker and run check
-    checker = HadoopClusterChecker(
+async def _check(args: argparse.Namespace) -> CheckResult:
+    """Check the configured Hadoop cluster."""
+    return await HadoopClusterChecker(
         url=args.url,
         max_update_minutes=args.max_update_minutes,
         timeout=args.timeout,
-    )
-
-    result = await checker.check_cluster()
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+    ).check_cluster()
 
 
 def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    import asyncio
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    return loop.run_until_complete(main_async())
+    """Run the installed command and return its Nagios status code."""
+    return run_async_check(parse_args(), _check)
 
 
 if __name__ == "__main__":

@@ -27,18 +27,9 @@ import sys
 from typing import Any
 
 import httpx
-from rich.console import Console
-from rich.logging import RichHandler
 
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
 logger = logging.getLogger("check_monghealth")
 
 
@@ -70,7 +61,6 @@ class MongoHealthChecker:
         self.username = username
         self.password = password
         self.ssl = ssl
-        self.console = Console()
 
         # Construct the base URL
         protocol = "https" if ssl else "http"
@@ -160,7 +150,7 @@ def parse_args() -> argparse.Namespace:
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
+    parser = NagiosArgumentParser(
         description="Check MongoDB health",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -216,32 +206,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def main_async() -> int:
-    """Main async function.
+# Components that must report true for each --mode.
+CHECK_MODES = {
+    1: [("mongrations_current", True), ("search_reachable", True)],
+    2: [("search_reachable", True), ("site_api_reachable", True)],
+    3: [
+        ("mongrations_current", True),
+        ("search_reachable", True),
+        ("site_api_reachable", True),
+    ],
+}
 
-    Returns:
-        Exit code
-    """
-    args = parse_args()
 
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Define check modes
-    check_modes = {
-        1: [("mongrations_current", True), ("search_reachable", True)],
-        2: [("search_reachable", True), ("site_api_reachable", True)],
-        3: [
-            ("mongrations_current", True),
-            ("search_reachable", True),
-            ("site_api_reachable", True),
-        ],
-    }
-
-    # Create the MongoDB health checker
+async def _check(args: argparse.Namespace) -> CheckResult:
+    """Check the MongoDB status API for the components of the selected mode."""
     checker = MongoHealthChecker(
         host=args.host,
         port=args.port,
@@ -250,34 +228,12 @@ async def main_async() -> int:
         password=args.password,
         ssl=args.ssl,
     )
-
-    # Check MongoDB health
-    result = await checker.check_components(check_modes[args.mode])
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+    return await checker.check_components(CHECK_MODES[args.mode])
 
 
 def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    import asyncio
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    return loop.run_until_complete(main_async())
+    """Run the installed command and return its Nagios status code."""
+    return run_async_check(parse_args(), _check)
 
 
 if __name__ == "__main__":

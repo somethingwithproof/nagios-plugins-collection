@@ -23,18 +23,9 @@ import logging
 import sys
 
 import httpx
-from rich.console import Console
-from rich.logging import RichHandler
 
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
 logger = logging.getLogger("check_jobs")
 
 
@@ -54,7 +45,6 @@ class JobStatusChecker:
         """
         self.url = url
         self.timeout = timeout
-        self.console = Console()
 
     async def check_jobs(self) -> CheckResult:
         """Check the job statuses.
@@ -152,7 +142,7 @@ def parse_args() -> argparse.Namespace:
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
+    parser = NagiosArgumentParser(
         description="Check job statuses",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -182,52 +172,14 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-async def main_async() -> int:
-    """Main async function.
-
-    Returns:
-        Exit code
-    """
-    args = parse_args()
-
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Create checker and run check
-    checker = JobStatusChecker(
-        url=args.url,
-        timeout=args.timeout,
-    )
-
-    result = await checker.check_jobs()
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+async def _check(args: argparse.Namespace) -> CheckResult:
+    """Check the configured jobs endpoint."""
+    return await JobStatusChecker(url=args.url, timeout=args.timeout).check_jobs()
 
 
 def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    import asyncio
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    return loop.run_until_complete(main_async())
+    """Run the installed command and return its Nagios status code."""
+    return run_async_check(parse_args(), _check)
 
 
 if __name__ == "__main__":

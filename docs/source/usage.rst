@@ -165,6 +165,10 @@ All plugins return standard Nagios return codes:
 - 2: CRITICAL
 - 3: UNKNOWN
 
+Invalid or missing command-line arguments exit 3 (UNKNOWN) with an
+``UNKNOWN - <command>: <error>`` line on standard output and the usage on
+standard error. ``--help`` exits 0.
+
 Advanced Usage
 --------------
 
@@ -173,10 +177,12 @@ Asynchronous Execution
 
 Many plugins now support asynchronous execution for improved performance in high-load environments. This is particularly useful when monitoring multiple endpoints or services simultaneously.
 
-Rich Terminal Output
-~~~~~~~~~~~~~~~~~~~~
+Diagnostics
+~~~~~~~~~~~
 
-When running plugins directly in the terminal (not through Nagios), you'll see rich, colorized output with progress indicators and formatted results.
+Plugins write only the result to standard output. Log records go to standard
+error: warnings by default, informational records with ``-v`` and debug
+records with ``-vv``.
 
 Plugin-Specific Options
 ~~~~~~~~~~~~~~~~~~~~~~~

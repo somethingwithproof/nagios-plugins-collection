@@ -27,19 +27,9 @@ import logging
 import sys
 from typing import Any
 
-from rich.console import Console
-from rich.logging import RichHandler
-
-from nagios_plugins.base import CheckResult, Status
+from nagios_plugins.base import CheckResult, NagiosArgumentParser, Status, run_async_check
 from nagios_plugins.utils import check_http_endpoint_async
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler(rich_tracebacks=True)],
-)
 logger = logging.getLogger("check_component_status")
 
 
@@ -68,7 +58,6 @@ class ComponentStatusChecker:
         self.warning_threshold = warning_threshold
         self.critical_threshold = critical_threshold or warning_threshold * 2
         self.timeout = timeout
-        self.console = Console()
 
     async def get_component_status(
         self, component: str
@@ -216,7 +205,7 @@ def parse_args() -> argparse.Namespace:
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
+    parser = NagiosArgumentParser(
         description="Check component status via JSON API",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -267,47 +256,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> int:
-    """Main function.
-
-    Returns:
-        Exit code
-    """
-    args = parse_args()
-
-    # Set logging level based on verbosity
-    if args.verbose == 1:
-        logger.setLevel(logging.INFO)
-    elif args.verbose >= 2:
-        logger.setLevel(logging.DEBUG)
-
-    # Create checker instance
-    checker = ComponentStatusChecker(
+async def _check(args: argparse.Namespace) -> CheckResult:
+    """Check the configured components."""
+    return await ComponentStatusChecker(
         url=args.url,
         components=args.components,
         warning_threshold=args.warning,
         critical_threshold=args.critical,
         timeout=args.timeout,
-    )
+    ).check()
 
-    # Run the check with asyncio
-    import asyncio
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    result = loop.run_until_complete(checker.check())
-
-    # Output the result
-    if args.json:
-        print(result.to_json())
-    else:
-        print(result)
-
-    return result.status.value
+def main() -> int:
+    """Run the installed command and return its Nagios status code."""
+    return run_async_check(parse_args(), _check)
 
 
 if __name__ == "__main__":
