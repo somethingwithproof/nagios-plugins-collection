@@ -8,6 +8,9 @@ same options, exit codes, logging and output format. ``pyproject.toml`` lists
 the commands.
 """
 
+# The plugins ship with, and are versioned as, the package.
+from nagios_plugins import __version__ as __version__
+
 # List all standardized plugins here for easy import and discovery
 __all__ = [
     "check_component_status",
@@ -19,6 +22,3 @@ __all__ = [
     "check_jobs",
     "check_dig",
 ]
-
-# Plugin version
-__version__ = "1.0.0"
