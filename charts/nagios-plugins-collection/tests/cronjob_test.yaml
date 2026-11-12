@@ -86,7 +86,7 @@ tests:
     asserts:
       - equal:
           path: spec.jobTemplate.spec.template.spec.containers[0].image
-          value: ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1  # x-release-please-version
+          value: ghcr.io/somethingwithproof/nagios-plugins-collection:3.0.0  # x-release-please-version
 
   - it: renders literal env values and secretKeyRef sources
     set:

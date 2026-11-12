@@ -20,9 +20,9 @@ the same GitHub release. Verify the files before installing:
 
    sha256sum --check --ignore-missing SHA256SUMS
 
-   sudo apt install ./nagios-plugins-collection_2.0.1_amd64.deb
+   sudo apt install ./nagios-plugins-collection_3.0.0_amd64.deb
    # On Rocky Linux 9:
-   sudo dnf install ./nagios-plugins-collection_2.0.1_x86_64.rpm
+   sudo dnf install ./nagios-plugins-collection_3.0.0_x86_64.rpm
    /usr/lib/nagios/plugins/check_website_status --help
 
 .. x-release-please-end
@@ -100,11 +100,11 @@ client secret from a Kubernetes Secret instead of the command line:
 
 .. code-block:: bash
 
-   gh release download v2.0.1 --repo somethingwithproof/nagios-plugins-collection \
-     --pattern 'nagios-plugins-collection-2.0.1.tgz' --pattern SHA256SUMS
+   gh release download v3.0.0 --repo somethingwithproof/nagios-plugins-collection \
+     --pattern 'nagios-plugins-collection-3.0.0.tgz' --pattern SHA256SUMS
    sha256sum --check --ignore-missing SHA256SUMS
    kubectl create secret generic oauth-monitor --from-file=client-secret=./client-secret
-   helm install oauth-monitor ./nagios-plugins-collection-2.0.1.tgz -f oauth-values.yaml
+   helm install oauth-monitor ./nagios-plugins-collection-3.0.0.tgz -f oauth-values.yaml
    # Run once now and read the status line:
    kubectl create job oauth-monitor-now --from=cronjob/oauth-monitor-nagios-plugins-collection
    kubectl logs job/oauth-monitor-now
@@ -132,7 +132,7 @@ Node monitoring needs the API token and the opt-in, list-only ClusterRole:
 
 .. code-block:: bash
 
-   helm install node-monitor ./nagios-plugins-collection-2.0.1.tgz -f nodes-values.yaml
+   helm install node-monitor ./nagios-plugins-collection-3.0.0.tgz -f nodes-values.yaml
 
 .. x-release-please-end
 
@@ -148,7 +148,7 @@ with restarts and rescheduling disabled. Edit the task's ``command`` and
 .. code-block:: bash
 
    nomad job run \
-     -var image=ghcr.io/somethingwithproof/nagios-plugins-collection:2.0.1 \
+     -var image=ghcr.io/somethingwithproof/nagios-plugins-collection:3.0.0 \
      deploy/nomad/nagios-plugins-collection.nomad.hcl
 
 .. x-release-please-end
