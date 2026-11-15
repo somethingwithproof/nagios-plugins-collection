@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Thomas Vincent
+# SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 """Fake HTTP backends that keep the shared client factory in the request path.
 

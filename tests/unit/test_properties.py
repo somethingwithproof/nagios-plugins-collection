@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Thomas Vincent
+# SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 """Property tests for the Nagios range parser and the perfdata formatter.
 

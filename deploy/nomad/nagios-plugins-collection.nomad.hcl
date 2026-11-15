@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Thomas Vincent
+# SPDX-FileCopyrightText: 2025 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 variable "image" {
   description = "Plugin image; pin a release tag or an @sha256 digest, never latest"
