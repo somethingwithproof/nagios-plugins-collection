@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Thomas Vincent
+# SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 """Every external base image is pinned by digest; Dependabot keeps the pins current."""
 

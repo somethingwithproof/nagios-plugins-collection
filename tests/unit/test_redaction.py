@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Thomas Vincent
+# SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
 """Credentials never reach plugin output, whether recognized by pattern or registered."""
 
