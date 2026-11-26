@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for 45-locale i18n support in nagios-plugins-collection."""
+"""Tests for 48-locale i18n support in nagios-plugins-collection."""
 
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ def _reset_locale(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     set_locale(None)
 
 
-def test_all_45_locales_load_with_key_and_placeholder_parity() -> None:
-    """Every Tier 1 locale loads cleanly with 100% key and placeholder parity."""
-    assert len(SUPPORTED_LOCALES) == 45
+def test_all_48_locales_load_with_key_and_placeholder_parity() -> None:
+    """Every supported locale loads cleanly with 100% key and placeholder parity."""
+    assert len(SUPPORTED_LOCALES) == 48
     en = load_catalog(DEFAULT_LOCALE)
     assert len(en) > 0
     for locale in SUPPORTED_LOCALES:
@@ -96,6 +96,20 @@ def test_all_45_locales_load_with_key_and_placeholder_parity() -> None:
         ("ur_PK", "ur"),
         ("ms_MY.UTF-8", "ms"),
         ("tl_PH.UTF-8", "fil"),
+        ("bs", "bs"),
+        ("bs-BA", "bs"),
+        ("bs_BA.UTF-8", "bs"),
+        ("hr", "hr"),
+        ("hr-HR", "hr"),
+        ("hr_HR.UTF-8", "hr"),
+        ("sr", "sr"),
+        ("sr-RS", "sr"),
+        ("sr_RS.UTF-8", "sr"),
+        ("sr-Cyrl", "sr"),
+        ("sr-Cyrl-RS", "sr"),
+        ("sr-Latn", "sr"),
+        ("sr-Latn-RS", "sr"),
+        ("sr_RS@latin", "sr"),
         ("xx_YY", "en"),
     ],
 )
@@ -159,3 +173,29 @@ def test_plugin_lang_preserves_nagios_status_prefix(capsys: pytest.CaptureFixtur
     err_out = capsys.readouterr().out
     assert err_out.startswith("UNKNOWN - ")
     assert t("error.min_one_second", locale="de", value="'0'") in err_out
+
+    code_sr = BoomPlugin().run(["--lang", "sr-RS"])
+    out_sr = capsys.readouterr().out
+    assert code_sr == Status.UNKNOWN.value
+    assert out_sr.startswith("UNKNOWN - ")
+    assert t("error.unhandled_exception", locale="sr", error="boom") in out_sr
+
+
+def test_bcms_locales_script_and_distinction() -> None:
+    """Bosnian, Croatian, and Serbian catalogs are distinct and use proper scripts."""
+    bs = load_catalog("bs")
+    hr = load_catalog("hr")
+    sr = load_catalog("sr")
+
+    assert bs != hr
+    diff_count = sum(1 for key in bs if bs[key] != hr[key])
+    assert diff_count >= 15
+    assert bs["error.unhandled_exception"] != hr["error.unhandled_exception"]
+    assert bs["cli.lang_help"] != hr["cli.lang_help"]
+    assert bs["bound.maximum"] != hr["bound.maximum"]
+
+    for key, value in sr.items():
+        assert any("\u0400" <= ch <= "\u04ff" for ch in value), (key, value)
+
+    for locale in ("bs", "hr", "sr"):
+        assert "UNKNOWN" in load_catalog(locale)["cli.timeout_help"]
