@@ -7,4 +7,5 @@ recursive-include scripts *.py
 recursive-include charts *.yaml *.tpl
 recursive-include contrib *.conf *.cfg *.1
 recursive-include docs/source *.rst *.py *.svg
+recursive-include src/nagios_plugins/locales *.json
 recursive-include tests *.py
