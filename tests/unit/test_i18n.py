@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Thomas Vincent <thomasvincent@gmail.com>
 # SPDX-License-Identifier: Apache-2.0
-"""Tests for 20-locale i18n support in nagios-plugins-collection."""
+"""Tests for 45-locale i18n support in nagios-plugins-collection."""
 
 from __future__ import annotations
 
@@ -34,9 +34,9 @@ def _reset_locale(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     set_locale(None)
 
 
-def test_all_20_locales_load_with_key_and_placeholder_parity() -> None:
+def test_all_45_locales_load_with_key_and_placeholder_parity() -> None:
     """Every Tier 1 locale loads cleanly with 100% key and placeholder parity."""
-    assert len(SUPPORTED_LOCALES) == 20
+    assert len(SUPPORTED_LOCALES) == 45
     en = load_catalog(DEFAULT_LOCALE)
     assert len(en) > 0
     for locale in SUPPORTED_LOCALES:
@@ -68,6 +68,34 @@ def test_all_20_locales_load_with_key_and_placeholder_parity() -> None:
         ("pt_BR.UTF-8", "pt-BR"),
         ("pt_PT", "pt-BR"),
         ("x-private", "en"),
+        ("ar_EG.UTF-8", "ar-EG"),
+        ("ar-MA-u-nu-latn", "ar-MA"),
+        ("ar-Arab-EG", "ar-EG"),
+        ("ar-Arab-SA", "ar"),
+        ("fr_MA.UTF-8", "fr-MA"),
+        ("fr-SN-x-test", "fr-SN"),
+        ("fr_CA.UTF-8", "fr"),
+        ("af", "af-ZA"),
+        ("am_ET.UTF-8", "am-ET"),
+        ("ha", "ha-NG"),
+        ("ig", "ig-NG"),
+        ("mg", "mg-MG"),
+        ("rw", "rw-RW"),
+        ("so", "so-SO"),
+        ("sw_KE.UTF-8", "sw-KE"),
+        ("xh", "xh-ZA"),
+        ("yo", "yo-NG"),
+        ("zu", "zu-ZA"),
+        ("bn_BD.UTF-8", "bn"),
+        ("fa_IR", "fa"),
+        ("iw", "he"),
+        ("mr_IN", "mr"),
+        ("ta_IN", "ta"),
+        ("te_IN", "te"),
+        ("th_TH", "th"),
+        ("ur_PK", "ur"),
+        ("ms_MY.UTF-8", "ms"),
+        ("tl_PH.UTF-8", "fil"),
         ("xx_YY", "en"),
     ],
 )
