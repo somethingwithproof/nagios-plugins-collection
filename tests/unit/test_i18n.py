@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from collections.abc import Iterator
 
 import pytest
 
@@ -25,7 +26,7 @@ PLACEHOLDER_RE = re.compile(r"\{[a-zA-Z0-9_]+\}")
 
 
 @pytest.fixture(autouse=True)
-def _reset_locale(monkeypatch: pytest.MonkeyPatch):
+def _reset_locale(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     for var in ("LC_ALL", "LC_MESSAGES", "LANG"):
         monkeypatch.delenv(var, raising=False)
     set_locale(None)
@@ -58,11 +59,15 @@ def test_all_20_locales_load_with_key_and_placeholder_parity() -> None:
         ("de_DE.UTF-8", "de"),
         ("zh_TW", "zh-TW"),
         ("zh_HK.UTF-8", "zh-TW"),
+        ("zh-TW-u-nu-hanidec", "zh-TW"),
+        ("zh-HK-u-nu-hanidec", "zh-TW"),
         ("zh-Hant-TW", "zh-TW"),
+        ("zh-Hans-TW", "zh-CN"),
         ("zh_CN.UTF-8", "zh-CN"),
         ("zh", "zh-CN"),
         ("pt_BR.UTF-8", "pt-BR"),
         ("pt_PT", "pt-BR"),
+        ("x-private", "en"),
         ("xx_YY", "en"),
     ],
 )
@@ -105,3 +110,16 @@ def test_plugin_lang_preserves_nagios_status_prefix(capsys: pytest.CaptureFixtur
     assert code == Status.UNKNOWN.value
     assert out.startswith("UNKNOWN - ")
     assert t("error.unhandled_exception", locale="de", error="boom") in out
+
+    with pytest.raises(SystemExit) as help_exc:
+        BoomPlugin().run(["--lang", "de", "--help"])
+    assert help_exc.value.code == 0
+    help_out = " ".join(capsys.readouterr().out.split())
+    assert " ".join(t("cli.lang_help", locale="de").split()) in help_out
+
+    with pytest.raises(SystemExit) as err_exc:
+        BoomPlugin().run(["--lang", "de", "--timeout", "0"])
+    assert err_exc.value.code == Status.UNKNOWN.value
+    err_out = capsys.readouterr().out
+    assert err_out.startswith("UNKNOWN - ")
+    assert t("error.min_one_second", locale="de", value="'0'") in err_out

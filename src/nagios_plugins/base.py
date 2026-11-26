@@ -517,6 +517,7 @@ class NagiosPlugin(ABC):
 
     def __init__(self) -> None:
         """Initialize the plugin."""
+        self._shared_help: list[tuple[argparse.Action, str, dict[str, object]]] = []
         self.parser = self._create_argument_parser()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.start_time = time.time()
@@ -530,6 +531,35 @@ class NagiosPlugin(ABC):
         module = cls.__module__.rpartition(".")[2]
         return None if module == "__main__" else module
 
+    def _register_help(self, action: argparse.Action, key: str, **fmt: object) -> argparse.Action:
+        """Record a shared option action so its help can be re-localized on --lang."""
+        self._shared_help.append((action, key, fmt))
+        return action
+
+    def _refresh_shared_help(self) -> None:
+        """Re-render shared option help strings for the currently active locale."""
+        for action, key, fmt in self._shared_help:
+            action.help = t(key, locale=None, **fmt)
+
+    @staticmethod
+    def _extract_lang(args: list[str] | None) -> str | None:
+        """Extract the final ``--lang`` value from raw CLI arguments before parsing."""
+        raw = sys.argv[1:] if args is None else args
+        found: str | None = None
+        idx = 0
+        while idx < len(raw):
+            arg = raw[idx]
+            if arg == "--":
+                break
+            if arg == "--lang" and idx + 1 < len(raw):
+                found = raw[idx + 1]
+                idx += 2
+                continue
+            if arg.startswith("--lang="):
+                found = arg.split("=", 1)[1]
+            idx += 1
+        return found
+
     def _create_argument_parser(self) -> NagiosArgumentParser:
         """Create the argument parser with the options every plugin shares.
 
@@ -541,31 +571,44 @@ class NagiosPlugin(ABC):
             description=inspect.getdoc(type(self)),
             formatter_class=argparse.RawDescriptionHelpFormatter,
         )
-        parser.add_argument(
-            "-v",
-            "--verbose",
-            action="count",
-            default=0,
-            help=t("cli.verbose_help"),
+        self._register_help(
+            parser.add_argument(
+                "-v",
+                "--verbose",
+                action="count",
+                default=0,
+                help=t("cli.verbose_help"),
+            ),
+            "cli.verbose_help",
         )
-        parser.add_argument(
-            "-t",
-            "--timeout",
-            type=positive_seconds,
+        self._register_help(
+            parser.add_argument(
+                "-t",
+                "--timeout",
+                type=positive_seconds,
+                default=self.default_timeout,
+                help=t("cli.timeout_help", default=self.default_timeout),
+            ),
+            "cli.timeout_help",
             default=self.default_timeout,
-            help=t("cli.timeout_help", default=self.default_timeout),
         )
         if self.has_thresholds:
             self.add_threshold_arguments(parser)
-        parser.add_argument(
-            "--json",
-            action="store_true",
-            help=t("cli.json_help"),
+        self._register_help(
+            parser.add_argument(
+                "--json",
+                action="store_true",
+                help=t("cli.json_help"),
+            ),
+            "cli.json_help",
         )
-        parser.add_argument(
-            "--lang",
-            default=None,
-            help=t("cli.lang_help"),
+        self._register_help(
+            parser.add_argument(
+                "--lang",
+                default=None,
+                help=t("cli.lang_help"),
+            ),
+            "cli.lang_help",
         )
         return parser
 
@@ -575,17 +618,25 @@ class NagiosPlugin(ABC):
         Override to give the thresholds another meaning, as a plugin whose
         established options take plain numbers does.
         """
-        parser.add_argument(
-            "-w",
-            "--warning",
-            type=nagios_range,
-            help=t("cli.warning_help", metric=self.threshold_metric),
+        self._register_help(
+            parser.add_argument(
+                "-w",
+                "--warning",
+                type=nagios_range,
+                help=t("cli.warning_help", metric=self.threshold_metric),
+            ),
+            "cli.warning_help",
+            metric=self.threshold_metric,
         )
-        parser.add_argument(
-            "-c",
-            "--critical",
-            type=nagios_range,
-            help=t("cli.critical_help", metric=self.threshold_metric),
+        self._register_help(
+            parser.add_argument(
+                "-c",
+                "--critical",
+                type=nagios_range,
+                help=t("cli.critical_help", metric=self.threshold_metric),
+            ),
+            "cli.critical_help",
+            metric=self.threshold_metric,
         )
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
@@ -597,6 +648,10 @@ class NagiosPlugin(ABC):
         Returns:
             The parsed arguments.
         """
+        pre_lang = self._extract_lang(args)
+        if pre_lang is not None:
+            set_locale(pre_lang)
+        self._refresh_shared_help()
         parsed_args = self.parser.parse_args(args)
         set_locale(getattr(parsed_args, "lang", None))
         configure_logging(parsed_args.verbose)
