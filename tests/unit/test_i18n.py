@@ -117,6 +117,14 @@ def test_plugin_lang_preserves_nagios_status_prefix(capsys: pytest.CaptureFixtur
     help_out = " ".join(capsys.readouterr().out.split())
     assert " ".join(t("cli.lang_help", locale="de").split()) in help_out
 
+    reused = BoomPlugin()
+    reused.parse_args(["--lang", "de"])
+    with pytest.raises(SystemExit) as reset_help_exc:
+        reused.parse_args(["--help"])
+    assert reset_help_exc.value.code == 0
+    reset_help_out = " ".join(capsys.readouterr().out.split())
+    assert " ".join(t("cli.lang_help", locale="en").split()) in reset_help_out
+
     with pytest.raises(SystemExit) as err_exc:
         BoomPlugin().run(["--lang", "de", "--timeout", "0"])
     assert err_exc.value.code == Status.UNKNOWN.value

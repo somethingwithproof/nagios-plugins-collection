@@ -648,9 +648,7 @@ class NagiosPlugin(ABC):
         Returns:
             The parsed arguments.
         """
-        pre_lang = self._extract_lang(args)
-        if pre_lang is not None:
-            set_locale(pre_lang)
+        set_locale(self._extract_lang(args))
         self._refresh_shared_help()
         parsed_args = self.parser.parse_args(args)
         set_locale(getattr(parsed_args, "lang", None))
