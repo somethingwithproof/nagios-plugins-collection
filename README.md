@@ -62,6 +62,10 @@ To run checks on Kubernetes or Nomad, use the Helm chart in [charts/nagios-plugi
 
 Use [MIGRATION.md](MIGRATION.md) for historical migration notes, but verify command names and options against this checkout. A Python-version change, type hints, or CI configuration do not establish unchanged behavior for every legacy check. External services and platform tools must be available for the check being run.
 
+## Localization
+
+Shared CLI help and diagnostic messages support 20 locales (`en`, `de`, `es`, `fr`, `it`, `pt-BR`, `nl`, `ru`, `uk`, `ja`, `ko`, `zh-CN`, `zh-TW`, `ar`, `hi`, `pl`, `tr`, `sv`, `vi`, `id`) using bundled stdlib-loaded catalogs. Resolution checks `--lang`, then `LC_ALL`, `LC_MESSAGES`, and `LANG`, falling back to `en`. Nagios status prefixes (`OK`, `WARNING`, `CRITICAL`, `UNKNOWN`), performance data, and JSON keys remain unchanged across all locales.
+
 ## Development
 
 Tests and tool configuration live in [pyproject.toml](pyproject.toml), [uv.lock](uv.lock), and [the CI workflow](.github/workflows/ci.yml); run tests with `uv run pytest`. No fixed coverage percentage, universal strict-type-checking success, or supply-chain certification is claimed here.

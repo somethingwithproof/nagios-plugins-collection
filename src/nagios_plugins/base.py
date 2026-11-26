@@ -26,6 +26,7 @@ from enum import Enum
 from typing import Any, ClassVar, NoReturn
 
 from nagios_plugins.deadline import Deadline, PluginTimeout, hard_remaining
+from nagios_plugins.i18n import set_locale, t
 from nagios_plugins.redaction import redact, register_embedded_secrets, register_secret
 
 _LOG_HANDLER_NAME = "nagios_plugins.stderr"
@@ -101,7 +102,7 @@ def truncate(text: str, limit: int) -> str:
     """Return ``text`` cut to ``limit`` characters, saying how much was dropped."""
     if len(text) <= limit:
         return text
-    return f"{text[:limit]} [truncated {len(text) - limit} characters]"
+    return f"{text[:limit]} {t('output.truncated', count=len(text) - limit)}"
 
 
 def single_line(text: str) -> str:
@@ -132,7 +133,7 @@ class PerfData:
             ValueError: The unit is not allowed or a threshold is not a valid range.
         """
         if self.uom not in PERFDATA_UOMS:
-            raise ValueError(f"Invalid perfdata unit: {self.uom!r}")
+            raise ValueError(t("error.invalid_perfdata_unit", uom=repr(self.uom)))
         for name in ("warning", "critical"):
             threshold = getattr(self, name)
             if threshold is not None:
@@ -268,9 +269,9 @@ def positive_seconds(text: str) -> int:
     try:
         seconds = int(text)
     except ValueError:
-        raise argparse.ArgumentTypeError(f"invalid seconds: {text!r}") from None
+        raise argparse.ArgumentTypeError(t("error.invalid_seconds", value=repr(text))) from None
     if seconds < 1:
-        raise argparse.ArgumentTypeError(f"must be at least 1 second: {text!r}")
+        raise argparse.ArgumentTypeError(t("error.min_one_second", value=repr(text)))
     return seconds
 
 
@@ -335,7 +336,7 @@ def _read_secret(path: str) -> str:
     descriptor = os.open(path, flags)
     try:
         if not stat.S_ISREG(os.fstat(descriptor).st_mode):
-            raise ValueError(f"{path}: not a regular file")
+            raise ValueError(t("error.not_regular_file", path=path))
         data = b""
         while len(data) <= MAX_SECRET_BYTES:
             chunk = os.read(descriptor, MAX_SECRET_BYTES + 1 - len(data))
@@ -345,11 +346,11 @@ def _read_secret(path: str) -> str:
     finally:
         os.close(descriptor)
     if len(data) > MAX_SECRET_BYTES:
-        raise ValueError(f"{path}: larger than {MAX_SECRET_BYTES // 1024} KiB")
+        raise ValueError(t("error.secret_too_large", path=path, kib=MAX_SECRET_BYTES // 1024))
     try:
         return data.decode("utf-8").strip("\r\n")
     except UnicodeDecodeError:
-        raise ValueError(f"{path}: not UTF-8 text") from None
+        raise ValueError(t("error.not_utf8", path=path)) from None
 
 
 class NagiosArgumentParser(argparse.ArgumentParser):
@@ -405,13 +406,13 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         group.add_argument(
             flag,
             dest=secret.dest,
-            help=f"{help} (visible in the process list; prefer {flag}-file or ${env})",
+            help=t("cli.secret_flag_help", help=help, flag=flag, env=env),
         )
         group.add_argument(
             secret.file_flag,
             dest=f"{secret.dest}_file",
             metavar="PATH",
-            help=f"Read {help} from PATH (or the file named by ${secret.file_env})",
+            help=t("cli.secret_file_help", help=help, file_env=secret.file_env),
         )
         self._secrets.append(secret)
 
@@ -466,14 +467,26 @@ class NagiosArgumentParser(argparse.ArgumentParser):
         try:
             setattr(parsed, secret.dest, secret.resolve(parsed))
         except OSError as exc:
-            self.error(f"cannot read the {secret.flag} file {exc.filename}: {exc.strerror}")
+            self.error(
+                t(
+                    "error.cannot_read_secret_os",
+                    flag=secret.flag,
+                    filename=exc.filename,
+                    strerror=exc.strerror,
+                )
+            )
         except ValueError as exc:
-            self.error(f"cannot read the {secret.flag} file {exc}")
+            self.error(t("error.cannot_read_secret_val", flag=secret.flag, error=exc))
         register_secret(getattr(parsed, secret.dest))
         if secret.required and not getattr(parsed, secret.dest):
             self.error(
-                f"one of {secret.flag}, {secret.file_flag}, ${secret.env} or "
-                f"${secret.file_env} is required"
+                t(
+                    "error.secret_required",
+                    flag=secret.flag,
+                    file_flag=secret.file_flag,
+                    env=secret.env,
+                    file_env=secret.file_env,
+                )
             )
 
 
@@ -533,24 +546,26 @@ class NagiosPlugin(ABC):
             "--verbose",
             action="count",
             default=0,
-            help="Increase verbosity (can be used multiple times)",
+            help=t("cli.verbose_help"),
         )
         parser.add_argument(
             "-t",
             "--timeout",
             type=positive_seconds,
             default=self.default_timeout,
-            help=(
-                f"Timeout in seconds for the whole run (default: {self.default_timeout}); "
-                "the plugin exits UNKNOWN 1 second after it"
-            ),
+            help=t("cli.timeout_help", default=self.default_timeout),
         )
         if self.has_thresholds:
             self.add_threshold_arguments(parser)
         parser.add_argument(
             "--json",
             action="store_true",
-            help="Output results in JSON format",
+            help=t("cli.json_help"),
+        )
+        parser.add_argument(
+            "--lang",
+            default=None,
+            help=t("cli.lang_help"),
         )
         return parser
 
@@ -564,13 +579,13 @@ class NagiosPlugin(ABC):
             "-w",
             "--warning",
             type=nagios_range,
-            help=f"Warning threshold ({self.threshold_metric})",
+            help=t("cli.warning_help", metric=self.threshold_metric),
         )
         parser.add_argument(
             "-c",
             "--critical",
             type=nagios_range,
-            help=f"Critical threshold ({self.threshold_metric})",
+            help=t("cli.critical_help", metric=self.threshold_metric),
         )
 
     def parse_args(self, args: list[str] | None = None) -> argparse.Namespace:
@@ -583,6 +598,7 @@ class NagiosPlugin(ABC):
             The parsed arguments.
         """
         parsed_args = self.parser.parse_args(args)
+        set_locale(getattr(parsed_args, "lang", None))
         configure_logging(parsed_args.verbose)
         return parsed_args
 
@@ -612,7 +628,7 @@ class NagiosPlugin(ABC):
         with self.parser.deferred():
             parsed_args = self.parse_args(args)
         timed_out = CheckResult(
-            Status.UNKNOWN, f"Plugin timed out after {parsed_args.timeout} seconds"
+            Status.UNKNOWN, t("error.plugin_timeout", timeout=parsed_args.timeout)
         )
         rendered = timed_out.to_json() if parsed_args.json else str(timed_out)
         try:
@@ -622,9 +638,11 @@ class NagiosPlugin(ABC):
                 self.parser.finish(parsed_args)
                 result = self._checked(parsed_args)
         except PluginTimeout:
-            self.logger.warning("Run deadline expired")
+            self.logger.warning(t("log.deadline_expired"))
             result = timed_out
-        self.logger.debug("Plugin execution time: %.3f seconds", time.time() - self.start_time)
+        self.logger.debug(
+            "%s", t("log.execution_time", seconds=f"{time.time() - self.start_time:.3f}")
+        )
         return emit(result, parsed_args.json)
 
     def _checked(self, args: argparse.Namespace) -> CheckResult:
@@ -635,7 +653,7 @@ class NagiosPlugin(ABC):
             return CheckResult(Status.UNKNOWN, str(e))
         except Exception as e:  # pylint: disable=broad-except
             self.logger.exception("Unhandled exception")
-            return CheckResult(Status.UNKNOWN, f"Unhandled exception: {e}")
+            return CheckResult(Status.UNKNOWN, t("error.unhandled_exception", error=e))
 
 
 class AsyncNagiosPlugin(NagiosPlugin):
@@ -731,7 +749,7 @@ class ThresholdRange:
         if inclusive:
             text = text[1:]
             if not text.strip():
-                raise ValueError(f"Invalid threshold range, '@' needs a range: {threshold!r}")
+                raise ValueError(t("error.range_at_needs_range", threshold=repr(threshold)))
 
         start, separator, end = text.partition(":")
         if not separator:
@@ -739,7 +757,7 @@ class ThresholdRange:
         min_value = None if start in ("", "~") else cls._bound(start, "minimum", threshold)
         max_value = None if end == "" else cls._bound(end, "maximum", threshold)
         if min_value is not None and max_value is not None and min_value > max_value:
-            raise ValueError(f"Invalid threshold range, start exceeds end: {threshold}")
+            raise ValueError(t("error.range_start_exceeds_end", threshold=threshold))
         return cls(min_value, max_value, inclusive)
 
     @staticmethod
@@ -748,9 +766,23 @@ class ThresholdRange:
         try:
             bound = float(value)
         except ValueError as exc:
-            raise ValueError(f"Invalid {label} threshold in {threshold!r}: {value}") from exc
+            raise ValueError(
+                t(
+                    "error.invalid_bound",
+                    label=t(f"bound.{label}"),
+                    threshold=repr(threshold),
+                    value=value,
+                )
+            ) from exc
         if not math.isfinite(bound):
-            raise ValueError(f"Invalid {label} threshold in {threshold!r}: {value}")
+            raise ValueError(
+                t(
+                    "error.invalid_bound",
+                    label=t(f"bound.{label}"),
+                    threshold=repr(threshold),
+                    value=value,
+                )
+            )
         return bound
 
     def contains(self, value: float) -> bool:
@@ -798,7 +830,9 @@ def nagios_range(value: str) -> str:
     try:
         parsed = ThresholdRange.from_string(value)
     except ValueError as error:
-        raise argparse.ArgumentTypeError(f"invalid Nagios range {value!r}: {error}") from None
+        raise argparse.ArgumentTypeError(
+            t("error.invalid_nagios_range", value=repr(value), error=error)
+        ) from None
     return str(parsed)
 
 

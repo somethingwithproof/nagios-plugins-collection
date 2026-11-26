@@ -13,3 +13,30 @@ path = [".release-please-manifest.json", "release-please-config.json"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Thomas Vincent"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+    "src/nagios_plugins/locales/ar.json",
+    "src/nagios_plugins/locales/de.json",
+    "src/nagios_plugins/locales/en.json",
+    "src/nagios_plugins/locales/es.json",
+    "src/nagios_plugins/locales/fr.json",
+    "src/nagios_plugins/locales/hi.json",
+    "src/nagios_plugins/locales/id.json",
+    "src/nagios_plugins/locales/it.json",
+    "src/nagios_plugins/locales/ja.json",
+    "src/nagios_plugins/locales/ko.json",
+    "src/nagios_plugins/locales/nl.json",
+    "src/nagios_plugins/locales/pl.json",
+    "src/nagios_plugins/locales/pt-BR.json",
+    "src/nagios_plugins/locales/ru.json",
+    "src/nagios_plugins/locales/sv.json",
+    "src/nagios_plugins/locales/tr.json",
+    "src/nagios_plugins/locales/uk.json",
+    "src/nagios_plugins/locales/vi.json",
+    "src/nagios_plugins/locales/zh-CN.json",
+    "src/nagios_plugins/locales/zh-TW.json",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Thomas Vincent"
+SPDX-License-Identifier = "Apache-2.0"

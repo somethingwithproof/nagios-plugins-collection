@@ -206,6 +206,9 @@ markers = [
     "integration: integration tests",
 ]
 
+[tool.setuptools.package-data]
+nagios_plugins = ["locales/*.json"]
+
 [tool.bandit]
 exclude_dirs = ["tests", "docs"]
 skips = ["B101"]
