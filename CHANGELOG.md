@@ -11,6 +11,20 @@ titles of the pull requests merged since the previous release; see
 minor or patch. Upgrade steps for breaking changes are in
 [MIGRATION.md](MIGRATION.md).
 
+## [3.1.0](https://github.com/somethingwithproof/nagios-plugins-collection/compare/v3.0.0...v3.1.0) (2026-11-26)
+
+
+### Features
+
+* **i18n:** add 20 Tier 1 language locales ([#293](https://github.com/somethingwithproof/nagios-plugins-collection/issues/293)) ([cd4a42f](https://github.com/somethingwithproof/nagios-plugins-collection/commit/cd4a42fbcc292c4e269ce50584353a3d42c8c0b9))
+* **i18n:** add 25 African & Asian locales and 44 localized READMEs ([#295](https://github.com/somethingwithproof/nagios-plugins-collection/issues/295)) ([830ba0d](https://github.com/somethingwithproof/nagios-plugins-collection/commit/830ba0de24e5413b0e7624c6788f4b67db41dcb7))
+* **i18n:** add Bosnian, Croatian, and Serbian locales ([#296](https://github.com/somethingwithproof/nagios-plugins-collection/issues/296)) ([d961ed6](https://github.com/somethingwithproof/nagios-plugins-collection/commit/d961ed61b87dad9ee657fb899ba2329aec86276b))
+
+
+### Documentation
+
+* repair package and license links in localized guides ([#297](https://github.com/somethingwithproof/nagios-plugins-collection/issues/297)) ([601bba8](https://github.com/somethingwithproof/nagios-plugins-collection/commit/601bba88108dd3aa8895a9a6bb0c60e4d3d8643b))
+
 ## [3.0.0](https://github.com/somethingwithproof/nagios-plugins-collection/compare/v2.0.1...v3.0.0) (2026-11-12)
 
 
